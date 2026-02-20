@@ -55,9 +55,9 @@ Example: `episode-01-44kshaved-1dB.wav`
 
 ## Processing Pipeline
 
-WavShaver uses FFmpeg with a simple two-step pipeline:
+WavShaver uses FFmpeg with a simple pipeline:
 
-1. **Resampling** to the target sample rate
+1. **Resampling** to the target sample rate (skipped if already matching)
 2. **Brick-wall limiting** with 2x oversampled true peak control
 
 Output format: 24-bit WAV
