@@ -13,7 +13,7 @@ WavShaver is intentionally minimal. It does one thing — applies brick-wall pea
 
 ## Download
 
-**[WavShaver v1.0 (DMG)](https://github.com/sevmorris/WavShaver/releases/latest/download/WavShaver-v1.0.dmg)**
+**[WavShaver v1.2 (DMG)](https://github.com/sevmorris/WavShaver/releases/latest/download/WavShaver-v1.2.dmg)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
