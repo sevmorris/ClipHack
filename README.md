@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/header.png" alt="WavShaver">
-</p>
-
 **Brick-Wall Limiter for macOS**
 
 WavShaver shaves peaks off audio files. Set your ceiling, drop your files, get limited WAV out. That's it.
