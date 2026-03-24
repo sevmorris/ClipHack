@@ -5,58 +5,101 @@ struct HelpView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
-                section("Design Philosophy") {
+                section("Overview") {
                     text("""
-                    WavShaver is intentionally minimal. It does one thing — applies \
-                    brick-wall peak limiting — and gets out of the way. Set your ceiling, \
-                    drop your files, done.
+                    ClipHacker prepares audio clips for use in a mix — leveling dynamics, \
+                    normalizing loudness, and brick-wall limiting peaks. It's designed for \
+                    broadcast clips (news, promos) that need to sit at a consistent level \
+                    before dropping into a podcast or show.
                     """)
                 }
                 section("Getting Started") {
-                    text("""
-                    WavShaver applies a brick-wall limiter to audio files, shaving peaks \
-                    above your chosen ceiling. It preserves the original channel layout \
-                    and outputs clean 24-bit WAV files.
-                    """)
                     steps([
-                        "Choose your sample rate (44.1 kHz or 48 kHz).",
-                        "Set the ceiling to control maximum peak level (e.g., -1 dB).",
+                        "Set your sample rate, ceiling, and any processing options.",
                         "Drag and drop audio files onto the window.",
                         "Click Process.",
-                        "Output files are saved alongside the originals with a -shaved suffix."
+                        "Output files are saved alongside the originals (or to your chosen output folder)."
                     ])
                 }
                 section("Output Naming") {
-                    code("{original-name}-{samplerate}shaved-{limit}dB.wav")
-                    text("Example: episode-01-44kshaved-1dB.wav")
+                    text("Output filenames reflect what processing was applied:")
+                    code("{original-name}-{rate}{leveled-}{norm-}clipped-{limit}dB.wav")
+                    VStack(alignment: .leading, spacing: 4) {
+                        text("Examples:")
+                        code("clip-44kclipped-1dB.wav")
+                        code("clip-44kleveled-norm-clipped-1dB.wav")
+                    }
                 }
                 section("Processing Pipeline") {
-                    text("WavShaver uses FFmpeg with a simple pipeline:")
+                    text("ClipHacker uses FFmpeg. Each stage is optional except the final limiter:")
                     numberedList([
-                        "Resampling to the target sample rate (skipped if already matching).",
-                        "Brick-wall limiting with 2x oversampled true peak control."
+                        "Resample to target sample rate (skipped if already matching).",
+                        "Level Audio — dynamic normalization via dynaudnorm. Evens out level variation across the clip. Designed for broadcast sources, not dialog.",
+                        "Loudness Norm — two-pass EBU R128 loudness normalization to a target LUFS.",
+                        "Brick-wall limiting with 2× oversampled true peak control."
                     ])
                     text("Output format: 24-bit WAV")
                 }
                 section("Settings") {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
-                    definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Controls the maximum peak level of the output.")
+                    definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
+                    definition("Level Audio", "Enables dynamic leveling (dynaudnorm). Best for broadcast clips with varying levels. Not recommended for dialog or music.")
+                    definitionView("Aggressiveness") {
+                        Text("Controls how responsive the leveler is. Three parameters scale together:")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+                            GridRow {
+                                Text("Level").font(.caption.bold())
+                                Text("Frame (f)").font(.caption.bold())
+                                Text("Gaussian (g)").font(.caption.bold())
+                                Text("Max Gain (m)").font(.caption.bold())
+                            }
+                            .foregroundStyle(.secondary)
+                            Divider().gridCellColumns(4)
+                            ForEach([
+                                ("Gentle",     "750 ms", "31", "8×"),
+                                ("Low",        "600 ms", "25", "11×"),
+                                ("Medium",     "450 ms", "19", "14×"),
+                                ("High",       "300 ms", "13", "17×"),
+                                ("Aggressive", "150 ms", "7",  "20×"),
+                            ], id: \.0) { row in
+                                GridRow {
+                                    Text(row.0).font(.caption)
+                                    Text(row.1).font(.system(.caption, design: .monospaced))
+                                    Text(row.2).font(.system(.caption, design: .monospaced))
+                                    Text(row.3).font(.system(.caption, design: .monospaced))
+                                }
+                                .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(10)
+                        .background(.quaternary)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        Text("Three parameters are always fixed: **RMS-based** measurement (responds to perceived loudness, not transient peaks), **channel-coupled** (L and R get the same gain, preserving the stereo image), and **boundary extension** (gain holds steady at the start and end of the file rather than tapering to zero).")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. Runs before the limiter.")
+                    definition("Target", "Loudness normalization target in LUFS, from -30 to -14. -16 LUFS is a common podcast insertion target.")
                     definition("Output Directory", "Custom output folder for processed files. Defaults to the same directory as the source file.")
                 }
                 Spacer()
             }
             .padding(30)
         }
-        .frame(width: 540, height: 520)
+        .frame(width: 560, height: 720)
     }
 
     // MARK: - Components
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("WavShaver Help")
+            Text("ClipHacker Help")
                 .font(.largeTitle.bold())
-            Text("Brick-Wall Limiter for macOS")
+            Text("Clip Prep for macOS")
                 .font(.title3)
                 .foregroundStyle(.secondary)
         }
@@ -99,6 +142,14 @@ struct HelpView: View {
 
     private func numberedList(_ items: [String]) -> some View {
         steps(items)
+    }
+
+    private func definitionView(_ term: String, @ViewBuilder detail: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(term).font(.body.bold())
+            detail()
+        }
+        .padding(.bottom, 4)
     }
 
     private func definition(_ term: String, _ detail: String) -> some View {

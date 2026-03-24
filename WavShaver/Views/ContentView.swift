@@ -58,7 +58,7 @@ struct ContentView: View {
 
     private var headerView: some View {
         HStack {
-            Text("WavShaver").font(.title2).bold()
+            Text("ClipHacker").font(.title2).bold()
             Spacer()
 
             if viewModel.isProcessing {

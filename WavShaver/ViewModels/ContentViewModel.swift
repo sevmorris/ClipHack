@@ -7,7 +7,7 @@ import SwiftUI
 final class ContentViewModel {
     var files: [FileItem] = []
     var selectedFileIDs: Set<UUID> = []
-    var settings: WavShaverSettings {
+    var settings: ClipHackerSettings {
         didSet { settings.save() }
     }
     var isProcessing = false
@@ -19,7 +19,7 @@ final class ContentViewModel {
     ]
 
     init() {
-        self.settings = WavShaverSettings.load()
+        self.settings = ClipHackerSettings.load()
     }
 
     func addFiles(_ urls: [URL]) {
@@ -122,6 +122,15 @@ final class ContentViewModel {
     func cancelProcessing() {
         processingTask?.cancel()
         processingTask = nil
+        for i in files.indices {
+            if case .processing = files[i].status {
+                if let stats = files[i].analysisStats {
+                    files[i].status = .ready(stats)
+                } else {
+                    files[i].status = .pending
+                }
+            }
+        }
     }
 
     private func analyzeFile(_ file: FileItem) {
@@ -129,6 +138,11 @@ final class ContentViewModel {
         files[index].status = .analyzing
 
         Task {
+            if let info = try? await AudioAnalyzer.info(url: file.url),
+               let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
+                files[currentIndex].fileInfo = info
+            }
+
             do {
                 let stats = try await AudioAnalyzer.analyze(url: file.url)
                 if let currentIndex = files.firstIndex(where: { $0.id == file.id }) {

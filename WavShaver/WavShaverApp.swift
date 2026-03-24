@@ -1,23 +1,32 @@
 import SwiftUI
 
 @main
-struct WavShaverApp: App {
+struct ClipHackerApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    await checkForUpdates(silent: true)
+                }
         }
         .commands {
             CommandGroup(replacing: .help) {
-                Button("WavShaver Help") {
+                Button("ClipHacker Help") {
                     openWindow(id: "help")
                 }
                 .keyboardShortcut("?", modifiers: .command)
+
+                Divider()
+
+                Button("Check for Updates…") {
+                    Task { await checkForUpdates(silent: false) }
+                }
             }
         }
 
-        Window("WavShaver Help", id: "help") {
+        Window("ClipHacker Help", id: "help") {
             HelpView()
         }
         .windowResizability(.contentSize)

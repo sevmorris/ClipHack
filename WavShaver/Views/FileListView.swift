@@ -7,7 +7,7 @@ struct FileListView: View {
     var body: some View {
         List(selection: $viewModel.selectedFileIDs) {
             ForEach(viewModel.files) { file in
-                FileRowView(file: file)
+                FileRowView(file: file, isProcessing: viewModel.isProcessing)
                     .tag(file.id)
             }
             .onDelete { offsets in
@@ -17,11 +17,18 @@ struct FileListView: View {
                 viewModel.moveFiles(from: source, to: destination)
             }
         }
+        .overlay {
+            // Hidden button captures plain Delete key to remove selected files
+            Button("") { viewModel.removeSelected() }
+                .keyboardShortcut(.delete, modifiers: [])
+                .hidden()
+        }
     }
 }
 
 struct FileRowView: View {
     let file: FileItem
+    let isProcessing: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -32,6 +39,17 @@ struct FileRowView: View {
                 if case .processing = file.status {
                     ProgressView()
                         .controlSize(.small)
+                } else if isProcessing, case .ready = file.status {
+                    ProgressView(value: 0.0)
+                        .controlSize(.small)
+                        .opacity(0.35)
+                }
+
+                if file.hasHighNoiseFloor {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                        .help("High noise floor — level detection may be less accurate")
                 }
 
                 if file.isProcessed {
@@ -77,7 +95,8 @@ struct FileRowView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .ready(let stats):
-            Text("RMS \(stats.rms, specifier: "%.1f") dBFS \u{2022} Peak \(stats.peak, specifier: "%.1f") dBFS")
+            let lufsStr = stats.lufs > -100 ? " \u{2022} \(String(format: "%.1f", stats.lufs)) LUFS" : ""
+            Text("RMS \(String(format: "%.1f", stats.rms)) dBFS \u{2022} Peak \(String(format: "%.1f", stats.peak)) dBFS\(lufsStr)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .processed(let outputURL):

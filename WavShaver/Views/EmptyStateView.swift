@@ -8,7 +8,7 @@ struct EmptyStateView: View {
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 8) {
-                Text("Welcome to WavShaver")
+                Text("Welcome to ClipHacker")
                     .font(.title2)
                     .bold()
 

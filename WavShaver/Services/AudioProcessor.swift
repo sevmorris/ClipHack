@@ -1,15 +1,23 @@
 import Foundation
 
+private struct LoudnormStats {
+    let inputI: String
+    let inputTP: String
+    let inputLRA: String
+    let inputThresh: String
+    let targetOffset: String
+}
+
 struct JobInput: Sendable {
     let id: UUID
     let url: URL
 }
 
 actor AudioProcessor {
-    let settings: WavShaverSettings
+    let settings: ClipHackerSettings
     let onFileStarted: (@Sendable (UUID) -> Void)?
 
-    init(settings: WavShaverSettings, onFileStarted: (@Sendable (UUID) -> Void)? = nil) {
+    init(settings: ClipHackerSettings, onFileStarted: (@Sendable (UUID) -> Void)? = nil) {
         self.settings = settings
         self.onFileStarted = onFileStarted
     }
@@ -62,11 +70,13 @@ actor AudioProcessor {
         let limitAmp = pow(10.0, settings.limitDb / 20.0)
         let limitTag = formatDbTag(settings.limitDb)
         let outDir = bestOutputDir(for: input)
-        let outName = "\(stem)-\(rateTag)shaved-\(limitTag).wav"
+        let levelTag = settings.levelingEnabled ? "leveled-" : ""
+        let normTag = settings.loudnormEnabled ? "norm-" : ""
+        let outName = "\(stem)-\(rateTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
         let finalURL = outDir.appendingPathComponent(outName)
         let tmpURL = outDir.appendingPathComponent(".\(outName).tmp")
 
-        let work = try makeTemp(prefix: "wavshaver_\(rateTag)_")
+        let work = try makeTemp(prefix: "cliphacker_\(rateTag)_")
         defer { try? fm.removeItem(at: work) }
 
         // Detect input channel count and sample rate
@@ -79,26 +89,61 @@ actor AudioProcessor {
         let probeFields = probeOutput.split(separator: ",")
         let inputSampleRate = probeFields.count >= 2 ? Int(probeFields[0]) ?? sr : sr
         let channels = probeFields.count >= 2 ? Int(probeFields[1]) ?? 2 : 2
+        let outputChannels = settings.stereoOutput ? max(2, channels) : channels
 
-        let needsResample = inputSampleRate != sr
-
-        // Step 1: Resample to target sample rate (skip if already matching)
-        let limiterInput: URL
-        if needsResample {
+        // Stage 1: Resample to target sample rate (skip if already matching)
+        var currentURL: URL
+        if inputSampleRate != sr {
             let midURL = work.appendingPathComponent("\(stem)_\(rateTag)24.wav")
             try await runFFmpeg(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                 "-i", input.path, "-af", "aresample=\(sr)",
-                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(channels)", midURL.path
+                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", midURL.path
             ])
-            limiterInput = midURL
+            currentURL = midURL
         } else {
-            limiterInput = input
+            currentURL = input
         }
 
         try Task.checkCancellation()
 
-        // Step 2: Brick-wall limiter with 2x oversampling
+        // Stage 2: Leveling (optional)
+        if settings.levelingEnabled {
+            let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
+            try await runFFmpeg(exe: tools.ffmpeg, args: [
+                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", currentURL.path, "-af", levelingFilter(amount: settings.levelingAmount),
+                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path
+            ])
+            currentURL = leveledURL
+        }
+
+        try Task.checkCancellation()
+
+        // Stage 3: Loudness normalization (optional, two-pass EBU R128)
+        if settings.loudnormEnabled {
+            let target = settings.loudnormTarget
+            let tp = settings.limitDb
+            let analyzeAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:print_format=json"
+            let analysisOutput = try await runFFmpegCapture(exe: tools.ffmpeg, args: [
+                "-nostdin", "-hide_banner",
+                "-i", currentURL.path, "-af", analyzeAf,
+                "-f", "null", "/dev/null"
+            ], captureStderr: true)
+            let stats = try parseLoudnormStats(analysisOutput)
+            let normAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(stats.inputI):measured_TP=\(stats.inputTP):measured_LRA=\(stats.inputLRA):measured_thresh=\(stats.inputThresh):offset=\(stats.targetOffset):linear=true"
+            let normURL = work.appendingPathComponent("\(stem)_norm.wav")
+            try await runFFmpeg(exe: tools.ffmpeg, args: [
+                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", currentURL.path, "-af", normAf,
+                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", normURL.path
+            ])
+            currentURL = normURL
+        }
+
+        try Task.checkCancellation()
+
+        // Stage 4: Brick-wall limiter with 2x oversampling
         let oversampleSr = sr * 2
         let limiterAf = [
             "aresample=\(oversampleSr)",
@@ -112,8 +157,8 @@ actor AudioProcessor {
 
         try await runFFmpeg(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-            "-i", limiterInput.path, "-af", limiterAf,
-            "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(channels)", "-f", "wav", tmpURL.path
+            "-i", currentURL.path, "-af", limiterAf,
+            "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", "-f", "wav", tmpURL.path
         ])
 
         guard let attrs = try? fm.attributesOfItem(atPath: tmpURL.path),
@@ -184,7 +229,7 @@ actor AudioProcessor {
         }
     }
 
-    private nonisolated func runFFmpegCapture(exe: String, args: [String]) async throws -> String {
+    private nonisolated func runFFmpegCapture(exe: String, args: [String], captureStderr: Bool = false) async throws -> String {
         let fm = FileManager.default
         guard fm.fileExists(atPath: exe) else {
             throw ProcessingError.ffmpegNotFound
@@ -229,7 +274,9 @@ actor AudioProcessor {
                         let msg = String(data: stderrBox.value, encoding: .utf8) ?? ""
                         continuation.resume(throwing: ProcessingError.ffmpegFailed(code: exitCode, message: msg.isEmpty ? "Exit code \(exitCode)" : msg))
                     } else {
-                        let output = String(data: stdoutBox.value, encoding: .utf8) ?? ""
+                        let output = captureStderr
+                            ? (String(data: stderrBox.value, encoding: .utf8) ?? "")
+                            : (String(data: stdoutBox.value, encoding: .utf8) ?? "")
                         continuation.resume(returning: output)
                     }
                 }
@@ -256,6 +303,54 @@ actor AudioProcessor {
         return dir
     }
 
+    // Maps 0.0 (gentle) → 1.0 (aggressive) to dynaudnorm parameters.
+    // Shorter frames and tighter Gaussian smoothing = more responsive leveling.
+    private func levelingFilter(amount: Double) -> String {
+        let f = Int(750.0 - amount * 600.0)         // frame ms: 750 → 150
+        let gRaw = Int(31.0 - amount * 24.0)        // gaussian: 31 → 7
+        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw    // must be odd
+        let m = 8.0 + amount * 12.0                 // max gain factor: 8x → 20x
+        return "dynaudnorm=f=\(f):g=\(g):r=1:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1"
+    }
+
+    private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
+        guard let braceRange = output.range(of: "{", options: .backwards) else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
+        }
+        var depth = 0
+        var jsonEnd: String.Index?
+        outer: for idx in output[braceRange.lowerBound...].indices {
+            switch output[idx] {
+            case "{": depth += 1
+            case "}":
+                depth -= 1
+                if depth == 0 { jsonEnd = idx; break outer }
+            default: break
+            }
+        }
+        guard let jsonEnd else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
+        }
+        let jsonStr = String(output[braceRange.lowerBound...jsonEnd])
+        guard let data = jsonStr.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data),
+              let dict = json as? [String: String] else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON output")
+        }
+        guard let inputI = dict["input_i"],
+              let inputTP = dict["input_tp"],
+              let inputLRA = dict["input_lra"],
+              let inputThresh = dict["input_thresh"],
+              let targetOffset = dict["target_offset"] else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Missing loudnorm measurement fields")
+        }
+        return LoudnormStats(
+            inputI: inputI, inputTP: inputTP,
+            inputLRA: inputLRA, inputThresh: inputThresh,
+            targetOffset: targetOffset
+        )
+    }
+
     private func formatDbTag(_ db: Double) -> String {
         var s = String(format: "%.2f", db)
         while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) {
@@ -275,7 +370,7 @@ actor AudioProcessor {
         let here = input.deletingLastPathComponent()
         if fm.isWritableFile(atPath: here.path) { return here }
 
-        let music = fm.homeDirectoryForCurrentUser.appendingPathComponent("Music/WavShaver", isDirectory: true)
+        let music = fm.homeDirectoryForCurrentUser.appendingPathComponent("Music/ClipHacker", isDirectory: true)
         if (try? fm.createDirectory(at: music, withIntermediateDirectories: true)) != nil {
             return music
         }
