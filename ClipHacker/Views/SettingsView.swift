@@ -16,8 +16,9 @@ struct SettingsView: View {
                 }
 
                 row("Stereo Output") {
-                    Toggle("Force stereo output", isOn: $viewModel.settings.stereoOutput)
+                    Toggle("", isOn: $viewModel.settings.stereoOutput)
                         .toggleStyle(.switch)
+                        .labelsHidden()
                 }
 
                 Divider().padding(.vertical, 6)
@@ -34,15 +35,23 @@ struct SettingsView: View {
                 Divider().padding(.vertical, 6)
 
                 row("Noise Reduction") {
-                    Toggle("RNNoise", isOn: $viewModel.settings.noiseReductionEnabled)
-                        .toggleStyle(.switch)
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: $viewModel.settings.noiseReductionEnabled)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                        Text("RNNoise")
+                    }
                 }
 
                 Divider().padding(.vertical, 6)
 
                 row("Level Audio") {
-                    Toggle("dynaudnorm", isOn: $viewModel.settings.levelingEnabled)
-                        .toggleStyle(.switch)
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: $viewModel.settings.levelingEnabled)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                        Text("dynaudnorm")
+                    }
                 }
 
                 row("Aggressiveness") {
@@ -59,8 +68,9 @@ struct SettingsView: View {
                 Divider().padding(.vertical, 6)
 
                 row("Loudness Norm") {
-                    Toggle("EBU R128", isOn: $viewModel.settings.loudnormEnabled)
+                    Toggle("", isOn: $viewModel.settings.loudnormEnabled)
                         .toggleStyle(.switch)
+                        .labelsHidden()
                 }
 
                 row("Target") {
