@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		C6DEF1382EC98B05003A77C7 /* WavShaver.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WavShaver.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C6DEF1382EC98B05003A77C7 /* ClipHacker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClipHacker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		C6DEF13A2EC98B05003A77C7 /* WavShaver */ = {
+		C6DEF13A2EC98B05003A77C7 /* ClipHacker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = WavShaver;
+			path = ClipHacker;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		C6DEF12F2EC98B05003A77C7 = {
 			isa = PBXGroup;
 			children = (
-				C6DEF13A2EC98B05003A77C7 /* WavShaver */,
+				C6DEF13A2EC98B05003A77C7 /* ClipHacker */,
 				C6DEF1392EC98B05003A77C7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +40,7 @@
 		C6DEF1392EC98B05003A77C7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C6DEF1382EC98B05003A77C7 /* WavShaver.app */,
+				C6DEF1382EC98B05003A77C7 /* ClipHacker.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C6DEF1372EC98B05003A77C7 /* WavShaver */ = {
+		C6DEF1372EC98B05003A77C7 /* ClipHacker */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C6DEF1432EC98B06003A77C7 /* Build configuration list for PBXNativeTarget "WavShaver" */;
+			buildConfigurationList = C6DEF1432EC98B06003A77C7 /* Build configuration list for PBXNativeTarget "ClipHacker" */;
 			buildPhases = (
 				C6DEF1342EC98B05003A77C7 /* Sources */,
 				C6DEF1352EC98B05003A77C7 /* Frameworks */,
@@ -61,13 +61,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				C6DEF13A2EC98B05003A77C7 /* WavShaver */,
+				C6DEF13A2EC98B05003A77C7 /* ClipHacker */,
 			);
-			name = WavShaver;
+			name = ClipHacker;
 			packageProductDependencies = (
 			);
-			productName = WavShaver;
-			productReference = C6DEF1382EC98B05003A77C7 /* WavShaver.app */;
+			productName = ClipHacker;
+			productReference = C6DEF1382EC98B05003A77C7 /* ClipHacker.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = C6DEF1332EC98B05003A77C7 /* Build configuration list for PBXProject "WavShaver" */;
+			buildConfigurationList = C6DEF1332EC98B05003A77C7 /* Build configuration list for PBXProject "ClipHacker" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C6DEF1372EC98B05003A77C7 /* WavShaver */,
+				C6DEF1372EC98B05003A77C7 /* ClipHacker */,
 			);
 		};
 /* End PBXProject section */
@@ -308,7 +308,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C6DEF1332EC98B05003A77C7 /* Build configuration list for PBXProject "WavShaver" */ = {
+		C6DEF1332EC98B05003A77C7 /* Build configuration list for PBXProject "ClipHacker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C6DEF1412EC98B06003A77C7 /* Debug */,
@@ -317,7 +317,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C6DEF1432EC98B06003A77C7 /* Build configuration list for PBXNativeTarget "WavShaver" */ = {
+		C6DEF1432EC98B06003A77C7 /* Build configuration list for PBXNativeTarget "ClipHacker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C6DEF1442EC98B06003A77C7 /* Debug */,

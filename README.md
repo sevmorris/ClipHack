@@ -73,7 +73,7 @@ Output format: 24-bit WAV
 ## Building
 
 ```bash
-xcodebuild -project WavShaver.xcodeproj -scheme WavShaver -configuration Release
+xcodebuild -project ClipHacker.xcodeproj -scheme ClipHacker -configuration Release
 ```
 
 ## License
