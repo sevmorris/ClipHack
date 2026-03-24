@@ -7,7 +7,7 @@ struct HelpView: View {
                 header
                 section("Overview") {
                     text("""
-                    ClipHacker prepares audio clips for use in a mix — leveling dynamics, \
+                    ClipHack prepares audio clips for use in a mix — leveling dynamics, \
                     normalizing loudness, and brick-wall limiting peaks. It's designed for \
                     broadcast clips (news, promos) that need to sit at a consistent level \
                     before dropping into a podcast or show.
