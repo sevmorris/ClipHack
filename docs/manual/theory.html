@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClipHacker — Theory of Operation</title>
+  <style>
+    :root {
+      --bg:           #ffffff;
+      --bg-subtle:    #f5f5f7;
+      --bg-code:      #f0f0f2;
+      --border:       #d2d2d7;
+      --text:         #1d1d1f;
+      --text-muted:   #6e6e73;
+      --accent:       #0066cc;
+      --accent-hover: #0055b3;
+      --nav-bg:       #fafafa;
+      --tag-bg:       #e8f0fe;
+      --tag-text:     #1a56b0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:           #111113;
+        --bg-subtle:    #1c1c1e;
+        --bg-code:      #2a2a2d;
+        --border:       #3a3a3c;
+        --text:         #f2f2f7;
+        --text-muted:   #8e8e93;
+        --accent:       #4da3ff;
+        --accent-hover: #79bcff;
+        --nav-bg:       #1c1c1e;
+        --tag-bg:       #1a2d4a;
+        --tag-text:     #6eb0ff;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 230px;
+      min-width: 230px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 28px 0 40px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-brand {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .nav-brand span {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: block;
+    }
+    .nav-brand small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    nav a {
+      display: block;
+      padding: 5px 20px;
+      font-size: 0.83rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      line-height: 1.5;
+    }
+    nav a:hover { color: var(--accent); }
+    nav a.section-head {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding-top: 16px;
+      padding-bottom: 4px;
+      pointer-events: none;
+    }
+
+    /* ── Main content ── */
+    main {
+      flex: 1;
+      max-width: 820px;
+      padding: 56px 48px 100px;
+    }
+
+    section { margin-bottom: 64px; }
+
+    h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 10px; }
+    h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.05rem; font-weight: 600; margin: 28px 0 10px; }
+
+    p { margin-bottom: 14px; }
+    p:last-child { margin-bottom: 0; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; color: var(--accent-hover); }
+
+    ul, ol { padding-left: 20px; margin-bottom: 14px; }
+    li { margin-bottom: 6px; line-height: 1.5; }
+
+    code {
+      font-family: "SF Mono", "Fira Mono", "Menlo", monospace;
+      font-size: 0.84em;
+      background: var(--bg-code);
+      color: var(--text);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin-bottom: 14px;
+    }
+    pre code { background: none; padding: 0; font-size: 0.85rem; }
+
+    .callout {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      font-size: 0.9rem;
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    .hero { margin-bottom: 56px; }
+    .hero h1 { margin-bottom: 12px; }
+    .hero p { font-size: 1.1rem; color: var(--text-muted); max-width: 560px; }
+
+    .btn {
+      display: inline-block;
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; text-decoration: none; }
+    .btn-secondary {
+      background: var(--bg-subtle);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    @media (max-width: 800px) {
+      body { flex-direction: column; }
+      nav {
+        position: static;
+        height: auto;
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+        flex-direction: row;
+        flex-wrap: wrap;
+        overflow-x: auto;
+      }
+      nav a.section-head { display: none; }
+      .nav-brand { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+      main { padding: 32px 24px 64px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <nav>
+    <div class="nav-brand">
+      <span>ClipHacker</span>
+      <small>Theory of Operation</small>
+    </div>
+    <a href="#overview" class="section-head">Sections</a>
+    <a href="#overview">Overview</a>
+    <a href="#rnnoise">RNNoise / arnndn</a>
+    <a href="#dynaudnorm">dynaudnorm</a>
+    <a href="#loudnorm">EBU R128 / loudnorm</a>
+    <a href="#limiter">Brick-Wall Limiter</a>
+    <a href="#lufs">LUFS Measurement</a>
+    <a href="#ffmpeg">FFmpeg Pipeline</a>
+    <a href="index.html" class="section-head">&#8592; Back to Manual</a>
+    <a href="../">Home</a>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+
+    <div class="hero">
+      <h1>Theory of Operation</h1>
+      <p>What each processing stage actually does, and why it's designed the way it is.</p>
+      <div style="margin-top: 20px;">
+        <a href="index.html" class="btn btn-secondary">&#8592; Manual</a>
+      </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>ClipHacker is a thin orchestration layer over FFmpeg. It builds filter chains, runs FFmpeg subprocesses, and manages temp files. There is no custom audio DSP in the app — all signal processing is done by FFmpeg and the bundled RNNoise model.</p>
+      <p>The pipeline is strictly sequential. Each optional stage writes an intermediate WAV to a temp directory, which becomes the input for the next stage. This avoids compounding rounding errors from chaining filters in a single FFmpeg invocation — each stage gets a fresh 24-bit PCM buffer.</p>
+    </section>
+
+    <!-- RNNOISE -->
+    <section id="rnnoise">
+      <h2>RNNoise / arnndn</h2>
+      <p>RNNoise is a noise suppression algorithm developed at Mozilla Research, published in 2018. It uses a recurrent neural network (GRU-based) trained on speech and noise samples. FFmpeg exposes it as the <code>arnndn</code> filter, which requires a model file.</p>
+
+      <h3>What it does</h3>
+      <p>arnndn processes audio in short frames (~10 ms), classifying each frame as speech or noise and applying per-band gain reduction to suppress non-speech content. It's designed for voice — it suppresses broadband noise (HVAC, room hiss, fan noise) while preserving speech intelligibility.</p>
+      <p>It is not a general-purpose noise suppressor. It works poorly on music, non-speech content, or intermittent transient noise (clicks, pops). For broadcast voice clips, it's typically effective — for anything else, leave it off.</p>
+
+      <h3>Stereo handling</h3>
+      <p>arnndn is a mono filter. For stereo files, ClipHacker splits the channels with <code>channelsplit</code>, runs arnndn independently on L and R, then recombines them with <code>join</code>:</p>
+      <pre><code>[0:a]channelsplit=channel_layout=stereo[L][R];
+[L]arnndn=m=rnnoise[Lnr];
+[R]arnndn=m=rnnoise[Rnr];
+[Lnr][Rnr]join=inputs=2:channel_layout=stereo</code></pre>
+      <p>Processing channels independently preserves the stereo image — a stereo NR pass on the downmixed signal would collapse phase relationships.</p>
+
+      <h3>Model file</h3>
+      <p>The RNNoise model is bundled inside the app as a binary resource file. It's the standard model distributed with FFmpeg's arnndn filter. The model is loaded at runtime via its file path — it's not compiled into FFmpeg itself.</p>
+    </section>
+
+    <!-- DYNAUDNORM -->
+    <section id="dynaudnorm">
+      <h2>dynaudnorm</h2>
+      <p>dynaudnorm (Dynamic Audio Normalizer) is an FFmpeg filter that applies time-varying gain normalization. Unlike static normalization (which applies a single gain to the whole file), dynaudnorm adjusts gain frame-by-frame to even out level variation over time.</p>
+
+      <h3>What it does</h3>
+      <p>The filter divides the signal into overlapping frames, measures the RMS level of each frame, computes a target gain, and applies it with Gaussian smoothing to avoid abrupt gain changes. The result is a clip where loud and quiet sections are brought closer together in level — without the pumping or breathing of a conventional compressor.</p>
+
+      <h3>When to use it</h3>
+      <p>dynaudnorm works well on broadcast clips with inconsistent levels — a reporter clip that starts quiet and gets louder, or a clip with multiple speakers at different distances. It is <strong>not</strong> recommended for:</p>
+      <ul>
+        <li>Dialog or interview recordings — the slow gain changes can make speech sound unnatural</li>
+        <li>Music — the gain changes will distort the musical dynamics</li>
+        <li>Clips that are already consistently leveled — running dynaudnorm won't hurt, but it won't help</li>
+      </ul>
+
+      <h3>Aggressiveness parameters</h3>
+      <p>ClipHacker exposes three dynaudnorm parameters via the Aggressiveness slider. All three scale together:</p>
+      <ul>
+        <li><strong>Frame size</strong> — how long each analysis frame is. Shorter frames = faster response = more aggressive.</li>
+        <li><strong>Gaussian smoothing (g)</strong> — the half-width of the Gaussian smoothing kernel. Higher = smoother gain transitions. Scales inversely with aggressiveness.</li>
+        <li><strong>Max gain</strong> — the maximum gain (in linear) that can be applied to any single frame. Prevents the filter from boosting very quiet sections into audibility.</li>
+      </ul>
+      <p>Three parameters are always fixed regardless of the aggressiveness setting:</p>
+      <ul>
+        <li><strong>RMS-based</strong> — gain is measured from RMS level, not peak. This makes it respond to perceived loudness rather than transient peaks, which is appropriate for broadcast content.</li>
+        <li><strong>Channel-coupled</strong> — L and R channels receive the same gain at every moment. This is critical for stereo content — independent gain on each channel would shift the stereo image.</li>
+        <li><strong>Boundary extension</strong> — gain holds steady at the beginning and end of the file rather than ramping from zero. Without this, you'd hear a gain change artifact at the edit point.</li>
+      </ul>
+    </section>
+
+    <!-- LOUDNORM -->
+    <section id="loudnorm">
+      <h2>EBU R128 / loudnorm</h2>
+      <p>EBU R128 is the European Broadcasting Union's standard for loudness normalization in broadcast. It defines loudness in LUFS (Loudness Units Full Scale), measured using ITU-R BS.1770 gating — a perceptually weighted measurement that ignores silence and very quiet passages.</p>
+
+      <h3>Two-pass normalization</h3>
+      <p>ClipHacker uses FFmpeg's <code>loudnorm</code> filter in two-pass mode:</p>
+      <ol>
+        <li><strong>Analysis pass</strong> — measures the integrated loudness, true peak, and loudness range of the file</li>
+        <li><strong>Normalization pass</strong> — applies a linear gain to bring the integrated loudness to the target LUFS</li>
+      </ol>
+      <p>This is linear normalization — the gain applied is a single constant value calculated from the analysis. No dynamic processing occurs. The stereo image and dynamics are completely unchanged; only the overall level shifts.</p>
+      <p>Single-pass loudnorm (FFmpeg's default) uses an estimation algorithm that can introduce subtle dynamic artifacts. Two-pass avoids this entirely.</p>
+
+      <h3>Interaction with the limiter</h3>
+      <p>Loudness normalization runs before the limiter. If the normalization gain pushes any peaks above the limiter ceiling, the limiter will catch them. In practice, for most broadcast clips at sensible targets (−16 to −23 LUFS), this is rare — but it's the correct order: normalize loudness, then constrain peaks.</p>
+
+      <h3>Target selection</h3>
+      <ul>
+        <li><strong>−16 LUFS</strong> — common podcast insertion target; clips will sit at podcast loudness levels</li>
+        <li><strong>−23 LUFS</strong> — EBU R128 broadcast standard; appropriate for clips going into broadcast programming</li>
+        <li><strong>−14 LUFS</strong> — streaming platform target (Spotify, Apple Music); probably too hot for podcast clips</li>
+      </ul>
+    </section>
+
+    <!-- LIMITER -->
+    <section id="limiter">
+      <h2>Brick-Wall Limiter</h2>
+      <p>The limiter is the final stage and cannot be disabled. It prevents any sample from exceeding the configured ceiling, regardless of what the upstream stages produced.</p>
+
+      <h3>True peak vs. sample peak</h3>
+      <p>Digital audio is stored as discrete samples. When you convert samples back to a continuous signal (D/A conversion), the reconstructed waveform can exceed the highest sample value — this is called an inter-sample peak or true peak. A sample peak limiter will show 0 dBFS on a meter, but the analog signal may clip.</p>
+      <p>ClipHacker uses <code>alimiter</code> with 2× oversampling. Upsampling to 2× the sample rate reveals inter-sample peaks that aren't visible at the original rate. The limiter constrains the signal at the oversampled rate before downsampling back — so the output's true peak (not just sample peak) is bounded by the ceiling.</p>
+
+      <h3>Ceiling selection</h3>
+      <p>−1 dBTP is the most common setting. Podcast platforms typically require true peak at −1 or −2 dBTP. For clips being dropped into a broadcast chain that will do its own normalization, −3 dBTP gives more headroom. Lower settings (−6 dBTP) are rarely needed and will begin to reduce average loudness noticeably.</p>
+    </section>
+
+    <!-- LUFS MEASUREMENT -->
+    <section id="lufs">
+      <h2>LUFS Measurement</h2>
+      <p>ClipHacker measures the loudness of each file before processing. This tells you what you're starting with, and lets you compare the original to the output.</p>
+
+      <h3>ITU-R BS.1770 gating</h3>
+      <p>Integrated loudness is measured using the BS.1770 algorithm: the signal is K-weighted (a frequency weighting that models human loudness perception), then measured in 400 ms blocks with 75% overlap. Blocks below −70 LUFS are excluded as silence. Blocks below the relative threshold (−10 LU below the mean of the ungated measurement) are also excluded — this prevents quiet passages from pulling the integrated loudness down.</p>
+      <p>The result is a single number in LUFS representing the perceived loudness of the perceptible content in the file.</p>
+
+      <h3>Noise floor warning</h3>
+      <p>When the noise floor is high relative to the speech content, the gating algorithm may include noise frames in the loudness measurement, making the result artificially high. ClipHacker detects this condition and shows a warning badge on the file. The measurement is still displayed — it's just flagged as potentially unreliable.</p>
+    </section>
+
+    <!-- FFMPEG PIPELINE -->
+    <section id="ffmpeg">
+      <h2>FFmpeg Pipeline</h2>
+      <p>ClipHacker bundles a full FFmpeg binary inside the app. Each processing stage runs FFmpeg as a subprocess, reading the output of the previous stage. Intermediate files are 24-bit PCM WAV to preserve full quality through the chain.</p>
+
+      <h3>Why separate subprocesses?</h3>
+      <p>The alternative would be a single FFmpeg invocation with a long filter chain. This is technically possible, but:</p>
+      <ul>
+        <li>Two-pass loudnorm requires two separate runs by design — there's no way to do it in one pass</li>
+        <li>Separate processes make progress reporting straightforward — each stage is an atomic unit</li>
+        <li>Intermediate WAV files are exact (no lossy re-encoding between stages)</li>
+        <li>If a stage fails, the error is isolated and easy to diagnose</li>
+      </ul>
+
+      <h3>Temp files</h3>
+      <p>Intermediate files are written to a temporary directory that's cleaned up after processing. If processing fails, ClipHacker attempts to clean up temp files but may leave them in <code>/tmp</code> if the process is interrupted.</p>
+
+      <h3>Concurrency</h3>
+      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files is not artificially limited — it scales with the system's CPU and I/O capacity.</p>
+    </section>
+
+  </main>
+
+</body>
+</html>

@@ -67,8 +67,14 @@ else
     sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
         "$PROJECT/project.pbxproj"
     sed -i '' "s|ClipHacker v[0-9][0-9.]* (DMG).*ClipHacker-v[0-9][0-9.]*.dmg|ClipHacker ${TAG} (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-${TAG}.dmg|g" README.md
+    # Update download links in docs
+    PREV_VER=$(echo "$CURRENT" | sed 's/[^0-9.]//g')
+    sed -i '' "s|ClipHacker-v${PREV_VER}\.dmg|ClipHacker-${TAG}.dmg|g" \
+        docs/index.html docs/manual/index.html
+    sed -i '' "s|Download v${PREV_VER}|Download ${TAG}|g" \
+        docs/index.html docs/manual/index.html
     ok "Bumped $CURRENT → $VERSION"
-    git add "$PROJECT/project.pbxproj" README.md
+    git add "$PROJECT/project.pbxproj" README.md docs/index.html docs/manual/index.html
     git commit -m "Bump version to $VERSION"
     ok "Committed version bump"
 fi
