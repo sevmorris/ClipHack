@@ -1,34 +1,34 @@
-**Brick-Wall Limiter for macOS**
+**Clip Prep for macOS**
 
-WavShaver shaves peaks off audio files. Set your ceiling, drop your files, get limited WAV out. That's it.
-
-## Design Philosophy
-
-WavShaver is intentionally minimal. It does one thing — applies brick-wall peak limiting — and gets out of the way. No filtering, no normalization, no encoding. Just a limiter.
+ClipHacker prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show.
 
 ## Download
 
-**[WavShaver v1.2 (DMG)](https://github.com/sevmorris/WavShaver/releases/latest/download/WavShaver-v1.2.dmg)**
+**[ClipHacker v1.3 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.dmg)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
-> macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging WavShaver to Applications, **you must run this command in Terminal:**
+> macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging ClipHacker to Applications, **you must run this command in Terminal:**
 >
 > ```
-> xattr -cr /Applications/WavShaver.app
+> xattr -cr /Applications/ClipHacker.app
 > ```
 >
 > Without this step, macOS will refuse to open the app.
 
 ## Features
 
-- **Brick-Wall Limiting**: Configurable ceiling (-6 to -1 dB) with 2x oversampled true peak limiting
-- **Channel Passthrough**: Preserves original channel layout (mono in = mono out, stereo in = stereo out)
-- **Sample Rate Conversion**: 44.1 kHz or 48 kHz output
-- **Drag & Drop**: Drop audio files onto the window to process
+- **Level Audio**: Dynamic leveling via FFmpeg's dynaudnorm — evens out level variation across a clip without compressor pumping. Designed for broadcast sources, not dialog.
+- **Loudness Norm**: Two-pass EBU R128 loudness normalization to a target LUFS. Runs before the limiter.
+- **Brick-Wall Limiting**: Configurable ceiling (-6 to -1 dB) with 2× oversampled true peak limiting
+- **Stereo Output**: Optionally force stereo output (upmixes mono sources)
+- **LUFS Measurement**: Full ITU-R BS.1770 gated loudness displayed per file
+- **Noise Floor Detection**: Warns when high noise floor may affect level accuracy
+- **Stereo Waveform**: L/R channels displayed separately for stereo files
 - **Batch Processing**: Process multiple files in parallel with per-file progress
-- **Waveform Preview**: Select a file to view its waveform with dB scale
+- **Drag & Drop**: Drop audio files onto the window to process
 - **Custom Output Directory**: Optionally set a dedicated output folder
+- **Update Checker**: Checks for new releases on launch and via Help menu
 
 ## System Requirements
 
@@ -36,24 +36,37 @@ WavShaver is intentionally minimal. It does one thing — applies brick-wall pea
 
 ## Output Naming
 
+Output filenames reflect what processing was applied:
+
 ```
-{original-name}-{samplerate}shaved-{limit}dB.wav
+{original-name}-{rate}{leveled-}{norm-}clipped-{limit}dB.wav
 ```
 
-Example: `episode-01-44kshaved-1dB.wav`
+Examples:
+```
+clip-44kclipped-1dB.wav
+clip-44kleveled-norm-clipped-1dB.wav
+```
 
 ## Settings
 
 - **Sample Rate**: Output sample rate — 44.1 kHz or 48 kHz
+- **Stereo Output**: Force stereo output; upmixes mono sources
 - **Ceiling**: Brick-wall limiter ceiling, from -6 dB to -1 dB
+- **Level Audio**: Enable dynamic leveling (dynaudnorm)
+- **Aggressiveness**: Controls leveler responsiveness — frame size, Gaussian smoothing, and max gain scale together from Gentle to Aggressive
+- **Loudness Norm**: Enable two-pass EBU R128 loudness normalization
+- **Target**: Normalization target in LUFS (-30 to -14). -16 LUFS is a common podcast insertion target.
 - **Output Directory**: Custom output folder (default: same as source file)
 
 ## Processing Pipeline
 
-WavShaver uses FFmpeg with a simple pipeline:
+ClipHacker uses FFmpeg. Each stage is optional except the final limiter:
 
-1. **Resampling** to the target sample rate (skipped if already matching)
-2. **Brick-wall limiting** with 2x oversampled true peak control
+1. **Resample** to the target sample rate (skipped if already matching)
+2. **Level Audio** — dynaudnorm dynamic normalization (optional)
+3. **Loudness Norm** — two-pass EBU R128 normalization (optional)
+4. **Brick-wall limiting** with 2× oversampled true peak control
 
 Output format: 24-bit WAV
 
@@ -73,6 +86,6 @@ This program is free software: you can redistribute it and/or modify it under th
 
 I'm a freelance audio engineer, not a software developer. These tools exist because AI made it possible for me to build things I couldn't build alone. It's exciting, but complicated.
 
-The current app icon is my own (very minimal) design. AI can build the software, but I can still make the art myself, and I think that's worth doing.
+The current app icon is my own design. AI can build the software, but I can still make the art myself, and I think that's worth doing.
 
 AI-assisted development raises real questions about labor displacement, resource consumption, and the concentration of power in a handful of tech companies. I don't have clean answers. I do think it matters that the people using these tools are honest about the trade-offs rather than pretending they don't exist.
