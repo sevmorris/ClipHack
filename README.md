@@ -1,6 +1,6 @@
 **Clip Prep for macOS**
 
-[ClipHacker](https://sevmorris.github.io/ClipHacker/) prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show.
+[ClipHacker](https://sevmorris.github.io/ClipHacker/) prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show. For your own raw recordings before editing, use [WaxOn](https://sevmorris.github.io/WaxOnWaxOff/).
 
 ## Download
 
