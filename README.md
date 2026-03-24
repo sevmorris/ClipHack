@@ -1,10 +1,10 @@
 **Clip Prep for macOS**
 
-ClipHacker prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show.
+[ClipHacker](https://sevmorris.github.io/ClipHacker/) prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show.
 
 ## Download
 
-**[ClipHacker v1.3.3 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.3.dmg)**
+**[ClipHacker v1.3.3 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.3.dmg)** · **[Manual](https://sevmorris.github.io/ClipHacker/manual/)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
