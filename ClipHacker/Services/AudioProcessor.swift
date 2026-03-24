@@ -70,9 +70,10 @@ actor AudioProcessor {
         let limitAmp = pow(10.0, settings.limitDb / 20.0)
         let limitTag = formatDbTag(settings.limitDb)
         let outDir = bestOutputDir(for: input)
+        let nrTag = settings.noiseReductionEnabled ? "nr-" : ""
         let levelTag = settings.levelingEnabled ? "leveled-" : ""
         let normTag = settings.loudnormEnabled ? "norm-" : ""
-        let outName = "\(stem)-\(rateTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
+        let outName = "\(stem)-\(rateTag)\(nrTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
         let finalURL = outDir.appendingPathComponent(outName)
         let tmpURL = outDir.appendingPathComponent(".\(outName).tmp")
 
@@ -103,6 +104,34 @@ actor AudioProcessor {
             currentURL = midURL
         } else {
             currentURL = input
+        }
+
+        try Task.checkCancellation()
+
+        // Stage 1.5: Noise reduction (optional)
+        if settings.noiseReductionEnabled,
+           let modelURL = Bundle.main.url(forResource: "rnnoise", withExtension: nil) {
+            let nrURL = work.appendingPathComponent("\(stem)_nr.wav")
+            if channels > 1 {
+                let fc = [
+                    "[0:a]channelsplit=channel_layout=stereo[L][R]",
+                    "[L]arnndn=m=\(modelURL.path)[Lnr]",
+                    "[R]arnndn=m=\(modelURL.path)[Rnr]",
+                    "[Lnr][Rnr]join=inputs=2:channel_layout=stereo"
+                ].joined(separator: ";")
+                try await runFFmpeg(exe: tools.ffmpeg, args: [
+                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", currentURL.path, "-filter_complex", fc,
+                    "-c:a", "pcm_s24le", "-ar", "\(sr)", nrURL.path
+                ])
+            } else {
+                try await runFFmpeg(exe: tools.ffmpeg, args: [
+                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", currentURL.path, "-af", "arnndn=m=\(modelURL.path)",
+                    "-c:a", "pcm_s24le", "-ar", "\(sr)", nrURL.path
+                ])
+            }
+            currentURL = nrURL
         }
 
         try Task.checkCancellation()

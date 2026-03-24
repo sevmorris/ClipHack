@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var viewModel = ContentViewModel()
     @State private var fileListWidth: CGFloat = 250
+    @State private var showSettings: Bool = true
 
     private var selectedFile: FileItem? {
         guard viewModel.selectedFileIDs.count == 1,
@@ -19,32 +20,19 @@ struct ContentView: View {
                 fileListSection
                     .frame(width: fileListWidth)
 
-                Rectangle()
-                    .fill(Color.primary.opacity(0.15))
-                    .frame(width: 4)
-                    .contentShape(Rectangle())
-                    .onHover { hovering in
-                        if hovering {
-                            NSCursor.resizeLeftRight.push()
-                        } else {
-                            NSCursor.pop()
-                        }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 1)
-                            .onChanged { value in
-                                let newWidth = fileListWidth + value.translation.width
-                                fileListWidth = max(150, min(newWidth, 600))
-                            }
-                    )
+                draggableDivider
 
                 waveformSection
-                    .frame(minWidth: 300)
+                    .frame(minWidth: 260)
+
+                if showSettings {
+                    staticDivider
+                    SettingsView(viewModel: viewModel)
+                        .frame(width: 220)
+                }
             }
-            SettingsView(viewModel: viewModel)
         }
-        .frame(minWidth: 900, minHeight: 480)
-        .padding(.bottom)
+        .frame(minWidth: 700, minHeight: 480)
         .dropDestination(for: URL.self) { urls, _ in
             viewModel.addFiles(urls)
             return !urls.isEmpty
@@ -58,7 +46,6 @@ struct ContentView: View {
 
     private var headerView: some View {
         HStack {
-            Text("ClipHacker").font(.title2).bold()
             Spacer()
 
             if viewModel.isProcessing {
@@ -90,9 +77,40 @@ struct ContentView: View {
                 Label("Clear", systemImage: "trash")
             }
             .keyboardShortcut(.delete, modifiers: [.command, .option])
+
+            Divider().frame(height: 20)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showSettings.toggle() }
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+            }
+            .help(showSettings ? "Hide Settings" : "Show Settings")
         }
         .padding()
         .background(.regularMaterial)
+    }
+
+    private var draggableDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.15))
+            .frame(width: 4)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1).onChanged { value in
+                    let newWidth = fileListWidth + value.translation.width
+                    fileListWidth = max(150, min(newWidth, 500))
+                }
+            )
+    }
+
+    private var staticDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.15))
+            .frame(width: 1)
     }
 
     @ViewBuilder

@@ -5,12 +5,9 @@ struct SettingsView: View {
     @Bindable var viewModel: ContentViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Settings").font(.headline)
-
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    Text("Sample Rate")
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                row("Sample Rate") {
                     Picker("", selection: $viewModel.settings.sampleRate) {
                         Text("44.1 kHz").tag(ClipHackerSettings.SampleRate.s44100)
                         Text("48 kHz").tag(ClipHackerSettings.SampleRate.s48000)
@@ -18,72 +15,84 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                GridRow {
-                    Toggle("Stereo Output", isOn: $viewModel.settings.stereoOutput)
-                        .gridCellColumns(2)
+                row("Stereo Output") {
+                    Toggle("Force stereo output", isOn: $viewModel.settings.stereoOutput)
+                        .toggleStyle(.switch)
                 }
 
-                GridRow {
-                    Text("Ceiling")
-                    HStack {
+                Divider().padding(.vertical, 6)
+
+                row("Ceiling") {
+                    HStack(spacing: 6) {
                         Slider(value: $viewModel.settings.limitDb, in: -6 ... -1, step: 1)
                         Text(String(format: "%.0f dB", viewModel.settings.limitDb))
-                            .frame(width: 80, alignment: .trailing)
+                            .font(.system(size: 11).monospaced())
+                            .frame(width: 42, alignment: .trailing)
                     }
                 }
 
-                GridRow {
-                    Toggle("Level Audio", isOn: $viewModel.settings.levelingEnabled)
-                        .gridCellColumns(2)
+                Divider().padding(.vertical, 6)
+
+                row("Noise Reduction") {
+                    Toggle("RNNoise", isOn: $viewModel.settings.noiseReductionEnabled)
+                        .toggleStyle(.switch)
                 }
 
-                GridRow {
-                    Text("Aggressiveness")
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Slider(value: $viewModel.settings.levelingAmount, in: 0 ... 1)
-                            Text(aggressivenessLabel(viewModel.settings.levelingAmount))
-                                .frame(width: 80, alignment: .trailing)
-                        }
-                        Text("For broadcast clips (news, promos) — not dialog")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                Divider().padding(.vertical, 6)
+
+                row("Level Audio") {
+                    Toggle("dynaudnorm", isOn: $viewModel.settings.levelingEnabled)
+                        .toggleStyle(.switch)
+                }
+
+                row("Aggressiveness") {
+                    HStack(spacing: 6) {
+                        Slider(value: $viewModel.settings.levelingAmount, in: 0 ... 1)
+                        Text(aggressivenessLabel(viewModel.settings.levelingAmount))
+                            .font(.system(size: 11).monospaced())
+                            .frame(width: 68, alignment: .trailing)
                     }
                 }
                 .disabled(!viewModel.settings.levelingEnabled)
+                .opacity(!viewModel.settings.levelingEnabled ? 0.4 : 1)
 
-                GridRow {
-                    Toggle("Loudness Norm", isOn: $viewModel.settings.loudnormEnabled)
-                        .gridCellColumns(2)
+                Divider().padding(.vertical, 6)
+
+                row("Loudness Norm") {
+                    Toggle("EBU R128", isOn: $viewModel.settings.loudnormEnabled)
+                        .toggleStyle(.switch)
                 }
 
-                GridRow {
-                    Text("Target")
-                    HStack {
+                row("Target") {
+                    HStack(spacing: 6) {
                         Slider(value: $viewModel.settings.loudnormTarget, in: -30 ... -14, step: 1)
                         Text(String(format: "%.0f LUFS", viewModel.settings.loudnormTarget))
-                            .frame(width: 80, alignment: .trailing)
+                            .font(.system(size: 11).monospaced())
+                            .frame(width: 56, alignment: .trailing)
                     }
                 }
                 .disabled(!viewModel.settings.loudnormEnabled)
+                .opacity(!viewModel.settings.loudnormEnabled ? 0.4 : 1)
 
-                GridRow {
-                    Text("Output Dir")
-                    HStack {
-                        if let path = viewModel.settings.outputDirectoryPath {
-                            Text(path)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .font(.caption)
-                            Button("Reset") {
-                                viewModel.settings.outputDirectoryPath = nil
-                            }
-                            .controlSize(.small)
-                        } else {
-                            Text("Same as source")
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
+                Divider().padding(.vertical, 6)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("OUTPUT DIR")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .kerning(0.4)
+                    if let path = viewModel.settings.outputDirectoryPath {
+                        Text(URL(fileURLWithPath: path).lastPathComponent)
+                            .font(.system(size: 11))
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Same as source")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 6) {
                         Button("Choose…") {
                             let panel = NSOpenPanel()
                             panel.canChooseDirectories = true
@@ -94,12 +103,33 @@ struct SettingsView: View {
                             }
                         }
                         .controlSize(.small)
+                        if viewModel.settings.outputDirectoryPath != nil {
+                            Button("Reset") {
+                                viewModel.settings.outputDirectoryPath = nil
+                            }
+                            .controlSize(.small)
+                        }
                     }
                 }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 2)
             }
+            .padding(12)
         }
-        .padding()
         .background(.thinMaterial)
+    }
+
+    @ViewBuilder
+    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .kerning(0.4)
+            content()
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 2)
     }
 
     private func aggressivenessLabel(_ amount: Double) -> String {

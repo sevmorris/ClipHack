@@ -8,6 +8,7 @@ struct ClipHackerSettings: Codable, Equatable, Sendable {
 
     var sampleRate: SampleRate = .s44100
     var limitDb: Double = -1.0
+    var noiseReductionEnabled: Bool = false
     var levelingEnabled: Bool = false
     var levelingAmount: Double = 0.5
     var loudnormEnabled: Bool = false

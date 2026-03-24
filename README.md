@@ -18,6 +18,7 @@ ClipHacker prepares audio clips for use in a mix — leveling dynamics, normaliz
 
 ## Features
 
+- **Noise Reduction**: RNNoise neural network model (arnndn) — removes broadband background noise (hiss, room tone, HVAC). Applied per-channel on stereo files.
 - **Level Audio**: Dynamic leveling via FFmpeg's dynaudnorm — evens out level variation across a clip without compressor pumping. Designed for broadcast sources, not dialog.
 - **Loudness Norm**: Two-pass EBU R128 loudness normalization to a target LUFS. Runs before the limiter.
 - **Brick-Wall Limiting**: Configurable ceiling (-6 to -1 dB) with 2× oversampled true peak limiting
@@ -39,13 +40,13 @@ ClipHacker prepares audio clips for use in a mix — leveling dynamics, normaliz
 Output filenames reflect what processing was applied:
 
 ```
-{original-name}-{rate}{leveled-}{norm-}clipped-{limit}dB.wav
+{original-name}-{rate}{nr-}{leveled-}{norm-}clipped-{limit}dB.wav
 ```
 
 Examples:
 ```
 clip-44kclipped-1dB.wav
-clip-44kleveled-norm-clipped-1dB.wav
+clip-44knr-leveled-norm-clipped-1dB.wav
 ```
 
 ## Settings
@@ -53,6 +54,7 @@ clip-44kleveled-norm-clipped-1dB.wav
 - **Sample Rate**: Output sample rate — 44.1 kHz or 48 kHz
 - **Stereo Output**: Force stereo output; upmixes mono sources
 - **Ceiling**: Brick-wall limiter ceiling, from -6 dB to -1 dB
+- **Noise Reduction**: Enable RNNoise neural network noise reduction
 - **Level Audio**: Enable dynamic leveling (dynaudnorm)
 - **Aggressiveness**: Controls leveler responsiveness — frame size, Gaussian smoothing, and max gain scale together from Gentle to Aggressive
 - **Loudness Norm**: Enable two-pass EBU R128 loudness normalization
@@ -64,9 +66,10 @@ clip-44kleveled-norm-clipped-1dB.wav
 ClipHacker uses FFmpeg. Each stage is optional except the final limiter:
 
 1. **Resample** to the target sample rate (skipped if already matching)
-2. **Level Audio** — dynaudnorm dynamic normalization (optional)
-3. **Loudness Norm** — two-pass EBU R128 normalization (optional)
-4. **Brick-wall limiting** with 2× oversampled true peak control
+2. **Noise Reduction** — RNNoise neural network model via arnndn (optional)
+3. **Level Audio** — dynaudnorm dynamic normalization (optional)
+4. **Loudness Norm** — two-pass EBU R128 normalization (optional)
+5. **Brick-wall limiting** with 2× oversampled true peak control
 
 Output format: 24-bit WAV
 
