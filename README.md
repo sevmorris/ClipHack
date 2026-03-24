@@ -4,7 +4,7 @@
 
 ## Download
 
-**[ClipHacker v1.3.3 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.3.dmg)** · **[Manual](https://sevmorris.github.io/ClipHacker/manual/)**
+**[ClipHacker v1.3.4 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.4.dmg)** · **[Manual](https://sevmorris.github.io/ClipHacker/manual/)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
