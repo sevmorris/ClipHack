@@ -4,7 +4,7 @@ ClipHacker prepares audio clips for use in a mix — leveling dynamics, normaliz
 
 ## Download
 
-**[ClipHacker v1.3 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.dmg)**
+**[ClipHacker v1.3.1 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.1.dmg)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
