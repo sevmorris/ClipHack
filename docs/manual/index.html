@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipHacker Manual</title>
+  <title>ClipHack Manual</title>
   <style>
     :root {
       --bg:           #ffffff;
@@ -313,11 +313,11 @@
   <!-- SIDEBAR -->
   <nav>
     <div class="nav-brand">
-      <span>ClipHacker</span>
+      <span>ClipHack</span>
       <small>Manual</small>
     </div>
     <a href="#overview" class="section-head">Overview</a>
-    <a href="#overview">What is ClipHacker?</a>
+    <a href="#overview">What is ClipHack?</a>
     <a href="#first-launch">First Launch</a>
     <a href="#getting-started" class="section-head">Using the App</a>
     <a href="#getting-started">Getting Started</a>
@@ -328,7 +328,7 @@
     <a href="#output" class="section-head">Output</a>
     <a href="#output">Output Naming</a>
     <a href="#formats">Supported Formats</a>
-    <a href="../" class="section-head">&#8592; Back to ClipHacker</a>
+    <a href="../" class="section-head">&#8592; Back to ClipHack</a>
     <a href="theory.html">Theory of Operation</a>
   </nav>
 
@@ -336,10 +336,10 @@
   <main>
 
     <div class="hero">
-      <h1>ClipHacker</h1>
+      <h1>ClipHack</h1>
       <p>Clip prep for macOS. Process broadcast clips — noise reduction, dynamic leveling, loudness normalization, brick-wall limiting — before dropping them into a mix.</p>
       <div class="hero-actions">
-        <a href="https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.4.dmg" class="btn btn-primary">Download v1.3.4</a>
+        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.3.4.dmg" class="btn btn-primary">Download v1.3.4</a>
         <a href="../" class="btn btn-secondary">Home</a>
         <a href="theory.html" class="btn btn-secondary">Theory of Operation</a>
       </div>
@@ -347,12 +347,12 @@
 
     <!-- OVERVIEW -->
     <section id="overview">
-      <h2>What is ClipHacker?</h2>
-      <p>ClipHacker is a macOS utility for preparing broadcast audio clips — news stories, promos, inserts — before they go into a podcast, show, or mix. It runs each clip through a configurable FFmpeg pipeline and outputs a 24-bit WAV at your target sample rate.</p>
-      <p>The typical use case: you have a clip from a broadcast source that's inconsistently leveled, noisy, or peaking hot. Drop it into ClipHacker, enable the stages you need, click Process. The output is ready to drop into your DAW.</p>
+      <h2>What is ClipHack?</h2>
+      <p>ClipHack is a macOS utility for preparing broadcast audio clips — news stories, promos, inserts — before they go into a podcast, show, or mix. It runs each clip through a configurable FFmpeg pipeline and outputs a 24-bit WAV at your target sample rate.</p>
+      <p>The typical use case: you have a clip from a broadcast source that's inconsistently leveled, noisy, or peaking hot. Drop it into ClipHack, enable the stages you need, click Process. The output is ready to drop into your DAW.</p>
 
-      <h3>What ClipHacker is not</h3>
-      <p>ClipHacker is not a mastering tool or a final delivery step. It's a pre-edit prep tool. If you need EBU R128 delivery normalization or MP3 export for your finished mix, use <a href="https://sevmorris.github.io/WaxOnWaxOff/">WaxOff</a>.</p>
+      <h3>What ClipHack is not</h3>
+      <p>ClipHack is not a mastering tool or a final delivery step. It's a pre-edit prep tool. If you need EBU R128 delivery normalization or MP3 export for your finished mix, use <a href="https://sevmorris.github.io/WaxOnWaxOff/">WaxOff</a>.</p>
     </section>
 
     <!-- FIRST LAUNCH -->
@@ -360,10 +360,10 @@
       <h2>First Launch</h2>
       <div class="callout callout-warn">
         <strong>macOS Gatekeeper Warning</strong>
-        ClipHacker is not notarized with Apple. After mounting the DMG and dragging ClipHacker to Applications, you must clear the quarantine attribute before it will open:
-        <pre style="margin-top: 10px; margin-bottom: 0;"><code>xattr -cr /Applications/ClipHacker.app</code></pre>
+        ClipHack is not notarized with Apple. After mounting the DMG and dragging ClipHack to Applications, you must clear the quarantine attribute before it will open:
+        <pre style="margin-top: 10px; margin-bottom: 0;"><code>xattr -cr /Applications/ClipHack.app</code></pre>
       </div>
-      <p>After running that command, ClipHacker will open normally. You only need to do this once.</p>
+      <p>After running that command, ClipHack will open normally. You only need to do this once.</p>
     </section>
 
     <!-- GETTING STARTED -->
@@ -378,7 +378,7 @@
       <p>You can queue up a batch before hitting Process. Files are processed in parallel — a batch of 10 clips takes roughly as long as the longest single clip.</p>
 
       <h3>Update Checker</h3>
-      <p>ClipHacker checks for new releases on launch and via <strong>Help &rarr; Check for Updates</strong>. If an update is available, you'll see a prompt with a link to the release page.</p>
+      <p>ClipHack checks for new releases on launch and via <strong>Help &rarr; Check for Updates</strong>. If an update is available, you'll see a prompt with a link to the release page.</p>
     </section>
 
     <!-- INTERFACE -->
@@ -608,7 +608,7 @@ clip-48knr-leveled-norm-clipped-3dB.wav</code></pre>
     <!-- FORMATS -->
     <section id="formats">
       <h2>Supported Formats</h2>
-      <p>ClipHacker bundles FFmpeg and accepts any format it can decode:</p>
+      <p>ClipHack bundles FFmpeg and accepts any format it can decode:</p>
       <p>WAV, AIFF, AIF, MP3, FLAC, M4A, OGG, Opus, CAF, WMA, AAC, MP4, MOV</p>
       <p>All output is 24-bit WAV at the configured sample rate.</p>
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# release.sh — Build, verify, package, and publish a ClipHacker release.
+# release.sh — Build, verify, package, and publish a ClipHack release.
 #
 # Usage: ./release.sh <version>
 #   e.g. ./release.sh 1.3.3
@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-REPO="sevmorris/ClipHacker"
+REPO="sevmorris/ClipHack"
 
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -ne 1 ]]; then
@@ -21,13 +21,13 @@ VERSION="$1"
 TAG="v${VERSION}"
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$SCRIPT_DIR"
-PROJECT="$PROJECT_DIR/ClipHacker.xcodeproj"
-SCHEME="ClipHacker"
-DERIVED_DATA="/tmp/cliphacker_build_${VERSION}"
-APP_PATH="$DERIVED_DATA/Build/Products/Release/ClipHacker.app"
-STAGING="/tmp/cliphacker_dmg_${VERSION}"
-DMG="/tmp/ClipHacker-${TAG}.dmg"
-MOUNT="/tmp/cliphacker_verify_${VERSION}"
+PROJECT="$PROJECT_DIR/ClipHack.xcodeproj"
+SCHEME="ClipHack"
+DERIVED_DATA="/tmp/cliphack_build_${VERSION}"
+APP_PATH="$DERIVED_DATA/Build/Products/Release/ClipHack.app"
+STAGING="/tmp/cliphack_dmg_${VERSION}"
+DMG="/tmp/ClipHack-${TAG}.dmg"
+MOUNT="/tmp/cliphack_verify_${VERSION}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
@@ -66,10 +66,10 @@ if [[ "$CURRENT" == "$VERSION" ]]; then
 else
     sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
         "$PROJECT/project.pbxproj"
-    sed -i '' "s|ClipHacker v[0-9][0-9.]* (DMG).*ClipHacker-v[0-9][0-9.]*.dmg|ClipHacker ${TAG} (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-${TAG}.dmg|g" README.md
+    sed -i '' "s|ClipHack v[0-9][0-9.]* (DMG).*ClipHack-v[0-9][0-9.]*.dmg|ClipHack ${TAG} (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-${TAG}.dmg|g" README.md
     # Update download links in docs
     PREV_VER=$(echo "$CURRENT" | sed 's/[^0-9.]//g')
-    sed -i '' "s|ClipHacker-v${PREV_VER}\.dmg|ClipHacker-${TAG}.dmg|g" \
+    sed -i '' "s|ClipHack-v${PREV_VER}\.dmg|ClipHack-${TAG}.dmg|g" \
         docs/index.html docs/manual/index.html
     sed -i '' "s|Download v${PREV_VER}|Download ${TAG}|g" \
         docs/index.html docs/manual/index.html
@@ -110,7 +110,7 @@ ok "App, README.txt, Applications alias"
 step "Creating DMG"
 rm -f "$DMG"
 hdiutil create \
-    -volname "ClipHacker $TAG" \
+    -volname "ClipHack $TAG" \
     -srcfolder "$STAGING" \
     -ov \
     -format UDZO \
@@ -123,7 +123,7 @@ step "Verifying DMG contents"
 rm -rf "$MOUNT"
 mkdir "$MOUNT"
 hdiutil attach "$DMG" -mountpoint "$MOUNT" -quiet -nobrowse
-DMG_VERSION=$(defaults read "$MOUNT/ClipHacker.app/Contents/Info.plist" CFBundleShortVersionString)
+DMG_VERSION=$(defaults read "$MOUNT/ClipHack.app/Contents/Info.plist" CFBundleShortVersionString)
 hdiutil detach "$MOUNT" -quiet
 [[ "$DMG_VERSION" == "$VERSION" ]] || \
     fail "DMG version mismatch: expected $VERSION, got $DMG_VERSION"
@@ -152,7 +152,7 @@ RELEASE_NOTES="### Changes
 ${CHANGES}"
 gh release create "$TAG" "$DMG" \
     --repo "$REPO" \
-    --title "ClipHacker $TAG" \
+    --title "ClipHack $TAG" \
     --notes "$RELEASE_NOTES"
 ok "Release published"
 
@@ -178,6 +178,6 @@ ok "Temp files removed"
 
 # ── Open release page ─────────────────────────────────────────────────────────
 RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
-echo "\n✓ ClipHacker $TAG released successfully."
+echo "\n✓ ClipHack $TAG released successfully."
 echo "  $RELEASE_URL"
 open "$RELEASE_URL"

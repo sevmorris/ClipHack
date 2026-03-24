@@ -1,17 +1,17 @@
 **Clip Prep for macOS**
 
-[ClipHacker](https://sevmorris.github.io/ClipHacker/) prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show. For your own raw recordings before editing, use [WaxOn](https://sevmorris.github.io/WaxOnWaxOff/).
+[ClipHack](https://sevmorris.github.io/ClipHack/) prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show. For your own raw recordings before editing, use [WaxOn](https://sevmorris.github.io/WaxOnWaxOff/).
 
 ## Download
 
-**[ClipHacker v1.3.4 (DMG)](https://github.com/sevmorris/ClipHacker/releases/latest/download/ClipHacker-v1.3.4.dmg)** · **[Manual](https://sevmorris.github.io/ClipHacker/manual/)**
+**[ClipHack v1.3.4 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.3.4.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
-> macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging ClipHacker to Applications, **you must run this command in Terminal:**
+> macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging ClipHack to Applications, **you must run this command in Terminal:**
 >
 > ```
-> xattr -cr /Applications/ClipHacker.app
+> xattr -cr /Applications/ClipHack.app
 > ```
 >
 > Without this step, macOS will refuse to open the app.
@@ -63,7 +63,7 @@ clip-44knr-leveled-norm-clipped-1dB.wav
 
 ## Processing Pipeline
 
-ClipHacker uses FFmpeg. Each stage is optional except the final limiter:
+ClipHack uses FFmpeg. Each stage is optional except the final limiter:
 
 1. **Resample** to the target sample rate (skipped if already matching)
 2. **Noise Reduction** — RNNoise neural network model via arnndn (optional)
@@ -76,7 +76,7 @@ Output format: 24-bit WAV
 ## Building
 
 ```bash
-xcodebuild -project ClipHacker.xcodeproj -scheme ClipHacker -configuration Release
+xcodebuild -project ClipHack.xcodeproj -scheme ClipHack -configuration Release
 ```
 
 ## License

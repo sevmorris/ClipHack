@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipHacker — Theory of Operation</title>
+  <title>ClipHack — Theory of Operation</title>
   <style>
     :root {
       --bg:           #ffffff;
@@ -196,7 +196,7 @@
   <!-- SIDEBAR -->
   <nav>
     <div class="nav-brand">
-      <span>ClipHacker</span>
+      <span>ClipHack</span>
       <small>Theory of Operation</small>
     </div>
     <a href="#overview" class="section-head">Sections</a>
@@ -225,7 +225,7 @@
     <!-- OVERVIEW -->
     <section id="overview">
       <h2>Overview</h2>
-      <p>ClipHacker is a thin orchestration layer over FFmpeg. It builds filter chains, runs FFmpeg subprocesses, and manages temp files. There is no custom audio DSP in the app — all signal processing is done by FFmpeg and the bundled RNNoise model.</p>
+      <p>ClipHack is a thin orchestration layer over FFmpeg. It builds filter chains, runs FFmpeg subprocesses, and manages temp files. There is no custom audio DSP in the app — all signal processing is done by FFmpeg and the bundled RNNoise model.</p>
       <p>The pipeline is strictly sequential. Each optional stage writes an intermediate WAV to a temp directory, which becomes the input for the next stage. This avoids compounding rounding errors from chaining filters in a single FFmpeg invocation — each stage gets a fresh 24-bit PCM buffer.</p>
     </section>
 
@@ -239,7 +239,7 @@
       <p>It is not a general-purpose noise suppressor. It works poorly on music, non-speech content, or intermittent transient noise (clicks, pops). For broadcast voice clips, it's typically effective — for anything else, leave it off.</p>
 
       <h3>Stereo handling</h3>
-      <p>arnndn is a mono filter. For stereo files, ClipHacker splits the channels with <code>channelsplit</code>, runs arnndn independently on L and R, then recombines them with <code>join</code>:</p>
+      <p>arnndn is a mono filter. For stereo files, ClipHack splits the channels with <code>channelsplit</code>, runs arnndn independently on L and R, then recombines them with <code>join</code>:</p>
       <pre><code>[0:a]channelsplit=channel_layout=stereo[L][R];
 [L]arnndn=m=rnnoise[Lnr];
 [R]arnndn=m=rnnoise[Rnr];
@@ -267,7 +267,7 @@
       </ul>
 
       <h3>Aggressiveness parameters</h3>
-      <p>ClipHacker exposes three dynaudnorm parameters via the Aggressiveness slider. All three scale together:</p>
+      <p>ClipHack exposes three dynaudnorm parameters via the Aggressiveness slider. All three scale together:</p>
       <ul>
         <li><strong>Frame size</strong> — how long each analysis frame is. Shorter frames = faster response = more aggressive.</li>
         <li><strong>Gaussian smoothing (g)</strong> — the half-width of the Gaussian smoothing kernel. Higher = smoother gain transitions. Scales inversely with aggressiveness.</li>
@@ -287,7 +287,7 @@
       <p>EBU R128 is the European Broadcasting Union's standard for loudness normalization in broadcast. It defines loudness in LUFS (Loudness Units Full Scale), measured using ITU-R BS.1770 gating — a perceptually weighted measurement that ignores silence and very quiet passages.</p>
 
       <h3>Two-pass normalization</h3>
-      <p>ClipHacker uses FFmpeg's <code>loudnorm</code> filter in two-pass mode:</p>
+      <p>ClipHack uses FFmpeg's <code>loudnorm</code> filter in two-pass mode:</p>
       <ol>
         <li><strong>Analysis pass</strong> — measures the integrated loudness, true peak, and loudness range of the file</li>
         <li><strong>Normalization pass</strong> — applies a linear gain to bring the integrated loudness to the target LUFS</li>
@@ -313,7 +313,7 @@
 
       <h3>True peak vs. sample peak</h3>
       <p>Digital audio is stored as discrete samples. When you convert samples back to a continuous signal (D/A conversion), the reconstructed waveform can exceed the highest sample value — this is called an inter-sample peak or true peak. A sample peak limiter will show 0 dBFS on a meter, but the analog signal may clip.</p>
-      <p>ClipHacker uses <code>alimiter</code> with 2× oversampling. Upsampling to 2× the sample rate reveals inter-sample peaks that aren't visible at the original rate. The limiter constrains the signal at the oversampled rate before downsampling back — so the output's true peak (not just sample peak) is bounded by the ceiling.</p>
+      <p>ClipHack uses <code>alimiter</code> with 2× oversampling. Upsampling to 2× the sample rate reveals inter-sample peaks that aren't visible at the original rate. The limiter constrains the signal at the oversampled rate before downsampling back — so the output's true peak (not just sample peak) is bounded by the ceiling.</p>
 
       <h3>Ceiling selection</h3>
       <p>−1 dBTP is the most common setting. Podcast platforms typically require true peak at −1 or −2 dBTP. For clips being dropped into a broadcast chain that will do its own normalization, −3 dBTP gives more headroom. Lower settings (−6 dBTP) are rarely needed and will begin to reduce average loudness noticeably.</p>
@@ -322,20 +322,20 @@
     <!-- LUFS MEASUREMENT -->
     <section id="lufs">
       <h2>LUFS Measurement</h2>
-      <p>ClipHacker measures the loudness of each file before processing. This tells you what you're starting with, and lets you compare the original to the output.</p>
+      <p>ClipHack measures the loudness of each file before processing. This tells you what you're starting with, and lets you compare the original to the output.</p>
 
       <h3>ITU-R BS.1770 gating</h3>
       <p>Integrated loudness is measured using the BS.1770 algorithm: the signal is K-weighted (a frequency weighting that models human loudness perception), then measured in 400 ms blocks with 75% overlap. Blocks below −70 LUFS are excluded as silence. Blocks below the relative threshold (−10 LU below the mean of the ungated measurement) are also excluded — this prevents quiet passages from pulling the integrated loudness down.</p>
       <p>The result is a single number in LUFS representing the perceived loudness of the perceptible content in the file.</p>
 
       <h3>Noise floor warning</h3>
-      <p>When the noise floor is high relative to the speech content, the gating algorithm may include noise frames in the loudness measurement, making the result artificially high. ClipHacker detects this condition and shows a warning badge on the file. The measurement is still displayed — it's just flagged as potentially unreliable.</p>
+      <p>When the noise floor is high relative to the speech content, the gating algorithm may include noise frames in the loudness measurement, making the result artificially high. ClipHack detects this condition and shows a warning badge on the file. The measurement is still displayed — it's just flagged as potentially unreliable.</p>
     </section>
 
     <!-- FFMPEG PIPELINE -->
     <section id="ffmpeg">
       <h2>FFmpeg Pipeline</h2>
-      <p>ClipHacker bundles a full FFmpeg binary inside the app. Each processing stage runs FFmpeg as a subprocess, reading the output of the previous stage. Intermediate files are 24-bit PCM WAV to preserve full quality through the chain.</p>
+      <p>ClipHack bundles a full FFmpeg binary inside the app. Each processing stage runs FFmpeg as a subprocess, reading the output of the previous stage. Intermediate files are 24-bit PCM WAV to preserve full quality through the chain.</p>
 
       <h3>Why separate subprocesses?</h3>
       <p>The alternative would be a single FFmpeg invocation with a long filter chain. This is technically possible, but:</p>
@@ -347,7 +347,7 @@
       </ul>
 
       <h3>Temp files</h3>
-      <p>Intermediate files are written to a temporary directory that's cleaned up after processing. If processing fails, ClipHacker attempts to clean up temp files but may leave them in <code>/tmp</code> if the process is interrupted.</p>
+      <p>Intermediate files are written to a temporary directory that's cleaned up after processing. If processing fails, ClipHack attempts to clean up temp files but may leave them in <code>/tmp</code> if the process is interrupted.</p>
 
       <h3>Concurrency</h3>
       <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files is not artificially limited — it scales with the system's CPU and I/O capacity.</p>
