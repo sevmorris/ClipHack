@@ -31,10 +31,12 @@ struct HelpView: View {
                     }
                 }
                 section("Processing Pipeline") {
-                    text("ClipHack uses FFmpeg. Each stage is optional except the final limiter:")
+                    text("ClipHack uses FFmpeg. Each stage is optional except high-pass, phase rotation, and the final limiter:")
                     numberedList([
                         "Resample to target sample rate (skipped if already matching).",
                         "Noise Reduction — RNNoise neural network model (arnndn). Removes broadband background noise. Applied per-channel on stereo files.",
+                        "Channel extraction — pan stereo to mono (left or right channel).",
+                        "High-pass filter + phase rotation — removes low-frequency rumble and DC offset; allpass filter corrects phase shift. Always applied.",
                         "Level Audio — dynamic normalization via dynaudnorm. Evens out level variation across the clip. Designed for broadcast sources, not dialog.",
                         "Loudness Norm — two-pass EBU R128 loudness normalization to a target LUFS.",
                         "Brick-wall limiting with 2× oversampled true peak control."
@@ -44,6 +46,7 @@ struct HelpView: View {
                 section("Settings") {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
                     definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
+                    definition("High Pass", "High-pass filter cutoff frequency (20–90 Hz). At 20 Hz it acts as a DC blocker only. Higher values (60–90 Hz) remove low-frequency rumble. Always applied — drag to 20 Hz to minimize effect.")
                     definition("Noise Reduction", "Enables RNNoise neural network noise reduction (arnndn). Attenuates broadband background noise — hiss, room tone, HVAC. Applied before leveling.")
                     definition("Level Audio", "Enables dynamic leveling (dynaudnorm). Best for broadcast clips with varying levels. Not recommended for dialog or music.")
                     definitionView("Aggressiveness") {
@@ -85,14 +88,14 @@ struct HelpView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. Runs before the limiter.")
-                    definition("Target", "Loudness normalization target in LUFS, from -30 to -14. -16 LUFS is a common podcast insertion target.")
+                    definition("Target", "Loudness normalization target in LUFS, from -35 to -14. -18 LUFS is a common podcast insertion target.")
                     definition("Output Directory", "Custom output folder for processed files. Defaults to the same directory as the source file.")
                 }
                 Spacer()
             }
             .padding(30)
         }
-        .frame(width: 560, height: 720)
+        .frame(width: 580, height: 720)
     }
 
     // MARK: - Components

@@ -17,12 +17,14 @@ struct FileListView: View {
                 viewModel.moveFiles(from: source, to: destination)
             }
         }
-        .overlay {
-            // Hidden button captures plain Delete key to remove selected files
-            Button("") { viewModel.removeSelected() }
-                .keyboardShortcut(.delete, modifiers: [])
-                .hidden()
-        }
+        .background(
+            Button("") {
+                guard !viewModel.selectedFileIDs.isEmpty else { return }
+                viewModel.removeSelected()
+            }
+            .keyboardShortcut(.delete, modifiers: [])
+            .hidden()
+        )
     }
 }
 
@@ -36,20 +38,11 @@ struct FileRowView: View {
                 Text(file.url.lastPathComponent)
                     .font(.body)
 
-                if case .processing = file.status {
-                    ProgressView()
-                        .controlSize(.small)
-                } else if isProcessing, case .ready = file.status {
-                    ProgressView(value: 0.0)
-                        .controlSize(.small)
-                        .opacity(0.35)
-                }
-
                 if file.hasHighNoiseFloor {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                         .font(.caption)
-                        .help("High noise floor — level detection may be less accurate")
+                        .help("High noise floor — loudness normalization may be less accurate. Consider enabling Noise Reduction.")
                 }
 
                 if file.isProcessed {
@@ -76,6 +69,17 @@ struct FileRowView: View {
             }
 
             statusText
+
+            if case .processing = file.status {
+                ProgressView(value: nil as Double?)
+                    .progressViewStyle(.linear)
+                    .tint(.accentColor)
+            } else if isProcessing, case .ready = file.status {
+                ProgressView(value: 0.0, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(.secondary)
+                    .opacity(0.35)
+            }
         }
     }
 

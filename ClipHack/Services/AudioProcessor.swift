@@ -150,6 +150,18 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
+        // Stage 2.5: High-pass filter + phase rotation (always applied)
+        let hpURL = work.appendingPathComponent("\(stem)_hp.wav")
+        let hpAf = "highpass=f=\(settings.dcBlockHz),allpass=f=200:t=q:w=0.707"
+        try await runFFmpeg(exe: tools.ffmpeg, args: [
+            "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+            "-i", currentURL.path, "-af", hpAf,
+            "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", hpURL.path
+        ])
+        currentURL = hpURL
+
+        try Task.checkCancellation()
+
         // Stage 3: Leveling (optional)
         if settings.levelingEnabled {
             let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
@@ -227,37 +239,36 @@ actor AudioProcessor {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: exe)
         process.arguments = args
+        process.standardInput = FileHandle.nullDevice
 
-        let stderrPipe = Pipe()
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = stderrPipe
-
-        // Box avoids a shared `var` across two closures, satisfying Swift 6 concurrency.
-        // readGroup.wait() in the terminationHandler ensures the write always precedes the read.
-        final class DataBox: @unchecked Sendable { var value = Data() }
-        let box = DataBox()
-
+        nonisolated(unsafe) var cancelled = false
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let stderrPipe = Pipe()
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = stderrPipe
+
+                // Read pipe on GCD to avoid blocking the cooperative thread pool
+                var stderrData = Data()
                 let readGroup = DispatchGroup()
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
-                    box.value = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
                     readGroup.leave()
                 }
 
                 process.terminationHandler = { proc in
                     readGroup.wait()
-                    if proc.terminationReason == .uncaughtSignal {
+                    if proc.terminationReason == .uncaughtSignal || cancelled {
                         continuation.resume(throwing: CancellationError())
                         return
                     }
                     let exitCode = proc.terminationStatus
-                    let msg = String(data: box.value, encoding: .utf8) ?? ""
-                    if exitCode != 0 {
-                        continuation.resume(throwing: ProcessingError.ffmpegFailed(code: exitCode, message: msg.isEmpty ? "Exit code \(exitCode)" : msg))
-                    } else {
+                    let msg = String(data: stderrData, encoding: .utf8) ?? ""
+                    if exitCode == 0 {
                         continuation.resume(returning: ())
+                    } else {
+                        continuation.resume(throwing: ProcessingError.ffmpegFailed(code: exitCode, message: msg.isEmpty ? "Exit code \(exitCode)" : msg))
                     }
                 }
 
@@ -268,6 +279,7 @@ actor AudioProcessor {
                 }
             }
         } onCancel: {
+            cancelled = true
             process.terminate()
         }
     }
@@ -281,45 +293,45 @@ actor AudioProcessor {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: exe)
         process.arguments = args
+        process.standardInput = FileHandle.nullDevice
 
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-
-        final class DataBox: @unchecked Sendable { var value = Data() }
-        let stdoutBox = DataBox()
-        let stderrBox = DataBox()
-
+        nonisolated(unsafe) var cancelled = false
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-                let readGroup = DispatchGroup()
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
 
+                // Read pipe on GCD to avoid blocking the cooperative thread pool
+                var stdoutData = Data()
+                var stderrData = Data()
+                let readGroup = DispatchGroup()
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
-                    stdoutBox.value = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                    stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
                     readGroup.leave()
                 }
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
-                    stderrBox.value = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
                     readGroup.leave()
                 }
 
                 process.terminationHandler = { proc in
                     readGroup.wait()
-                    if proc.terminationReason == .uncaughtSignal {
+                    if proc.terminationReason == .uncaughtSignal || cancelled {
                         continuation.resume(throwing: CancellationError())
                         return
                     }
                     let exitCode = proc.terminationStatus
                     if exitCode != 0 {
-                        let msg = String(data: stderrBox.value, encoding: .utf8) ?? ""
+                        let msg = String(data: stderrData, encoding: .utf8) ?? ""
                         continuation.resume(throwing: ProcessingError.ffmpegFailed(code: exitCode, message: msg.isEmpty ? "Exit code \(exitCode)" : msg))
                     } else {
                         let output = captureStderr
-                            ? (String(data: stderrBox.value, encoding: .utf8) ?? "")
-                            : (String(data: stdoutBox.value, encoding: .utf8) ?? "")
+                            ? (String(data: stderrData, encoding: .utf8) ?? "")
+                            : (String(data: stdoutData, encoding: .utf8) ?? "")
                         continuation.resume(returning: output)
                     }
                 }
@@ -331,6 +343,7 @@ actor AudioProcessor {
                 }
             }
         } onCancel: {
+            cancelled = true
             process.terminate()
         }
     }
@@ -357,6 +370,7 @@ actor AudioProcessor {
     }
 
     private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
+        // Find the last '{' (start of the JSON block), then scan forward to its matching '}'
         guard let braceRange = output.range(of: "{", options: .backwards) else {
             throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
         }

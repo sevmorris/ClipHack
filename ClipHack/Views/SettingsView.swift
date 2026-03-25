@@ -42,6 +42,22 @@ struct SettingsView: View {
                     }
                 }
 
+                row("High Pass") {
+                    HStack(spacing: 6) {
+                        Slider(
+                            value: Binding(
+                                get: { Double(viewModel.settings.dcBlockHz) },
+                                set: { viewModel.settings.dcBlockHz = Int($0) }
+                            ),
+                            in: 20...90,
+                            step: 5
+                        )
+                        Text(viewModel.settings.dcBlockHz == 20 ? "DC Block" : "\(viewModel.settings.dcBlockHz) Hz")
+                            .font(.system(size: 11).monospaced())
+                            .frame(width: 55, alignment: .trailing)
+                    }
+                }
+
                 Divider().padding(.vertical, 6)
 
                 row("Noise Reduction") {
@@ -85,7 +101,7 @@ struct SettingsView: View {
 
                 row("Target") {
                     HStack(spacing: 6) {
-                        Slider(value: $viewModel.settings.loudnormTarget, in: -30 ... -14, step: 1)
+                        Slider(value: $viewModel.settings.loudnormTarget, in: -35 ... -14, step: 1)
                         Text(String(format: "%.0f LUFS", viewModel.settings.loudnormTarget))
                             .font(.system(size: 11).monospaced())
                             .frame(width: 56, alignment: .trailing)

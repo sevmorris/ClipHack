@@ -28,7 +28,7 @@ struct ContentView: View {
                 if showSettings {
                     staticDivider
                     SettingsView(viewModel: viewModel)
-                        .frame(width: 220)
+                        .frame(width: 260)
                 }
             }
         }

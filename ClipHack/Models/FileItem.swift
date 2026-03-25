@@ -15,6 +15,19 @@ struct AudioStats: Equatable, Sendable {
     let crest: Double
     let lufs: Double
     let noiseFloor: Double?
+
+    init(rms: Double, peak: Double, crest: Double, lufs: Double, noiseFloor: Double? = nil) {
+        self.rms = rms
+        self.peak = peak
+        self.crest = crest
+        self.lufs = lufs
+        self.noiseFloor = noiseFloor
+    }
+
+    var hasHighNoiseFloor: Bool {
+        guard let nf = noiseFloor else { return false }
+        return nf > -50.0
+    }
 }
 
 enum FileStatus: Equatable, Sendable {
@@ -50,8 +63,7 @@ struct FileItem: Identifiable, Equatable {
     }
 
     var hasHighNoiseFloor: Bool {
-        guard let floor = stats?.noiseFloor else { return false }
-        return floor > -50
+        stats?.hasHighNoiseFloor ?? false
     }
 
     var isProcessed: Bool {
