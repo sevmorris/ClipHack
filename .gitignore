@@ -1,5 +1,15 @@
+# Xcode
 build/
 DerivedData/
-.DS_Store
+*.xcuserstate
 *.xcuserdata
 xcuserdata/
+
+# macOS
+.DS_Store
+
+# DMG artifacts
+*.dmg
+
+# Claude
+.claude/
