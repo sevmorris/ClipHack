@@ -13,12 +13,12 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
     }
 
     static let builtIn: [ClipHackPreset] = [
-        // Optimised for broadcast clips (news, ads) played live into a Zoom call via
-        // Farrago/Loopback. 16-bit for codec compatibility; leveling on low to tame
-        // wildly dynamic sources without pumping; de-esser for sibilance through Zoom.
+        // Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback.
+        // 16-bit for codec compatibility; leveling on low to tame wildly dynamic sources
+        // without pumping; de-esser for sibilance through Zoom.
         ClipHackPreset(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
-            name: "Zoom Broadcast Clips",
+            name: "Broadcast Conform",
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 bitDepth: .s16,
