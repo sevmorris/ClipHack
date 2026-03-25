@@ -15,10 +15,12 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                row("Stereo Output") {
-                    Toggle("", isOn: $viewModel.settings.stereoOutput)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
+                row("Output") {
+                    Picker("", selection: $viewModel.settings.stereoOutput) {
+                        Text("Mono").tag(false)
+                        Text("Stereo").tag(true)
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 row("Channel") {
