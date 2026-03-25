@@ -200,7 +200,9 @@
       <small>Theory of Operation</small>
     </div>
     <a href="#overview" class="section-head">Sections</a>
-    <a href="#overview">Overview</a>
+    <a href="#origin">Why ClipHack Exists</a>
+    <a href="#zoom">Zoom & Audio Quality</a>
+    <a href="#overview">Processing Overview</a>
     <a href="#rnnoise">RNNoise / arnndn</a>
     <a href="#dynaudnorm">dynaudnorm</a>
     <a href="#loudnorm">EBU R128 / loudnorm</a>
@@ -221,6 +223,53 @@
         <a href="index.html" class="btn btn-secondary">&#8592; Manual</a>
       </div>
     </div>
+
+    <!-- ORIGIN -->
+    <section id="origin">
+      <h2>Why ClipHack Exists</h2>
+      <p>I'm a freelance audio engineer, not a software developer. I record remote podcasts via Zoom, and part of that job involves playing broadcast clips — news stories, political ads, promo inserts — live into the call while it's being recorded. The clips come from broadcast sources: TV stations, networks, political campaigns. They sound fine on air, but they're not prepared for injection into a Zoom session through a virtual audio chain.</p>
+      <p>The problem is that broadcast clips are wildly inconsistent. A local news package might peak at −1 dBFS; the next clip might average 12 dB quieter. Some are heavily compressed, some are barely processed at all. Dropped raw into a Zoom call, they're either too loud, too quiet, or dynamically all over the place relative to the hosts' voices. On the receiving end — especially when the final output is a podcast — those level jumps are jarring and unprofessional.</p>
+      <p>My workflow before ClipHack was to prep clips manually in a DAW before the show: normalize, limit, export. It worked, but it was tedious for a batch of eight clips the morning of a recording. I wanted a dedicated tool that understood the specific problem: not mastering, not dialog prep, but <em>broadcast clip conforming</em> — getting a pile of inconsistently leveled clips to a consistent playback level as quickly as possible.</p>
+      <p>The routing is: clips play from <a href="https://rogueamoeba.com/farrago/" target="_blank" rel="noopener noreferrer">Farrago</a> (a soundboard app), through <a href="https://rogueamoeba.com/loopback/" target="_blank" rel="noopener noreferrer">Loopback</a> (a virtual audio cable), into Zoom as a second audio input. ClipHack sits at the beginning of that chain — it's the step that prepares the clips before they ever enter Farrago. By the time a clip is in the soundboard, it should already be leveled, limited, and ready to play at the right level without any further adjustment.</p>
+
+      <h3>Why these specific processing stages?</h3>
+      <p><strong>Leveling (dynaudnorm)</strong> tames clips that are internally inconsistent — a reporter who starts quiet and builds, or a clip that cuts between two sources at very different levels. It's the stage that does the most to make broadcast clips behave predictably.</p>
+      <p><strong>Loudness normalization (EBU R128)</strong> sets the overall integrated loudness to a consistent target. After leveling, normalization ensures every clip lands at approximately the same perceived loudness regardless of how the source was produced.</p>
+      <p><strong>Brick-wall limiting</strong> catches any peaks that survived the previous stages and prevents them from clipping the codec or causing sudden loudness spikes on the receiving end.</p>
+      <p><strong>Noise reduction (RNNoise)</strong> is optional and situation-specific. Some clips — particularly local TV packages — have audible room noise or HVAC hum that becomes more noticeable when the clip is leveled up. RNNoise handles this reasonably well on voice content. It's off by default because it can introduce artifacts on heavily processed broadcast material.</p>
+      <p><strong>De-esser</strong> is useful for clips that will pass through Zoom's codec, which can exaggerate sibilance. A gentle pass at 7.5 kHz takes the edge off without affecting the overall character of the clip.</p>
+    </section>
+
+    <!-- ZOOM -->
+    <section id="zoom">
+      <h2>Zoom &amp; Audio Quality</h2>
+      <p>Since ClipHack is specifically designed for a Zoom injection workflow, it's worth understanding what Zoom actually does to audio — and what that means for how you should prepare your clips.</p>
+
+      <h3>The signal chain</h3>
+      <p>Audio routed into Zoom via Loopback passes through several conversion stages before it reaches the other end of the call:</p>
+      <ol>
+        <li><strong>Core Audio (macOS)</strong> — all audio on macOS is converted to 32-bit float by Core Audio before any application sees it. This happens transparently. Whether your source file is 16-bit, 24-bit, or 32-bit float, Core Audio hands Zoom a 32-bit float stream.</li>
+        <li><strong>ZoomAudioDevice</strong> — Zoom's virtual audio driver operates at a fixed 48 kHz. Audio at any other sample rate is resampled at this stage.</li>
+        <li><strong>Zoom's audio engine</strong> — applies echo cancellation, noise suppression, and AGC (automatic gain control) unless you've disabled them via High Fidelity Music Mode.</li>
+        <li><strong>Opus encoder</strong> — this is the real quality ceiling. Zoom uses the Opus codec for audio transmission, confirmed by Zoom's own developer documentation. Standard Zoom audio runs at 32–64 kbps. With High Fidelity Music Mode enabled, Zoom can reach up to 96 kbps mono or 192 kbps stereo, with echo cancellation and noise suppression disabled.</li>
+        <li><strong>Network transmission, decode, and playback</strong> — the listener receives an Opus-decoded signal, not your original file.</li>
+      </ol>
+
+      <h3>Why bit depth doesn't matter</h3>
+      <p>A question that came up during ClipHack's development was whether to offer a 16-bit output option alongside 24-bit, on the theory that 16-bit might be "more compatible" with Zoom. The answer, after research, is that it makes no difference.</p>
+      <p>Here's why: by the time your audio reaches the Opus encoder, it has already been converted to 32-bit float by Core Audio — regardless of the source bit depth. A 16-bit WAV and a 24-bit WAV are both converted to the same 32-bit float representation at the OS level. The 24-bit signal maps losslessly into 32-bit float (which has a 25-bit mantissa); the 16-bit signal maps losslessly with the lower 8 bits zeroed. Zoom receives the same quality signal in both cases.</p>
+      <p>More importantly: the Opus codec is lossy. Even at its highest supported bitrate (192 kbps stereo with High Fidelity Music Mode), Opus permanently discards audio information as part of the encoding process. The distortion introduced by Opus compression is orders of magnitude larger than any theoretical quality difference between 16-bit and 24-bit source material. Zoom itself only describes audio quality in terms of bitrate — there is no mention of bit depth anywhere in Zoom's audio documentation.</p>
+      <p>ClipHack outputs 24-bit WAV not because 24-bit matters to Zoom, but because 24-bit preserves full quality through the processing chain itself. All internal stages operate at 24-bit PCM; keeping the output at 24-bit means the file can be used elsewhere (in a DAW, in WaxOff, in any other tool) without any loss.</p>
+
+      <h3>What actually matters for Zoom audio quality</h3>
+      <p>If you care about how your clips sound through Zoom, these are the things worth paying attention to:</p>
+      <ul>
+        <li><strong>Enable High Fidelity Music Mode</strong> in Zoom's audio settings. This disables echo cancellation and noise suppression (which can mangle music and processed audio) and raises the bitrate ceiling to 192 kbps stereo. It's the single biggest quality improvement available.</li>
+        <li><strong>Sample rate</strong> — Zoom's driver is fixed at 48 kHz. If you're feeding it 44.1 kHz audio, Core Audio will resample it. This resampling is transparent and high quality, but if you want to eliminate it entirely, export at 48 kHz.</li>
+        <li><strong>Input levels</strong> — Zoom's AGC will try to normalize your input level. Keep your clip levels healthy (not hot, not whisper-quiet) so the AGC has less reason to intervene. ClipHack's loudness normalization and limiting handle this: the <strong>Broadcast Conform</strong> preset targets −18 LUFS, which leaves enough headroom to play through a typical Zoom gain stage without triggering compression.</li>
+        <li><strong>Disable "Automatically adjust microphone volume"</strong> in Zoom's audio settings when using a virtual device — otherwise Zoom will fight with your carefully prepared levels.</li>
+      </ul>
+    </section>
 
     <!-- OVERVIEW -->
     <section id="overview">
