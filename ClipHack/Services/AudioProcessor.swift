@@ -70,10 +70,12 @@ actor AudioProcessor {
         let limitAmp = pow(10.0, settings.limitDb / 20.0)
         let limitTag = formatDbTag(settings.limitDb)
         let outDir = bestOutputDir(for: input)
+        let bitTag = settings.bitDepth == .s16 ? "16b-" : ""
         let nrTag = settings.noiseReductionEnabled ? "nr-" : ""
+        let dsTag = settings.deEsserEnabled ? "ds-" : ""
         let levelTag = settings.levelingEnabled ? "leveled-" : ""
         let normTag = settings.loudnormEnabled ? "norm-" : ""
-        let outName = "\(stem)-\(rateTag)\(nrTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
+        let outName = "\(stem)-\(rateTag)\(bitTag)\(nrTag)\(dsTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
         let finalURL = outDir.appendingPathComponent(outName)
         let tmpURL = outDir.appendingPathComponent(".\(outName).tmp")
 
@@ -92,18 +94,28 @@ actor AudioProcessor {
         let channels = probeFields.count >= 2 ? Int(probeFields[1]) ?? 2 : 2
         let outputChannels = settings.stereoOutput ? max(2, channels) : 1
 
+        // Stage 0: Input trim (optional — skipped when trimDb is 0)
+        var currentURL: URL = input
+        if settings.trimDb != 0.0 {
+            let trimURL = work.appendingPathComponent("\(stem)_trim.wav")
+            try await runFFmpeg(exe: tools.ffmpeg, args: [
+                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", currentURL.path, "-af", "volume=\(settings.trimDb)dB",
+                "-c:a", "pcm_s24le", trimURL.path
+            ])
+            currentURL = trimURL
+            try Task.checkCancellation()
+        }
+
         // Stage 1: Resample to target sample rate (skip if already matching)
-        var currentURL: URL
         if inputSampleRate != sr {
             let midURL = work.appendingPathComponent("\(stem)_\(rateTag)24.wav")
             try await runFFmpeg(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", input.path, "-af", "aresample=\(sr)",
+                "-i", currentURL.path, "-af", "aresample=\(sr)",
                 "-c:a", "pcm_s24le", "-ar", "\(sr)", midURL.path
             ])
             currentURL = midURL
-        } else {
-            currentURL = input
         }
 
         try Task.checkCancellation()
@@ -162,6 +174,18 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
+        // Stage 2.7: De-esser (optional)
+        if settings.deEsserEnabled {
+            let dsURL = work.appendingPathComponent("\(stem)_ds.wav")
+            try await runFFmpeg(exe: tools.ffmpeg, args: [
+                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", currentURL.path, "-af", "adeesser=i=0.3:m=o:f=7500:s=p",
+                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dsURL.path
+            ])
+            currentURL = dsURL
+            try Task.checkCancellation()
+        }
+
         // Stage 3: Leveling (optional)
         if settings.levelingEnabled {
             let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
@@ -210,10 +234,11 @@ actor AudioProcessor {
             try? fm.removeItem(at: tmpURL)
         }
 
+        let outputCodec = settings.bitDepth == .s16 ? "pcm_s16le" : "pcm_s24le"
         try await runFFmpeg(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-i", currentURL.path, "-af", limiterAf,
-            "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", "-f", "wav", tmpURL.path
+            "-c:a", outputCodec, "-ar", "\(sr)", "-ac", "\(outputChannels)", "-f", "wav", tmpURL.path
         ])
 
         guard let attrs = try? fm.attributesOfItem(atPath: tmpURL.path),

@@ -11,9 +11,17 @@ struct ClipHackSettings: Codable, Equatable, Sendable {
         case right
     }
 
+    enum BitDepth: String, CaseIterable, Codable, Sendable {
+        case s24 = "24"
+        case s16 = "16"
+    }
+
     var sampleRate: SampleRate = .s44100
+    var bitDepth: BitDepth = .s24
     var limitDb: Double = -1.0
+    var trimDb: Double = 0.0
     var noiseReductionEnabled: Bool = false
+    var deEsserEnabled: Bool = false
     var levelingEnabled: Bool = false
     var levelingAmount: Double = 0.5
     var dcBlockHz: Int = 80

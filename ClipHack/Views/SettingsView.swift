@@ -15,6 +15,14 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
+                row("Bit Depth") {
+                    Picker("", selection: $viewModel.settings.bitDepth) {
+                        Text("24-bit").tag(ClipHackSettings.BitDepth.s24)
+                        Text("16-bit").tag(ClipHackSettings.BitDepth.s16)
+                    }
+                    .pickerStyle(.segmented)
+                }
+
                 row("Output") {
                     Picker("", selection: $viewModel.settings.stereoOutput) {
                         Text("Mono").tag(false)
@@ -60,14 +68,37 @@ struct SettingsView: View {
                     }
                 }
 
+                row("Trim Input") {
+                    HStack(spacing: 6) {
+                        Slider(value: $viewModel.settings.trimDb, in: -12 ... 6, step: 0.5)
+                        Text(viewModel.settings.trimDb == 0 ? "Off" : String(format: "%+.1f dB", viewModel.settings.trimDb))
+                            .font(.system(size: 11).monospaced())
+                            .frame(width: 52, alignment: .trailing)
+                    }
+                }
+
                 Divider().padding(.vertical, 6)
 
                 row("Noise Reduction") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Toggle("", isOn: $viewModel.settings.noiseReductionEnabled)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                            Text("RNNoise (ML)")
+                        }
+                        Text("Check output before editing — artifacts are possible on heavy noise")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                row("De-esser") {
                     HStack(spacing: 8) {
-                        Toggle("", isOn: $viewModel.settings.noiseReductionEnabled)
+                        Toggle("", isOn: $viewModel.settings.deEsserEnabled)
                             .toggleStyle(.switch)
                             .labelsHidden()
-                        Text("RNNoise")
+                        Text("Gentle (7.5 kHz)")
                     }
                 }
 
