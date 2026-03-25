@@ -249,7 +249,7 @@ actor AudioProcessor {
                 process.standardError = stderrPipe
 
                 // Read pipe on GCD to avoid blocking the cooperative thread pool
-                var stderrData = Data()
+                nonisolated(unsafe) var stderrData = Data()
                 let readGroup = DispatchGroup()
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
@@ -304,8 +304,8 @@ actor AudioProcessor {
                 process.standardError = stderrPipe
 
                 // Read pipe on GCD to avoid blocking the cooperative thread pool
-                var stdoutData = Data()
-                var stderrData = Data()
+                nonisolated(unsafe) var stdoutData = Data()
+                nonisolated(unsafe) var stderrData = Data()
                 let readGroup = DispatchGroup()
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
