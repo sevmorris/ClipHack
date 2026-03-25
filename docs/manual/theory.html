@@ -98,6 +98,11 @@
       padding-bottom: 4px;
       pointer-events: none;
     }
+    nav a.back-link {
+      font-size: 0.78rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
 
     /* ── Main content ── */
     main {
@@ -199,7 +204,8 @@
       <span>ClipHack</span>
       <small>Theory of Operation</small>
     </div>
-    <a href="#overview" class="section-head">Sections</a>
+    <a class="back-link" href="index.html">← User Manual</a>
+    <a class="section-head" href="#">Sections</a>
     <a href="#origin">Why ClipHack Exists</a>
     <a href="#zoom">Zoom & Audio Quality</a>
     <a href="#overview">Processing Overview</a>
@@ -209,8 +215,7 @@
     <a href="#limiter">Brick-Wall Limiter</a>
     <a href="#lufs">LUFS Measurement</a>
     <a href="#ffmpeg">FFmpeg Pipeline</a>
-    <a href="index.html" class="section-head">&#8592; Back to Manual</a>
-    <a href="../">Home</a>
+    <a class="back-link" href="../">Home</a>
   </nav>
 
   <!-- MAIN -->
