@@ -32,11 +32,11 @@ struct HelpView: View {
                 }
                 section("Output Naming") {
                     text("Output filenames reflect what processing was applied:")
-                    code("{original-name}-{rate}{16b-}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav")
+                    code("{original-name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav")
                     VStack(alignment: .leading, spacing: 4) {
                         text("Examples:")
                         code("clip-44kclipped-1dB.wav")
-                        code("clip-44k16b-nr-ds-leveled-norm-clipped-1dB.wav")
+                        code("clip-44knr-ds-leveled-norm-clipped-1dB.wav")
                     }
                 }
                 section("Processing Pipeline") {
@@ -56,8 +56,7 @@ struct HelpView: View {
                 }
                 section("Settings") {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
-                    definition("Bit Depth", "Output bit depth — 24-bit (default) or 16-bit. 24-bit preserves headroom during processing; 16-bit is compatible with more playback tools and takes up less disk space. All internal processing stages use 24-bit regardless.")
-                    definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
+definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff frequency (20–90 Hz). At 20 Hz it acts as a DC blocker only. Higher values (60–90 Hz) remove low-frequency rumble. Always applied — drag to 20 Hz to minimize effect.")
                     definition("Trim Input", "Apply gain to the input signal before any processing, from -12 to +6 dB. Useful for taming hot sources before the limiter or loudnorm pass. Set to 0 to bypass.")
                     definition("Noise Reduction", "Enables RNNoise neural network noise reduction (arnndn). Attenuates broadband background noise — hiss, room tone, HVAC. Applied before channel extraction. Check output before editing — artifacts are possible on heavy noise.")
