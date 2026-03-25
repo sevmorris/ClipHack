@@ -10,6 +10,7 @@ final class ContentViewModel {
     var settings: ClipHackSettings {
         didSet { settings.save() }
     }
+    var presetStore = ClipHackPresetStore()
     var isProcessing = false
     var alertMessage: String?
     private var processingTask: Task<Void, Never>?
@@ -21,6 +22,17 @@ final class ContentViewModel {
 
     init() {
         self.settings = ClipHackSettings.load()
+    }
+
+    func applyPreset(_ preset: ClipHackPreset) {
+        let savedOutputDir = settings.outputDirectoryPath
+        settings = preset.settings
+        settings.outputDirectoryPath = savedOutputDir
+        presetStore.selectedPresetID = preset.id
+    }
+
+    func saveCurrentAsPreset(name: String) {
+        presetStore.savePreset(name: name, settings: settings)
     }
 
     func addFiles(_ urls: [URL]) {

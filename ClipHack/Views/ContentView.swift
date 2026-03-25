@@ -46,6 +46,8 @@ struct ContentView: View {
 
     private var headerView: some View {
         HStack {
+            PresetPicker(viewModel: viewModel)
+
             Spacer()
 
             if viewModel.isProcessing {

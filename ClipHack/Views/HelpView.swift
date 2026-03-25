@@ -13,6 +13,15 @@ struct HelpView: View {
                     before dropping into a podcast or show.
                     """)
                 }
+                section("Presets") {
+                    text("Presets save and recall all settings at once. Three built-in presets are included:")
+                    VStack(alignment: .leading, spacing: 8) {
+                        definition("Zoom Broadcast Clips", "Optimised for broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. 16-bit for codec compatibility; leveling on low to tame wildly dynamic sources without pumping; de-esser for sibilance through Zoom. Loudness normalized to -18 LUFS.")
+                        definition("Clean & Limit", "Minimal processing — high-pass at DC block + limiter only. Good for already well-produced sources that just need a safety ceiling.")
+                        definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. No leveling or NR. Good for sources with consistent dynamics that just need a loudness target.")
+                    }
+                    text("To save your own preset, open the preset menu and choose **Save Current Settings…**. To delete a custom preset, choose **Delete Preset** from the same menu. Built-in presets cannot be deleted.")
+                }
                 section("Getting Started") {
                     steps([
                         "Set your sample rate, ceiling, and any processing options.",
