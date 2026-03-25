@@ -4,7 +4,7 @@
 
 ## Download
 
-**[ClipHack v1.4.2 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.4.2.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)**
+**[ClipHack v1.5.0 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.5.0.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
