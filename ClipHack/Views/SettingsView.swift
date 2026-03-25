@@ -15,14 +15,6 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                row("Bit Depth") {
-                    Picker("", selection: $viewModel.settings.bitDepth) {
-                        Text("24-bit").tag(ClipHackSettings.BitDepth.s24)
-                        Text("16-bit").tag(ClipHackSettings.BitDepth.s16)
-                    }
-                    .pickerStyle(.segmented)
-                }
-
                 row("Output") {
                     Picker("", selection: $viewModel.settings.stereoOutput) {
                         Text("Mono").tag(false)

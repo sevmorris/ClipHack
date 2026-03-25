@@ -21,7 +21,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             name: "Broadcast Conform",
             settings: ClipHackSettings(
                 sampleRate: .s44100,
-                bitDepth: .s16,
                 limitDb: -1.0,
                 trimDb: 0.0,
                 noiseReductionEnabled: true,
@@ -43,7 +42,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             name: "Clean & Limit",
             settings: ClipHackSettings(
                 sampleRate: .s44100,
-                bitDepth: .s24,
                 limitDb: -1.0,
                 trimDb: 0.0,
                 noiseReductionEnabled: false,
@@ -65,7 +63,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             name: "Normalize & Limit",
             settings: ClipHackSettings(
                 sampleRate: .s44100,
-                bitDepth: .s24,
                 limitDb: -1.0,
                 trimDb: 0.0,
                 noiseReductionEnabled: false,
