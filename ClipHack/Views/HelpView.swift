@@ -42,7 +42,6 @@ struct HelpView: View {
                 section("Processing Pipeline") {
                     text("ClipHack uses FFmpeg. Each stage is optional except high-pass, phase rotation, and the final limiter:")
                     numberedList([
-                        "Trim Input — apply input gain before any processing (optional, skipped at 0 dB).",
                         "Resample to target sample rate (skipped if already matching).",
                         "Noise Reduction — RNNoise neural network model (arnndn). Removes broadband background noise. Applied per-channel on stereo files.",
                         "Channel extraction — pan stereo to mono (left or right channel).",
@@ -58,7 +57,6 @@ struct HelpView: View {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
 definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff frequency (20–90 Hz). At 20 Hz it acts as a DC blocker only. Higher values (60–90 Hz) remove low-frequency rumble. Always applied — drag to 20 Hz to minimize effect.")
-                    definition("Trim Input", "Apply gain to the input signal before any processing, from -12 to +6 dB. Useful for taming hot sources before the limiter or loudnorm pass. Set to 0 to bypass.")
                     definition("Noise Reduction", "Enables RNNoise neural network noise reduction (arnndn). Attenuates broadband background noise — hiss, room tone, HVAC. Applied before channel extraction. Check output before editing — artifacts are possible on heavy noise.")
                     definition("De-esser", "Enables gentle sibilance reduction (adeesser, 7.5 kHz, intensity 0.3). Reduces harshness on voiced content — particularly useful for news clips and political ads going through a codec like Zoom.")
                     definition("Level Audio", "Enables dynamic leveling (dynaudnorm). Best for wildly dynamic sources. Not recommended for already-compressed broadcast content.")

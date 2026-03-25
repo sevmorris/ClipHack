@@ -93,20 +93,8 @@ actor AudioProcessor {
         let channels = probeFields.count >= 2 ? Int(probeFields[1]) ?? 2 : 2
         let outputChannels = settings.stereoOutput ? max(2, channels) : 1
 
-        // Stage 0: Input trim (optional — skipped when trimDb is 0)
-        var currentURL: URL = input
-        if settings.trimDb != 0.0 {
-            let trimURL = work.appendingPathComponent("\(stem)_trim.wav")
-            try await runFFmpeg(exe: tools.ffmpeg, args: [
-                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", currentURL.path, "-af", "volume=\(settings.trimDb)dB",
-                "-c:a", "pcm_s24le", trimURL.path
-            ])
-            currentURL = trimURL
-            try Task.checkCancellation()
-        }
-
         // Stage 1: Resample to target sample rate (skip if already matching)
+        var currentURL: URL = input
         if inputSampleRate != sr {
             let midURL = work.appendingPathComponent("\(stem)_\(rateTag)24.wav")
             try await runFFmpeg(exe: tools.ffmpeg, args: [

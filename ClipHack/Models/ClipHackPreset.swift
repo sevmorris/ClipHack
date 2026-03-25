@@ -22,7 +22,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                trimDb: 0.0,
                 noiseReductionEnabled: true,
                 deEsserEnabled: true,
                 levelingEnabled: true,
@@ -43,7 +42,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                trimDb: 0.0,
                 noiseReductionEnabled: false,
                 deEsserEnabled: false,
                 levelingEnabled: false,
@@ -64,7 +62,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                trimDb: 0.0,
                 noiseReductionEnabled: false,
                 deEsserEnabled: false,
                 levelingEnabled: false,

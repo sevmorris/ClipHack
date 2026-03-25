@@ -60,15 +60,6 @@ struct SettingsView: View {
                     }
                 }
 
-                row("Trim Input") {
-                    HStack(spacing: 6) {
-                        Slider(value: $viewModel.settings.trimDb, in: -12 ... 6, step: 0.5)
-                        Text(viewModel.settings.trimDb == 0 ? "Off" : String(format: "%+.1f dB", viewModel.settings.trimDb))
-                            .font(.system(size: 11).monospaced())
-                            .frame(width: 52, alignment: .trailing)
-                    }
-                }
-
                 Divider().padding(.vertical, 6)
 
                 row("Noise Reduction") {
