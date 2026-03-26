@@ -5,7 +5,7 @@ struct EmptyStateView: View {
         VStack(spacing: 16) {
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
-                .frame(width: 128, height: 128)
+                .frame(width: 160, height: 160)
 
             VStack(spacing: 8) {
                 Text("Drag and drop audio files here to get started.")
