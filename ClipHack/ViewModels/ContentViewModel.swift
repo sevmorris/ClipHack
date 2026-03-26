@@ -113,10 +113,11 @@ final class ContentViewModel {
                     }
                 }
 
-                // Generate output waveforms
+                // Generate output waveforms and analyze output stats
                 for result in results {
                     if let id = result.id {
                         generateOutputWaveform(id: id, url: result.output)
+                        analyzeOutputFile(id: id, url: result.output)
                     }
                 }
 
@@ -178,6 +179,19 @@ final class ContentViewModel {
                 }
             } catch {
                 // Waveform generation failed silently - not critical
+            }
+        }
+    }
+
+    private func analyzeOutputFile(id: UUID, url: URL) {
+        Task {
+            if let info = try? await AudioAnalyzer.info(url: url),
+               let index = files.firstIndex(where: { $0.id == id }) {
+                files[index].outputFileInfo = info
+            }
+            if let stats = try? await AudioAnalyzer.analyze(url: url),
+               let index = files.firstIndex(where: { $0.id == id }) {
+                files[index].outputStats = stats
             }
         }
     }

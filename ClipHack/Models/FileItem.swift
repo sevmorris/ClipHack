@@ -47,6 +47,8 @@ struct FileItem: Identifiable, Equatable {
     var waveform: WaveformData?
     var outputWaveform: WaveformData?
     var analysisStats: AudioStats?
+    var outputStats: AudioStats?
+    var outputFileInfo: FileInfo?
 
     init(url: URL) {
         self.id = UUID()
@@ -79,6 +81,7 @@ struct FileItem: Identifiable, Equatable {
     static func == (lhs: FileItem, rhs: FileItem) -> Bool {
         lhs.id == rhs.id && lhs.status == rhs.status && lhs.analysisStats == rhs.analysisStats
             && lhs.waveform == rhs.waveform && lhs.outputWaveform == rhs.outputWaveform
-            && lhs.fileInfo == rhs.fileInfo
+            && lhs.fileInfo == rhs.fileInfo && lhs.outputStats == rhs.outputStats
+            && lhs.outputFileInfo == rhs.outputFileInfo
     }
 }
