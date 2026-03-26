@@ -166,7 +166,7 @@ actor AudioProcessor {
             let dsURL = work.appendingPathComponent("\(stem)_ds.wav")
             try await runFFmpeg(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", currentURL.path, "-af", "adeesser=i=0.3:m=o:f=7500:s=p",
+                "-i", currentURL.path, "-af", "deesser=i=0.3:f=0.34:s=o",
                 "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dsURL.path
             ])
             currentURL = dsURL
