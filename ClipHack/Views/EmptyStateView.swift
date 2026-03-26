@@ -3,15 +3,11 @@ import SwiftUI
 struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "waveform.path")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .frame(width: 128, height: 128)
 
             VStack(spacing: 8) {
-                Text("Welcome to ClipHack")
-                    .font(.title2)
-                    .bold()
-
                 Text("Drag and drop audio files here to get started.")
                     .font(.body)
                     .foregroundStyle(.secondary)
