@@ -16,10 +16,16 @@ struct JobInput: Sendable {
 actor AudioProcessor {
     let settings: ClipHackSettings
     let onFileStarted: (@Sendable (UUID) -> Void)?
+    let onFileCompleted: (@Sendable (UUID, URL) -> Void)?
 
-    init(settings: ClipHackSettings, onFileStarted: (@Sendable (UUID) -> Void)? = nil) {
+    init(
+        settings: ClipHackSettings,
+        onFileStarted: (@Sendable (UUID) -> Void)? = nil,
+        onFileCompleted: (@Sendable (UUID, URL) -> Void)? = nil
+    ) {
         self.settings = settings
         self.onFileStarted = onFileStarted
+        self.onFileCompleted = onFileCompleted
     }
 
     func run(inputs: [JobInput]) async throws -> [JobResult] {
@@ -28,7 +34,7 @@ actor AudioProcessor {
         let tools = try await FFmpegManager.shared.ensureTools()
         let maxConcurrent = 3
 
-        return try await withThrowingTaskGroup(of: JobResult?.self) { group in
+        return try await withThrowingTaskGroup(of: JobResult.self) { group in
             var results: [JobResult] = []
             var index = 0
 
@@ -39,7 +45,9 @@ actor AudioProcessor {
                 group.addTask {
                     try Task.checkCancellation()
                     self.onFileStarted?(input.id)
-                    return try await self.processOne(input.url, id: input.id, tools: tools)
+                    let result = try await self.processOne(input.url, id: input.id, tools: tools)
+                    self.onFileCompleted?(result.id, result.output)
+                    return result
                 }
             }
 
@@ -48,9 +56,7 @@ actor AudioProcessor {
             }
 
             for try await result in group {
-                if let result {
-                    results.append(result)
-                }
+                results.append(result)
                 addNext()
             }
 
@@ -58,7 +64,7 @@ actor AudioProcessor {
         }
     }
 
-    private func processOne(_ input: URL, id: UUID, tools: FFmpegManager.Paths) async throws -> JobResult? {
+    private func processOne(_ input: URL, id: UUID, tools: FFmpegManager.Paths) async throws -> JobResult {
         let fm = FileManager.default
         guard fm.fileExists(atPath: input.path) else {
             throw ProcessingError.invalidInput
@@ -81,15 +87,18 @@ actor AudioProcessor {
         let work = try makeTemp(prefix: "cliphacker_\(rateTag)_")
         defer { try? fm.removeItem(at: work) }
 
-        // Detect input channel count and sample rate
+        // Detect input channel count and sample rate.
+        // Fields are output in ffprobe's internal order (sample_rate, channels) regardless
+        // of the order specified in show_entries — parsing matches that internal order.
         let probeArgs = [
             "-v", "error", "-select_streams", "a:0",
-            "-show_entries", "stream=channels,sample_rate",
+            "-show_entries", "stream=sample_rate,channels",
             "-of", "csv=p=0", input.path
         ]
-        let probeOutput = try await runFFmpegCapture(exe: tools.ffprobe, args: probeArgs).trimmingCharacters(in: .whitespacesAndNewlines)
+        let probeOutput = try await runFFmpegCapture(exe: tools.ffprobe, args: probeArgs)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let probeFields = probeOutput.split(separator: ",")
-        let inputSampleRate = probeFields.count >= 2 ? Int(probeFields[0]) ?? sr : sr
+        let inputSampleRate = probeFields.count >= 1 ? Int(probeFields[0]) ?? sr : sr
         let channels = probeFields.count >= 2 ? Int(probeFields[1]) ?? 2 : 2
         let outputChannels = settings.stereoOutput ? max(2, channels) : 1
 
@@ -241,63 +250,18 @@ actor AudioProcessor {
         return JobResult(id: id, input: input, output: finalURL)
     }
 
-    private nonisolated func runFFmpeg(exe: String, args: [String]) async throws {
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: exe) else {
-            throw ProcessingError.ffmpegNotFound
-        }
+    // MARK: - Process runner
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: exe)
-        process.arguments = args
-        process.standardInput = FileHandle.nullDevice
-
-        nonisolated(unsafe) var cancelled = false
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                let stderrPipe = Pipe()
-                process.standardOutput = FileHandle.nullDevice
-                process.standardError = stderrPipe
-
-                // Read pipe on GCD to avoid blocking the cooperative thread pool
-                nonisolated(unsafe) var stderrData = Data()
-                let readGroup = DispatchGroup()
-                readGroup.enter()
-                DispatchQueue.global(qos: .utility).async {
-                    stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                    readGroup.leave()
-                }
-
-                process.terminationHandler = { proc in
-                    readGroup.wait()
-                    if proc.terminationReason == .uncaughtSignal || cancelled {
-                        continuation.resume(throwing: CancellationError())
-                        return
-                    }
-                    let exitCode = proc.terminationStatus
-                    let msg = String(data: stderrData, encoding: .utf8) ?? ""
-                    if exitCode == 0 {
-                        continuation.resume(returning: ())
-                    } else {
-                        continuation.resume(throwing: ProcessingError.ffmpegFailed(code: exitCode, message: msg.isEmpty ? "Exit code \(exitCode)" : msg))
-                    }
-                }
-
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: ProcessingError.ffmpegFailed(code: -1, message: "Failed to launch: \(error.localizedDescription)"))
-                }
-            }
-        } onCancel: {
-            cancelled = true
-            process.terminate()
-        }
-    }
-
-    private nonisolated func runFFmpegCapture(exe: String, args: [String], captureStderr: Bool = false) async throws -> String {
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: exe) else {
+    /// Runs an FFmpeg-compatible process. Captures stdout when `captureStdout` is true,
+    /// returns stderr content when `returnStderr` is true. Always reads stderr for error reporting.
+    @discardableResult
+    private nonisolated func runProcess(
+        exe: String,
+        args: [String],
+        captureStdout: Bool = false,
+        returnStderr: Bool = false
+    ) async throws -> String {
+        guard FileManager.default.fileExists(atPath: exe) else {
             throw ProcessingError.ffmpegNotFound
         }
 
@@ -311,17 +275,19 @@ actor AudioProcessor {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
                 let stdoutPipe = Pipe()
                 let stderrPipe = Pipe()
-                process.standardOutput = stdoutPipe
+                process.standardOutput = captureStdout ? stdoutPipe : FileHandle.nullDevice
                 process.standardError = stderrPipe
 
-                // Read pipe on GCD to avoid blocking the cooperative thread pool
                 nonisolated(unsafe) var stdoutData = Data()
                 nonisolated(unsafe) var stderrData = Data()
                 let readGroup = DispatchGroup()
-                readGroup.enter()
-                DispatchQueue.global(qos: .utility).async {
-                    stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-                    readGroup.leave()
+
+                if captureStdout {
+                    readGroup.enter()
+                    DispatchQueue.global(qos: .utility).async {
+                        stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                        readGroup.leave()
+                    }
                 }
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
@@ -338,19 +304,27 @@ actor AudioProcessor {
                     let exitCode = proc.terminationStatus
                     if exitCode != 0 {
                         let msg = String(data: stderrData, encoding: .utf8) ?? ""
-                        continuation.resume(throwing: ProcessingError.ffmpegFailed(code: exitCode, message: msg.isEmpty ? "Exit code \(exitCode)" : msg))
+                        continuation.resume(throwing: ProcessingError.ffmpegFailed(
+                            code: exitCode,
+                            message: msg.isEmpty ? "Exit code \(exitCode)" : msg
+                        ))
+                        return
+                    }
+                    if returnStderr {
+                        continuation.resume(returning: String(data: stderrData, encoding: .utf8) ?? "")
+                    } else if captureStdout {
+                        continuation.resume(returning: String(data: stdoutData, encoding: .utf8) ?? "")
                     } else {
-                        let output = captureStderr
-                            ? (String(data: stderrData, encoding: .utf8) ?? "")
-                            : (String(data: stdoutData, encoding: .utf8) ?? "")
-                        continuation.resume(returning: output)
+                        continuation.resume(returning: "")
                     }
                 }
 
                 do {
                     try process.run()
                 } catch {
-                    continuation.resume(throwing: ProcessingError.ffmpegFailed(code: -1, message: "Failed to launch: \(error.localizedDescription)"))
+                    continuation.resume(throwing: ProcessingError.ffmpegFailed(
+                        code: -1, message: "Failed to launch: \(error.localizedDescription)"
+                    ))
                 }
             }
         } onCancel: {
@@ -358,6 +332,16 @@ actor AudioProcessor {
             process.terminate()
         }
     }
+
+    private nonisolated func runFFmpeg(exe: String, args: [String]) async throws {
+        try await runProcess(exe: exe, args: args)
+    }
+
+    private nonisolated func runFFmpegCapture(exe: String, args: [String], captureStderr: Bool = false) async throws -> String {
+        try await runProcess(exe: exe, args: args, captureStdout: !captureStderr, returnStderr: captureStderr)
+    }
+
+    // MARK: - Helpers
 
     private func makeTemp(prefix: String) throws -> URL {
         let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -419,8 +403,11 @@ actor AudioProcessor {
         )
     }
 
+    /// Formats a limiter ceiling value as a filename tag.
+    /// The ceiling is always negative (e.g. -1.0 dB), so the sign is implicit
+    /// and omitted to avoid double-dashes in the output filename.
     private func formatDbTag(_ db: Double) -> String {
-        var s = String(format: "%.2f", db)
+        var s = String(format: "%.2f", abs(db))
         while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) {
             s.removeLast()
         }

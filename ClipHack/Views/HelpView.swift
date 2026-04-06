@@ -16,7 +16,7 @@ struct HelpView: View {
                 section("Presets") {
                     text("Presets save and recall all settings at once. Three built-in presets are included:")
                     VStack(alignment: .leading, spacing: 8) {
-                        definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. 16-bit for codec compatibility; leveling on low to tame wildly dynamic sources without pumping; de-esser for sibilance through Zoom. Loudness normalized to -18 LUFS.")
+                        definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. Leveling on low to tame wildly dynamic sources without pumping; de-esser for sibilance through Zoom. Loudness normalized to -18 LUFS.")
                         definition("Clean & Limit", "Minimal processing — high-pass at DC block + limiter only. Good for already well-produced sources that just need a safety ceiling.")
                         definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. No leveling or NR. Good for sources with consistent dynamics that just need a loudness target.")
                     }
@@ -25,7 +25,7 @@ struct HelpView: View {
                 section("Getting Started") {
                     steps([
                         "Set your sample rate, ceiling, and any processing options.",
-                        "Drag and drop audio files onto the window.",
+                        "Drag and drop audio or video files onto the window.",
                         "Click Process.",
                         "Output files are saved alongside the originals (or to your chosen output folder)."
                     ])
@@ -51,14 +51,14 @@ struct HelpView: View {
                         "Loudness Norm — two-pass EBU R128 loudness normalization to a target LUFS.",
                         "Brick-wall limiting with 2× oversampled true peak control."
                     ])
-                    text("Output format: WAV (16-bit or 24-bit)")
+                    text("Output format: 24-bit WAV")
                 }
                 section("Settings") {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
 definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff frequency (20–90 Hz). At 20 Hz it acts as a DC blocker only. Higher values (60–90 Hz) remove low-frequency rumble. Always applied — drag to 20 Hz to minimize effect.")
                     definition("Noise Reduction", "Enables RNNoise neural network noise reduction (arnndn). Attenuates broadband background noise — hiss, room tone, HVAC. Applied before channel extraction. Check output before editing — artifacts are possible on heavy noise.")
-                    definition("De-esser", "Enables gentle sibilance reduction (adeesser, 7.5 kHz, intensity 0.3). Reduces harshness on voiced content — particularly useful for news clips and political ads going through a codec like Zoom.")
+                    definition("De-esser", "Enables gentle sibilance reduction (deesser, ~7.5 kHz, intensity 0.3). Reduces harshness on voiced content — particularly useful for news clips and political ads going through a codec like Zoom.")
                     definition("Level Audio", "Enables dynamic leveling (dynaudnorm). Best for wildly dynamic sources. Not recommended for already-compressed broadcast content.")
                     definitionView("Aggressiveness") {
                         Text("Controls how responsive the leveler is. Three parameters scale together:")

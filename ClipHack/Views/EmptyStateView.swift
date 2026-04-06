@@ -8,7 +8,7 @@ struct EmptyStateView: View {
                 .frame(width: 160, height: 160)
 
             VStack(spacing: 8) {
-                Text("Drag and drop audio files here to get started.")
+                Text("Drag and drop audio or video files here to get started.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

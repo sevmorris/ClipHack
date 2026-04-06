@@ -55,7 +55,10 @@ struct PresetPicker: View {
             .frame(width: 180, alignment: .leading)
         }
         .sheet(isPresented: $showingSaveSheet) {
-            SavePresetSheet(presetName: $newPresetName) {
+            SavePresetSheet(
+                presetName: $newPresetName,
+                existingNames: Set(viewModel.presetStore.allPresets.map { $0.name })
+            ) {
                 if !newPresetName.isEmpty {
                     viewModel.saveCurrentAsPreset(name: newPresetName)
                 }
@@ -73,17 +76,38 @@ struct PresetPicker: View {
 
 struct SavePresetSheet: View {
     @Binding var presetName: String
+    let existingNames: Set<String>
     let onSave: () -> Void
     let onCancel: () -> Void
+
+    private var trimmedName: String {
+        presetName.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var isDuplicate: Bool {
+        existingNames.contains(trimmedName)
+    }
 
     var body: some View {
         VStack(spacing: 20) {
             Text("Save Preset")
                 .font(.headline)
 
-            TextField("Preset Name", text: $presetName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("Preset Name", text: $presetName)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 250)
+                    .onSubmit {
+                        if !trimmedName.isEmpty { onSave() }
+                    }
+
+                if isDuplicate {
+                    Text("A preset named \"\(trimmedName)\" already exists.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .frame(width: 250, alignment: .leading)
+                }
+            }
 
             HStack(spacing: 12) {
                 Button("Cancel", role: .cancel) {
@@ -94,7 +118,7 @@ struct SavePresetSheet: View {
                     onSave()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(presetName.isEmpty)
+                .disabled(trimmedName.isEmpty)
             }
         }
         .padding(24)

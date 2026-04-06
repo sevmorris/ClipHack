@@ -4,12 +4,13 @@ import SwiftUI
 struct ClipHackApp: App {
     @Environment(\.openWindow) private var openWindow
 
+    init() {
+        Task { await checkForUpdates(silent: true) }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .task {
-                    await checkForUpdates(silent: true)
-                }
         }
         .commands {
             CommandGroup(replacing: .help) {

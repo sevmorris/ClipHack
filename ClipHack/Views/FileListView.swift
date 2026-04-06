@@ -18,13 +18,30 @@ struct FileListView: View {
             }
         }
         .background(
-            Button("") {
-                guard !viewModel.selectedFileIDs.isEmpty else { return }
-                viewModel.removeSelected()
+            Group {
+                Button("") {
+                    guard !viewModel.selectedFileIDs.isEmpty else { return }
+                    viewModel.removeSelected()
+                }
+                .keyboardShortcut(.delete, modifiers: [])
+                .hidden()
+
+                Button("") {
+                    viewModel.selectedFileIDs = Set(viewModel.files.map { $0.id })
+                }
+                .keyboardShortcut("a", modifiers: .command)
+                .hidden()
             }
-            .keyboardShortcut(.delete, modifiers: [])
-            .hidden()
         )
+        .contextMenu {
+            if viewModel.files.contains(where: { $0.isProcessed }) {
+                Button {
+                    viewModel.removeProcessed()
+                } label: {
+                    Label("Remove Processed Files", systemImage: "checkmark.circle")
+                }
+            }
+        }
     }
 }
 

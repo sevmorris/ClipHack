@@ -1,15 +1,9 @@
 import Foundation
 
 struct JobResult: Sendable {
-    let id: UUID?
+    let id: UUID
     let input: URL
     let output: URL
-
-    nonisolated init(id: UUID? = nil, input: URL, output: URL) {
-        self.id = id
-        self.input = input
-        self.output = output
-    }
 }
 
 enum ProcessingError: LocalizedError {

@@ -11,7 +11,7 @@ struct WaveformView: View {
                 if data.channelCount >= 2 {
                     stereoView(data: data)
                 } else {
-                    monoView(peaks: data.peaks)
+                    channelView(peaks: data.peaks, showScale: true)
                 }
             } else {
                 ProgressView()
@@ -20,43 +20,46 @@ struct WaveformView: View {
         }
     }
 
-    private func monoView(peaks: [Float]) -> some View {
+    // MARK: - Channel views
+
+    /// Renders a single waveform channel with an optional dB scale on the left.
+    /// In stereo mode the L channel shows the scale; R uses a clear spacer to stay aligned.
+    private func channelView(peaks: [Float], label: String? = nil, showScale: Bool = false) -> some View {
         HStack(spacing: 4) {
-            dbScale.frame(width: 32)
-            ZStack {
+            if showScale {
+                dbScale.frame(width: 32)
+            } else {
+                Color.clear.frame(width: 32)
+            }
+            ZStack(alignment: .topLeading) {
                 dbGridLines
                 WaveformShape(peaks: peaks)
                     .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing))
+                if let label, !label.isEmpty {
+                    Text(label)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                        .padding(.top, 3)
+                }
             }
         }
     }
 
     private func stereoView(data: WaveformData) -> some View {
-        HStack(spacing: 4) {
-            dbScale.frame(width: 32)
-            VStack(spacing: 1) {
-                channelView(peaks: data.channelPeaks[0], label: "L")
-                Rectangle()
-                    .fill(Color.primary.opacity(0.12))
-                    .frame(height: 1)
-                channelView(peaks: data.channelPeaks[1], label: "R")
-            }
+        VStack(spacing: 1) {
+            channelView(peaks: data.channelPeaks[0], label: "L", showScale: true)
+            Rectangle()
+                .fill(Color.primary.opacity(0.12))
+                .frame(height: 1)
+            channelView(peaks: data.channelPeaks[1], label: "R")
         }
     }
 
-    private func channelView(peaks: [Float], label: String) -> some View {
-        ZStack(alignment: .topLeading) {
-            dbGridLines
-            WaveformShape(peaks: peaks)
-                .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing))
-            Text(label)
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .padding(.leading, 4)
-                .padding(.top, 3)
-        }
-    }
+    // MARK: - Scale & grid
 
+    /// dB labels positioned relative to the channel's own geometry, so they align
+    /// with the grid lines drawn inside the same view.
     private var dbScale: some View {
         GeometryReader { geometry in
             let midY = geometry.size.height / 2
@@ -152,7 +155,7 @@ struct WaveformShape: Shape {
 
 #Preview {
     let peaks: [Float] = [0.8, 0.5, 0.9, 0.3, 0.7, 0.6, 0.4]
-    WaveformView(waveformData: WaveformData(samples: [], peaks: peaks, channelPeaks: [peaks, peaks], channelCount: 2))
+    WaveformView(waveformData: WaveformData(peaks: peaks, channelPeaks: [peaks, peaks], channelCount: 2))
         .frame(height: 100)
         .padding()
 }

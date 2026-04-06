@@ -37,7 +37,7 @@ struct ContentView: View {
             viewModel.addFiles(urls)
             return !urls.isEmpty
         }
-        .alert("Error", isPresented: alertBinding) {
+        .alert(viewModel.alertTitle, isPresented: alertBinding) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.alertMessage ?? "")
@@ -57,21 +57,35 @@ struct ContentView: View {
                     Label("Cancel", systemImage: "stop.fill")
                 }
                 .tint(.red)
+                .keyboardShortcut(".", modifiers: .command)
             } else {
                 Button {
                     viewModel.process()
                 } label: {
                     Label("Process", systemImage: "play.fill")
                 }
-                .disabled(viewModel.files.isEmpty)
+                .disabled(!viewModel.hasProcessableFiles)
+                .keyboardShortcut(.return, modifiers: .command)
             }
 
-            Button {
-                viewModel.removeSelected()
+            Menu {
+                Button {
+                    viewModel.removeSelected()
+                } label: {
+                    Label("Remove Selected", systemImage: "minus.circle")
+                }
+                .disabled(viewModel.selectedFileIDs.isEmpty)
+
+                Button {
+                    viewModel.removeProcessed()
+                } label: {
+                    Label("Remove Processed", systemImage: "checkmark.circle")
+                }
+                .disabled(!viewModel.files.contains { $0.isProcessed })
             } label: {
                 Label("Remove", systemImage: "minus.circle")
             }
-            .disabled(viewModel.selectedFileIDs.isEmpty)
+            .disabled(viewModel.selectedFileIDs.isEmpty && !viewModel.files.contains { $0.isProcessed })
 
             Button {
                 viewModel.clearAll()
