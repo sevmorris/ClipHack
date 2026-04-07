@@ -4,7 +4,7 @@
 
 ## Download
 
-**[ClipHack v1.7.1 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.7.1.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)** · **[Theory of Operation](https://sevmorris.github.io/ClipHack/manual/theory.html)**
+**[ClipHack v1.8.1 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.1.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)** · **[Theory of Operation](https://sevmorris.github.io/ClipHack/manual/theory.html)**
 
 > ⚠️ **Important — Read Before First Launch**
 >
@@ -19,6 +19,8 @@
 ## Features
 
 - **Noise Reduction**: RNNoise neural network model (arnndn) — removes broadband background noise (hiss, room tone, HVAC). Applied per-channel on stereo files.
+- **High Pass Filter**: High-pass filter (20–90 Hz) + allpass phase rotation, always applied. At 20 Hz it acts as a DC blocker; at 60–90 Hz it removes low-frequency rumble.
+- **De-esser**: Gentle sibilance reduction at ~7.5 kHz. Useful for news clips and voiced content going through a codec like Zoom.
 - **Level Audio**: Dynamic leveling via FFmpeg's dynaudnorm — evens out level variation across a clip without compressor pumping. Designed for broadcast sources, not dialog.
 - **Loudness Norm**: Two-pass EBU R128 loudness normalization to a target LUFS. Runs before the limiter.
 - **Brick-Wall Limiting**: Configurable ceiling (-6 to -1 dB) with 2× oversampled true peak limiting
@@ -27,7 +29,7 @@
 - **Noise Floor Detection**: Warns when high noise floor may affect level accuracy
 - **Stereo Waveform**: L/R channels displayed separately for stereo files
 - **Batch Processing**: Process multiple files in parallel with per-file progress
-- **Drag & Drop**: Drop audio files onto the window to process
+- **Drag & Drop**: Drop audio or video files onto the window to process
 - **Custom Output Directory**: Optionally set a dedicated output folder
 - **Update Checker**: Checks for new releases on launch and via Help menu
 
@@ -40,36 +42,42 @@
 Output filenames reflect what processing was applied:
 
 ```
-{original-name}-{rate}{nr-}{leveled-}{norm-}clipped-{limit}dB.wav
+{original-name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav
 ```
 
 Examples:
 ```
 clip-44kclipped-1dB.wav
-clip-44knr-leveled-norm-clipped-1dB.wav
+clip-44knr-ds-leveled-norm-clipped-1dB.wav
 ```
 
 ## Settings
 
 - **Sample Rate**: Output sample rate — 44.1 kHz or 48 kHz
 - **Stereo Output**: Force stereo output; upmixes mono sources
-- **Ceiling**: Brick-wall limiter ceiling, from -6 dB to -1 dB
+- **Channel**: For mono output, select Left or Right channel
+- **Ceiling**: Brick-wall limiter true-peak ceiling, from -6 dB to -1 dB
+- **High Pass**: High-pass filter cutoff (20–90 Hz). At 20 Hz acts as DC blocker only. Always applied.
 - **Noise Reduction**: Enable RNNoise neural network noise reduction
+- **De-esser**: Enable gentle sibilance reduction (~7.5 kHz)
 - **Level Audio**: Enable dynamic leveling (dynaudnorm)
 - **Aggressiveness**: Controls leveler responsiveness — frame size, Gaussian smoothing, and max gain scale together from Gentle to Aggressive
 - **Loudness Norm**: Enable two-pass EBU R128 loudness normalization
-- **Target**: Normalization target in LUFS (-30 to -14). -16 LUFS is a common podcast insertion target.
+- **Target**: Normalization target in LUFS (-35 to -14). -18 LUFS is a common podcast insertion target.
 - **Output Directory**: Custom output folder (default: same as source file)
 
 ## Processing Pipeline
 
-ClipHack uses FFmpeg. Each stage is optional except the final limiter:
+ClipHack uses FFmpeg. Each stage is optional except high-pass and the final limiter:
 
 1. **Resample** to the target sample rate (skipped if already matching)
 2. **Noise Reduction** — RNNoise neural network model via arnndn (optional)
-3. **Level Audio** — dynaudnorm dynamic normalization (optional)
-4. **Loudness Norm** — two-pass EBU R128 normalization (optional)
-5. **Brick-wall limiting** with 2× oversampled true peak control
+3. **Channel Extraction** — pan stereo to mono (left or right channel; skipped for stereo output)
+4. **High-Pass + Phase Rotation** — removes rumble/DC offset; allpass corrects phase shift. Always applied.
+5. **De-esser** — gentle sibilance reduction at ~7.5 kHz (optional)
+6. **Level Audio** — dynaudnorm dynamic normalization (optional)
+7. **Loudness Norm** — two-pass EBU R128 normalization (optional)
+8. **Brick-wall limiting** with 2× oversampled true peak control
 
 Output format: 24-bit WAV
 

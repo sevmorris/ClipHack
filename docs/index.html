@@ -406,7 +406,7 @@
       <nav>
         <a href="manual/">Manual</a>
         <a href="https://github.com/sevmorris/ClipHack" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.7.1.dmg" class="nav-cta">Download</a>
+        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.1.dmg" class="nav-cta">Download</a>
       </nav>
     </div>
   </header>
@@ -418,7 +418,7 @@
       <img src="icon.png" alt="ClipHack" style="height: 160px; width: 160px; border-radius: 28px; margin-bottom: 1.5rem; display: block; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
       <p class="hero-sub">Prepares broadcast clips for use in a mix. Drop in a news clip, promo, or insert — ClipHack levels the dynamics, normalizes loudness, and brick-wall limits peaks in one pass.</p>
       <div class="hero-actions">
-        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.7.1.dmg" class="btn btn-primary btn-large">Download v1.7.1</a>
+        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.1.dmg" class="btn btn-primary btn-large">Download v1.8.1</a>
         <a href="manual/" class="btn btn-secondary btn-large">Manual</a>
       </div>
       <p class="hero-req">macOS 14 Sonoma or later &middot; Apple Silicon &amp; Intel &middot; Free</p>
@@ -482,6 +482,14 @@
           <p>2× oversampled true peak limiting at a configurable ceiling (−6 to −1 dB). Always applied as the final stage. Keeps transients honest without audible artifacts.</p>
         </div>
         <div class="feature-card">
+          <h3>High-Pass Filter</h3>
+          <p>High-pass filter (20–90 Hz) + allpass phase rotation, always applied. At 20 Hz it acts as a DC blocker. At 60–90 Hz it removes low-frequency rumble from noisy locations.</p>
+        </div>
+        <div class="feature-card">
+          <h3>De-esser</h3>
+          <p>Gentle sibilance reduction at ~7.5 kHz. Tames harsh "s" sounds on voiced content — particularly useful for news clips and interviews going through a codec like Zoom.</p>
+        </div>
+        <div class="feature-card">
           <h3>Channel Selection</h3>
           <p>For mono output, choose Left or Right. Uses an explicit pan filter — not a downmix average — so you get exactly the channel you want.</p>
         </div>
@@ -495,11 +503,11 @@
         </div>
         <div class="feature-card">
           <h3>Batch Processing</h3>
-          <p>Drop multiple files at once. ClipHack processes them in parallel with per-file progress. Drag and drop onto the window or use the file list directly.</p>
+          <p>Drop multiple audio or video files at once. ClipHack processes them in parallel with per-file progress. Stats and waveform update as each file finishes.</p>
         </div>
       </div>
 
-      <p style="margin-top: 2rem; font-family: var(--font-ui); font-size: 0.85rem; letter-spacing: 0.1em; color: var(--tan);">Output: <code style="color: var(--cream);">{name}-{rate}{nr-}{leveled-}{norm-}clipped-{limit}dB.wav</code> &nbsp;&middot;&nbsp; 24-bit WAV</p>
+      <p style="margin-top: 2rem; font-family: var(--font-ui); font-size: 0.85rem; letter-spacing: 0.1em; color: var(--tan);">Output: <code style="color: var(--cream);">{name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav</code> &nbsp;&middot;&nbsp; 24-bit WAV</p>
     </div>
   </section>
 
@@ -518,6 +526,12 @@
         <span class="workflow-step active">Resample</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Noise Reduction</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">Channel</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">High-Pass</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">De-esser</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Level Audio</span>
         <span class="workflow-arrow">&#8594;</span>

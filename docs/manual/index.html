@@ -413,7 +413,7 @@
       <h1>ClipHack</h1>
       <p>Clip prep for macOS. Process broadcast clips — noise reduction, dynamic leveling, loudness normalization, brick-wall limiting — before dropping them into a mix.</p>
       <div class="hero-actions">
-        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.7.1.dmg" class="btn btn-primary">Download v1.7.1</a>
+        <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.1.dmg" class="btn btn-primary">Download v1.8.1</a>
         <a href="../" class="btn btn-secondary">Home</a>
         <a href="theory.html" class="btn btn-secondary">Theory of Operation</a>
       </div>
@@ -445,7 +445,7 @@
       <h2>Getting Started</h2>
       <ol>
         <li>Configure your settings in the right panel — sample rate, ceiling, and any optional processing stages.</li>
-        <li>Drag and drop audio files onto the window, or drag them into the file list on the left.</li>
+        <li>Drag and drop audio or video files onto the window, or drag them into the file list on the left.</li>
         <li>Click <strong>Process</strong>.</li>
         <li>Output files are saved alongside the originals, or in your chosen output folder if you've set one.</li>
       </ol>
@@ -464,18 +464,21 @@
       <p>Select a file to see its waveform. For stereo files, L and R channels are displayed separately with independent amplitude scales.</p>
 
       <h3>Waveform (center)</h3>
-      <p>Shows the selected file's waveform. Stereo files display both channels stacked with L on top. The amplitude axis is calibrated in dBFS.</p>
+      <p>Shows the selected file's waveform. Stereo files display both channels stacked with L on top. The amplitude axis is calibrated in dBFS. After processing, the waveform switches to show the output file.</p>
+      <p>Below the waveform, format and loudness stats are shown for the selected file. An <strong>OUTPUT</strong> badge appears when the stats reflect the processed output rather than the source.</p>
 
       <h3>Settings Panel (right)</h3>
       <p>All processing controls live here. Toggle the panel open or closed with the <strong>&#9776;</strong> button in the toolbar. Settings are saved between sessions.</p>
 
       <h3>Toolbar</h3>
       <ul>
-        <li><strong>Process</strong> — start processing all queued files</li>
-        <li><strong>Remove</strong> — remove the selected file from the queue</li>
-        <li><strong>Clear</strong> — clear all files from the queue</li>
+        <li><strong>Process</strong> (Cmd+Return) — process all ready files. Disabled while any file is still analyzing.</li>
+        <li><strong>Cancel</strong> (Cmd+.) — cancel an in-progress batch</li>
+        <li><strong>Remove ▾</strong> — menu: <em>Remove Selected</em> removes checked files; <em>Remove Processed</em> clears completed files</li>
+        <li><strong>Clear</strong> — remove all files from the queue</li>
         <li><strong>&#9776;</strong> — toggle the settings panel</li>
       </ul>
+      <p>In the file list, Cmd+A selects all files. Right-click the list for a context menu with <em>Remove Processed Files</em>.</p>
     </section>
 
     <!-- PIPELINE -->
@@ -504,6 +507,18 @@
         </li>
         <li>
           <div>
+            <strong>High-Pass Filter + Phase Rotation</strong>
+            <span>High-pass filter at the configured cutoff (20–90 Hz) removes low-frequency rumble and DC offset. An allpass filter at 200 Hz corrects the phase shift introduced by the high-pass. Always applied — drag the slider to 20 Hz to minimize effect.</span>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>De-esser <span class="tag">optional</span></strong>
+            <span>Gentle sibilance reduction at ~7.5 kHz. Reduces harshness on voiced content — particularly useful for news clips and interviews going through a codec like Zoom.</span>
+          </div>
+        </li>
+        <li>
+          <div>
             <strong>Level Audio <span class="tag">optional</span></strong>
             <span>Dynamic leveling via FFmpeg's dynaudnorm. Evens out level variation across the clip. Three parameters — frame size, Gaussian smoothing, and max gain — scale together from Gentle to Aggressive.</span>
           </div>
@@ -524,7 +539,7 @@
 
       <div class="callout">
         <strong>Why this order?</strong>
-        Noise reduction runs on the raw signal — before any gain changes — so the model sees the noise at its original level. Channel extraction runs after NR so stereo NR can process both channels. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
+        Noise reduction runs on the raw signal — before any gain changes — so the model sees the noise at its original level. Channel extraction runs after NR so stereo NR can process both channels. High-pass runs after channel extraction on the final channel count. De-esser follows high-pass so it's working on a clean low end. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
       </div>
     </section>
 
@@ -556,7 +571,12 @@
           <tr>
             <td>Ceiling</td>
             <td>−6 to −1 dB</td>
-            <td>Brick-wall limiter ceiling. Sets the maximum true peak level of the output. −1 dBTP is standard for podcast insertion.</td>
+            <td>Brick-wall limiter true-peak ceiling. Sets the maximum output level. −1 dBTP is standard for podcast insertion.</td>
+          </tr>
+          <tr>
+            <td>High Pass</td>
+            <td>20–90 Hz</td>
+            <td>High-pass filter cutoff. At 20 Hz it acts as a DC blocker only. Raise to 60–90 Hz to remove low-frequency rumble. Always applied — set to 20 Hz to minimize effect.</td>
           </tr>
         </tbody>
       </table>
@@ -571,6 +591,20 @@
             <td>Noise Reduction</td>
             <td>on / off</td>
             <td>Enables RNNoise ML noise suppression. Best for clips with consistent background noise (HVAC, room hiss). Not designed for music.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>De-esser</h3>
+      <table class="settings-table">
+        <thead>
+          <tr><th>Setting</th><th>Range</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>De-esser</td>
+            <td>on / off</td>
+            <td>Enables gentle sibilance reduction at ~7.5 kHz. Reduces harshness on voiced content. Not recommended for music.</td>
           </tr>
         </tbody>
       </table>
@@ -623,8 +657,8 @@
           </tr>
           <tr>
             <td>Target</td>
-            <td>−30 to −14 LUFS</td>
-            <td>Normalization target. −16 LUFS is a common podcast insertion target. Use a lower target (e.g. −23 LUFS) for broadcast compliance.</td>
+            <td>−35 to −14 LUFS</td>
+            <td>Normalization target. −18 LUFS is a common podcast insertion target. Use a lower target (e.g. −23 LUFS) for broadcast compliance.</td>
           </tr>
         </tbody>
       </table>
@@ -637,7 +671,7 @@
     <section id="output">
       <h2>Output Naming</h2>
       <p>Output filenames encode what processing was applied:</p>
-      <pre><code>{original-name}-{rate}{nr-}{leveled-}{norm-}clipped-{limit}dB.wav</code></pre>
+      <pre><code>{original-name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav</code></pre>
 
       <h4>Tokens</h4>
       <table class="settings-table">
@@ -654,6 +688,11 @@
             <td><code>nr-</code></td>
             <td>Noise Reduction was applied</td>
             <td><code>nr-</code></td>
+          </tr>
+          <tr>
+            <td><code>ds-</code></td>
+            <td>De-esser was applied</td>
+            <td><code>ds-</code></td>
           </tr>
           <tr>
             <td><code>leveled-</code></td>
@@ -675,8 +714,8 @@
 
       <h4>Examples</h4>
       <pre><code>clip-44kclipped-1dB.wav
-clip-44knr-clipped-1dB.wav
-clip-48knr-leveled-norm-clipped-3dB.wav</code></pre>
+clip-44knr-ds-clipped-1dB.wav
+clip-48knr-ds-leveled-norm-clipped-3dB.wav</code></pre>
     </section>
 
     <!-- FORMATS -->
