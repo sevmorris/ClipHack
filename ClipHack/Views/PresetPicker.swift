@@ -52,7 +52,8 @@ struct PresetPicker: View {
                 }
             }
             .menuStyle(.borderlessButton)
-            .frame(width: 180, alignment: .leading)
+            .frame(minWidth: 120, maxWidth: 200, alignment: .leading)
+            .help(currentPresetName)
         }
         .sheet(isPresented: $showingSaveSheet) {
             SavePresetSheet(

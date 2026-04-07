@@ -3,10 +3,23 @@ import SwiftUI
 struct FileInfoStatsView: View {
     let file: FileItem
 
+    private var showingOutput: Bool { file.outputStats != nil || file.outputFileInfo != nil }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let info = file.outputFileInfo ?? file.fileInfo {
-                infoRow(info)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if showingOutput {
+                        Text("OUTPUT")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(.blue.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
+                    infoRow(info)
+                }
             }
             Divider().padding(.vertical, 8)
             statsRow(file.outputStats ?? file.stats)
@@ -37,12 +50,14 @@ struct FileInfoStatsView: View {
             HStack(alignment: .top, spacing: 8) {
                 statBlock("RMS",   stats.map { String(format: "%.1f dBFS", $0.rms)   } ?? "---")
                 statBlock("PEAK",  stats.map { String(format: "%.1f dBFS", $0.peak)  } ?? "---",
-                          valueColor: stats.map { peakColor($0.peak) } ?? .primary)
+                          valueColor: stats.map { peakColor($0.peak) } ?? .primary,
+                          help: "Orange: near-clip (≥ −3 dBFS)  •  Red: clipping (≥ 0 dBFS)")
                 statBlock("CREST", stats.map { String(format: "%.1f dB",   $0.crest) } ?? "---")
                 statBlock("LUFS",  stats.map { String(format: "%.1f",      $0.lufs)  } ?? "---")
                 if let nf = stats?.noiseFloor {
                     statBlock("FLOOR", String(format: "%.1f dBFS", nf),
-                              valueColor: noiseFloorColor(nf))
+                              valueColor: noiseFloorColor(nf),
+                              help: "Orange: high noise floor (> −50 dBFS)  •  Red: very high (> −40 dBFS)")
                 }
             }
         }
@@ -61,7 +76,7 @@ struct FileInfoStatsView: View {
     }
 
     @ViewBuilder
-    private func statBlock(_ label: String, _ value: String, valueColor: Color = .primary) -> some View {
+    private func statBlock(_ label: String, _ value: String, valueColor: Color = .primary, help: String = "") -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
                 .font(.system(size: 9, weight: .semibold))
@@ -76,6 +91,7 @@ struct FileInfoStatsView: View {
         .background(.primary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .fixedSize()
+        .help(help)
     }
 
     private func formatSR(_ hz: Double) -> String {

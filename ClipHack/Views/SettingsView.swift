@@ -32,6 +32,7 @@ struct SettingsView: View {
                 }
                 .disabled(viewModel.settings.stereoOutput)
                 .opacity(viewModel.settings.stereoOutput ? 0.4 : 1)
+                .help(viewModel.settings.stereoOutput ? "Only applies in Mono output mode" : "")
 
                 Divider().padding(.vertical, 6)
 
@@ -43,6 +44,7 @@ struct SettingsView: View {
                             .frame(width: 42, alignment: .trailing)
                     }
                 }
+                .help("Brick-wall limiter true-peak ceiling. Sets the maximum output level.")
 
                 row("High Pass") {
                     HStack(spacing: 6) {
@@ -106,6 +108,7 @@ struct SettingsView: View {
                 }
                 .disabled(!viewModel.settings.levelingEnabled)
                 .opacity(!viewModel.settings.levelingEnabled ? 0.4 : 1)
+                .help(!viewModel.settings.levelingEnabled ? "Enable Level Audio to adjust" : "")
 
                 Divider().padding(.vertical, 6)
 
@@ -139,6 +142,7 @@ struct SettingsView: View {
                             .lineLimit(2)
                             .truncationMode(.middle)
                             .foregroundStyle(.secondary)
+                            .help(path)
                     } else {
                         Text("Same as source")
                             .font(.system(size: 11))

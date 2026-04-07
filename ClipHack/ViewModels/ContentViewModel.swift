@@ -15,6 +15,8 @@ final class ContentViewModel {
     var alertMessage: String?
     var alertTitle: String = "Error"
     private var processingTask: Task<Void, Never>?
+    private var processingCancelled = false
+    private var analysisTasks: [UUID: Task<Void, Never>] = [:]
 
     private static let validExtensions: Set<String> = [
         "wav", "aif", "aiff", "mp3", "flac", "m4a", "ogg", "opus", "caf", "wma", "aac",
@@ -58,13 +60,21 @@ final class ContentViewModel {
     // MARK: - File management
 
     func addFiles(_ urls: [URL]) {
-        let audioURLs = urls.filter { $0.isFileURL }
-        let valid = audioURLs.filter { Self.validExtensions.contains($0.pathExtension.lowercased()) }
-        let rejected = audioURLs.count - valid.count
+        let fileURLs = urls.filter { $0.isFileURL && !$0.hasDirectoryPath }
+        let valid = fileURLs.filter { Self.validExtensions.contains($0.pathExtension.lowercased()) }
+        let folders = urls.filter { $0.hasDirectoryPath }.count
+        let badFormat = fileURLs.count - valid.count
 
-        if rejected > 0 {
+        var notices: [String] = []
+        if folders > 0 {
+            notices.append("\(folders) folder\(folders == 1 ? "" : "s") skipped — folders are not supported.")
+        }
+        if badFormat > 0 {
+            notices.append("\(badFormat) file\(badFormat == 1 ? "" : "s") skipped — unsupported format. Supported: wav, aif, aiff, mp3, flac, m4a, ogg, opus, caf, wma, aac, mp4, mov.")
+        }
+        if !notices.isEmpty {
             alertTitle = "Notice"
-            alertMessage = "\(rejected) file\(rejected == 1 ? "" : "s") skipped — unsupported format. Supported: wav, aif, aiff, mp3, flac, m4a, ogg, opus, caf, wma, aac, mp4, mov."
+            alertMessage = notices.joined(separator: "\n\n")
         }
 
         let newFiles = valid.map { FileItem(url: $0) }
@@ -77,23 +87,27 @@ final class ContentViewModel {
     }
 
     func removeSelected() {
+        cancelAnalysisTasks(for: selectedFileIDs)
         files.removeAll { selectedFileIDs.contains($0.id) }
         selectedFileIDs.removeAll()
     }
 
     func removeProcessed() {
         let processedIDs = Set(files.filter { $0.isProcessed }.map { $0.id })
+        cancelAnalysisTasks(for: processedIDs)
         files.removeAll { processedIDs.contains($0.id) }
         selectedFileIDs.subtract(processedIDs)
     }
 
     func clearAll() {
+        cancelAnalysisTasks(for: Set(files.map { $0.id }))
         files.removeAll()
         selectedFileIDs.removeAll()
     }
 
     func removeFiles(at offsets: IndexSet) {
         let deletedIDs = Set(offsets.map { files[$0].id })
+        cancelAnalysisTasks(for: deletedIDs)
         files.remove(atOffsets: offsets)
         selectedFileIDs.subtract(deletedIDs)
     }
@@ -123,6 +137,7 @@ final class ContentViewModel {
         }
 
         isProcessing = true
+        processingCancelled = false
 
         let currentSettings = settings
         let inputs = processable.map { JobInput(id: $0.id, url: $0.url) }
@@ -141,6 +156,7 @@ final class ContentViewModel {
                     onFileStarted: { [weak self] id in
                         guard let self else { return }
                         Task { @MainActor [self] in
+                            guard !self.processingCancelled else { return }
                             if let index = self.files.firstIndex(where: { $0.id == id }) {
                                 self.files[index].status = .processing
                             }
@@ -149,6 +165,7 @@ final class ContentViewModel {
                     onFileCompleted: { [weak self] id, outputURL in
                         guard let self else { return }
                         Task { @MainActor [self] in
+                            guard !self.processingCancelled else { return }
                             if let index = self.files.firstIndex(where: { $0.id == id }) {
                                 self.files[index].status = .processed(outputURL: outputURL)
                             }
@@ -172,6 +189,7 @@ final class ContentViewModel {
     }
 
     func cancelProcessing() {
+        processingCancelled = true
         processingTask?.cancel()
         processingTask = nil
         for i in files.indices {
@@ -191,7 +209,7 @@ final class ContentViewModel {
         guard let index = files.firstIndex(where: { $0.id == file.id }) else { return }
         files[index].status = .analyzing
 
-        Task {
+        let task = Task {
             if let info = try? await AudioAnalyzer.info(url: file.url),
                let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
                 files[currentIndex].fileInfo = info
@@ -207,6 +225,15 @@ final class ContentViewModel {
                     files[currentIndex].status = .error(error.localizedDescription)
                 }
             }
+            analysisTasks.removeValue(forKey: file.id)
+        }
+        analysisTasks[file.id] = task
+    }
+
+    private func cancelAnalysisTasks(for ids: Set<UUID>) {
+        for id in ids {
+            analysisTasks[id]?.cancel()
+            analysisTasks.removeValue(forKey: id)
         }
     }
 

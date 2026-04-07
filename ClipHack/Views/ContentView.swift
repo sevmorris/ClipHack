@@ -64,7 +64,8 @@ struct ContentView: View {
                 } label: {
                     Label("Process", systemImage: "play.fill")
                 }
-                .disabled(!viewModel.hasProcessableFiles)
+                .disabled(!viewModel.hasProcessableFiles || viewModel.isAnyFileAnalyzing)
+                .help(viewModel.isAnyFileAnalyzing ? "Waiting for analysis to complete…" : "")
                 .keyboardShortcut(.return, modifiers: .command)
             }
 
@@ -147,6 +148,7 @@ struct ContentView: View {
                     .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .help(file.url.path)
 
                 WaveformView(waveformData: file.outputWaveform ?? file.waveform)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

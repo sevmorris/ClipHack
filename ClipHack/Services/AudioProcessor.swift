@@ -385,21 +385,21 @@ actor AudioProcessor {
         }
         let jsonStr = String(output[braceRange.lowerBound...jsonEnd])
         guard let data = jsonStr.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data),
-              let dict = json as? [String: String] else {
+              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON output")
         }
-        guard let inputI = dict["input_i"],
-              let inputTP = dict["input_tp"],
-              let inputLRA = dict["input_lra"],
-              let inputThresh = dict["input_thresh"],
-              let targetOffset = dict["target_offset"] else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Missing loudnorm measurement fields")
+        func field(_ key: String) throws -> String {
+            guard let value = json[key] as? String else {
+                throw ProcessingError.ffmpegFailed(code: -1, message: "Missing loudnorm field: \(key)")
+            }
+            return value
         }
         return LoudnormStats(
-            inputI: inputI, inputTP: inputTP,
-            inputLRA: inputLRA, inputThresh: inputThresh,
-            targetOffset: targetOffset
+            inputI:      try field("input_i"),
+            inputTP:     try field("input_tp"),
+            inputLRA:    try field("input_lra"),
+            inputThresh: try field("input_thresh"),
+            targetOffset: try field("target_offset")
         )
     }
 
