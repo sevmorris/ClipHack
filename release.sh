@@ -58,25 +58,30 @@ if git tag | grep -q "^${TAG}$"; then
 fi
 ok "Tag $TAG is available"
 
-# ── Version bump ──────────────────────────────────────────────────────────────
+# ── Version bump & docs update ────────────────────────────────────────────────
 step "Bumping version to $VERSION"
 CURRENT=$(grep MARKETING_VERSION "$PROJECT/project.pbxproj" | head -1 | grep -o '[0-9][0-9.]*')
 if [[ "$CURRENT" == "$VERSION" ]]; then
-    ok "Already at $VERSION — skipping bump"
+    ok "Already at $VERSION"
 else
     sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
         "$PROJECT/project.pbxproj"
-    sed -i '' "s|ClipHack v[0-9][0-9.]* (DMG).*ClipHack-v[0-9][0-9.]*.dmg|ClipHack ${TAG} (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-${TAG}.dmg|g" README.md
-    # Update download links in docs
-    PREV_VER=$(echo "$CURRENT" | sed 's/[^0-9.]//g')
-    sed -i '' "s|ClipHack-v${PREV_VER}\.dmg|ClipHack-${TAG}.dmg|g" \
-        docs/index.html docs/manual/index.html
-    sed -i '' "s|Download v${PREV_VER}|Download ${TAG}|g" \
-        docs/index.html docs/manual/index.html
     ok "Bumped $CURRENT → $VERSION"
-    git add "$PROJECT/project.pbxproj" README.md docs/index.html docs/manual/index.html
+fi
+
+# Always update docs — runs even if version was pre-bumped
+sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" \
+    docs/index.html docs/manual/index.html README.md
+sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" \
+    docs/index.html docs/manual/index.html
+sed -i '' "s|ClipHack v[0-9][0-9.]* (DMG).*ClipHack-v[0-9][0-9.]*.dmg|ClipHack ${TAG} (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-${TAG}.dmg|g" README.md
+
+if [[ -n "$(git status --porcelain)" ]]; then
+    git add "$PROJECT/project.pbxproj" docs/index.html docs/manual/index.html README.md
     git commit -m "Bump version to $VERSION"
     ok "Committed version bump"
+else
+    ok "All files already up to date"
 fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
