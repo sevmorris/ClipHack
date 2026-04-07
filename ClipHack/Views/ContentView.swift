@@ -85,6 +85,7 @@ struct ContentView: View {
             } label: {
                 Label("Remove", systemImage: "minus.circle")
             }
+            .fixedSize()
             .disabled(viewModel.selectedFileIDs.isEmpty && !viewModel.files.contains { $0.isProcessed })
 
             Button {

@@ -16,30 +16,34 @@ struct FileInfoStatsView: View {
 
     @ViewBuilder
     private func infoRow(_ info: FileInfo) -> some View {
-        HStack(alignment: .top, spacing: 20) {
-            statBlock("FORMAT", info.format)
-            statBlock("SR", formatSR(info.sampleRate))
-            statBlock("CH", info.channelCount == 2 ? "Stereo" : info.channelCount == 1 ? "Mono" : "\(info.channelCount)ch")
-            if let bd = info.bitDepth {
-                statBlock("BIT", "\(bd)-bit")
-            }
-            statBlock("DUR", formatDuration(info.duration))
-            if let br = info.bitRate {
-                statBlock("BR", formatBR(br))
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 8) {
+                statBlock("FORMAT", info.format)
+                statBlock("SR", formatSR(info.sampleRate))
+                statBlock("CH", info.channelCount == 2 ? "Stereo" : info.channelCount == 1 ? "Mono" : "\(info.channelCount)ch")
+                if let bd = info.bitDepth {
+                    statBlock("BIT", "\(bd)-bit")
+                }
+                statBlock("DUR", formatDuration(info.duration))
+                if let br = info.bitRate {
+                    statBlock("BR", formatBR(br))
+                }
             }
         }
     }
 
     private func statsRow(_ stats: AudioStats?) -> some View {
-        HStack(alignment: .top, spacing: 20) {
-            statBlock("RMS",   stats.map { String(format: "%.1f dBFS", $0.rms)   } ?? "---")
-            statBlock("PEAK",  stats.map { String(format: "%.1f dBFS", $0.peak)  } ?? "---",
-                      valueColor: stats.map { peakColor($0.peak) } ?? .primary)
-            statBlock("CREST", stats.map { String(format: "%.1f dB",   $0.crest) } ?? "---")
-            statBlock("LUFS",  stats.map { String(format: "%.1f",      $0.lufs)  } ?? "---")
-            if let nf = stats?.noiseFloor {
-                statBlock("FLOOR", String(format: "%.1f dBFS", nf),
-                          valueColor: noiseFloorColor(nf))
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 8) {
+                statBlock("RMS",   stats.map { String(format: "%.1f dBFS", $0.rms)   } ?? "---")
+                statBlock("PEAK",  stats.map { String(format: "%.1f dBFS", $0.peak)  } ?? "---",
+                          valueColor: stats.map { peakColor($0.peak) } ?? .primary)
+                statBlock("CREST", stats.map { String(format: "%.1f dB",   $0.crest) } ?? "---")
+                statBlock("LUFS",  stats.map { String(format: "%.1f",      $0.lufs)  } ?? "---")
+                if let nf = stats?.noiseFloor {
+                    statBlock("FLOOR", String(format: "%.1f dBFS", nf),
+                              valueColor: noiseFloorColor(nf))
+                }
             }
         }
     }
@@ -71,6 +75,7 @@ struct FileInfoStatsView: View {
         .padding(.vertical, 6)
         .background(.primary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .fixedSize()
     }
 
     private func formatSR(_ hz: Double) -> String {
