@@ -200,6 +200,7 @@
     .hero { margin-bottom: 56px; }
     .hero h1 { margin-bottom: 12px; }
     .hero p { font-size: 1.05rem; color: var(--cream); max-width: 600px; }
+    .hero-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; align-items: center; }
 
     .btn {
       display: inline-block;
@@ -312,6 +313,10 @@
       <h1>Theory of Operation</h1>
       <p>A technical deep-dive into ClipHack's audio processing pipeline: what each stage does, why it's there, and how the stages interact. Written for audio engineers, curious users, and anyone who wants to understand the engineering behind the app.</p>
       <p style="margin-top: 12px;">This document assumes basic familiarity with audio concepts (dBFS, sample rate, dynamic range). It covers the origin of the tool, the specific challenges of Zoom audio injection, and the technical rationale behind each processing stage.</p>
+      <div class="hero-actions">
+        <a class="btn btn-secondary" href="index.html">← Manual</a>
+        <a class="btn btn-secondary" href="https://github.com/sevmorris/ClipHack">GitHub</a>
+      </div>
     </div>
 
     <!-- SIGNAL CHAIN -->
