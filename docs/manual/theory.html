@@ -224,6 +224,41 @@
       color: var(--orange);
     }
 
+    /* ── Signal chain diagram ── */
+    .chain {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 18px;
+    }
+    .chain-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .chain-node {
+      background: var(--mid);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      color: var(--light);
+    }
+    .chain-node.optional {
+      border-style: dashed;
+      color: var(--muted);
+    }
+    .chain-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      color: var(--orange);
+      font-size: 0.9rem;
+    }
+
     @media (max-width: 800px) {
       body { flex-direction: column; }
       nav {
@@ -253,14 +288,19 @@
       <small>Theory of Operation</small>
     </div>
     <a class="back-link" href="index.html">← User Manual</a>
-    <a class="section-head" href="#">Sections</a>
+    <a class="section-head" href="#">Overview</a>
+    <a href="#intro">Introduction</a>
+    <a href="#signal-chain">Signal Chain</a>
+    <a class="section-head" href="#">Background</a>
     <a href="#origin">Why ClipHack Exists</a>
-    <a href="#zoom">Zoom & Audio Quality</a>
-    <a href="#overview">Processing Overview</a>
+    <a href="#zoom">Zoom &amp; Audio Quality</a>
+    <a class="section-head" href="#">Processing</a>
+    <a href="#overview">Pipeline Overview</a>
     <a href="#rnnoise">RNNoise / arnndn</a>
     <a href="#dynaudnorm">dynaudnorm</a>
     <a href="#loudnorm">EBU R128 / loudnorm</a>
     <a href="#limiter">Brick-Wall Limiter</a>
+    <a class="section-head" href="#">Reference</a>
     <a href="#lufs">LUFS Measurement</a>
     <a href="#ffmpeg">FFmpeg Pipeline</a>
     <a class="back-link" href="../">Home</a>
@@ -269,13 +309,37 @@
   <!-- MAIN -->
   <main>
 
-    <div class="hero">
+    <div class="hero" id="intro">
       <h1>Theory of Operation</h1>
-      <p>What each processing stage actually does, and why it's designed the way it is.</p>
-      <div style="margin-top: 20px;">
-        <a href="index.html" class="btn btn-secondary">&#8592; Manual</a>
-      </div>
+      <p>A technical deep-dive into ClipHack's audio processing pipeline: what each stage does, why it's there, and how the stages interact. Written for audio engineers, curious users, and anyone who wants to understand the engineering behind the app.</p>
+      <p style="margin-top: 12px;">This document assumes basic familiarity with audio concepts (dBFS, sample rate, dynamic range). It covers the origin of the tool, the specific challenges of Zoom audio injection, and the technical rationale behind each processing stage.</p>
     </div>
+
+    <!-- SIGNAL CHAIN -->
+    <section id="signal-chain">
+      <h2>Signal Chain at a Glance</h2>
+
+      <div class="chain">
+        <div class="chain-row">
+          <div class="chain-node">Resample</div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node optional">Noise Reduction<br><span style="font-size:0.75rem;font-weight:400;">arnndn (per-channel)</span></div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node optional">Channel Extract<br><span style="font-size:0.75rem;font-weight:400;">mono only</span></div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node">High-Pass + Phase<br><span style="font-size:0.75rem;font-weight:400;">HPF + 200 Hz allpass</span></div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node optional">De-esser<br><span style="font-size:0.75rem;font-weight:400;">7.5 kHz</span></div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node optional">Level Audio<br><span style="font-size:0.75rem;font-weight:400;">dynaudnorm</span></div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node optional">Loudnorm<br><span style="font-size:0.75rem;font-weight:400;">two-pass EBU R128</span></div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-node">Limiter<br><span style="font-size:0.75rem;font-weight:400;">2× oversample</span></div>
+        </div>
+      </div>
+      <p style="font-size:0.85rem;color:var(--muted);">Dashed border = optional stage. Resample and the brick-wall limiter always run. Each optional stage writes an intermediate 24-bit PCM WAV; the next stage reads that file fresh. Output: 24-bit WAV at the configured sample rate.</p>
+    </section>
 
     <!-- ORIGIN -->
     <section id="origin">
