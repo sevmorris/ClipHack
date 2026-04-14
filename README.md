@@ -6,6 +6,8 @@ ClipHack prepares audio clips for use in a mix — leveling dynamics, normalizin
 
 **[ClipHack v1.8.1 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.1.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)** · **[Theory of Operation](https://sevmorris.github.io/ClipHack/manual/theory.html)**
 
+<img src="docs/images/cliphack.png" width="100%" alt="ClipHack">
+
 > ⚠️ **Important — Read Before First Launch**
 >
 > macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging ClipHack to Applications, **you must run this command in Terminal:**
