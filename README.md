@@ -1,10 +1,23 @@
-**Clip Prep for macOS**
+# ClipHack
+
+<p align="center">
+  <img src="docs/icon.png" width="128" height="128" />
+  <br />
+  <br />
+  <strong>Clip Prep for macOS</strong>
+  <br />
+  <strong>Version: </strong>1.8.3
+  <br />
+  <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.3.dmg"><strong>Download</strong></a>
+  ·
+  <a href="https://sevmorris.github.io/ClipHack/manual/">Manual</a>
+  ·
+  <a href="https://sevmorris.github.io/ClipHack/manual/theory.html">Theory of Operation</a>
+  <br />
+  <br />
+</p>
 
 ClipHack prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show. For your own raw recordings before editing, use WaxOn.
-
-## Download
-
-**[ClipHack v1.8.3 (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.3.dmg)** · **[Manual](https://sevmorris.github.io/ClipHack/manual/)** · **[Theory of Operation](https://sevmorris.github.io/ClipHack/manual/theory.html)**
 
 <img src="docs/images/cliphack.png" width="100%" alt="ClipHack">
 
