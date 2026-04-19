@@ -19,8 +19,6 @@
 
 ClipHack prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show. For your own raw recordings before editing, use WaxOn.
 
-<img src="docs/images/cliphack.png" width="100%" alt="ClipHack">
-
 > ⚠️ **Important — Read Before First Launch**
 >
 > macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging ClipHack to Applications, **you must run this command in Terminal:**
