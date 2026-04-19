@@ -1,6 +1,9 @@
 import Foundation
 import Observation
+import OSLog
 import SwiftUI
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "ClipHack", category: "waveform")
 
 @Observable
 @MainActor
@@ -245,7 +248,7 @@ final class ContentViewModel {
                     files[currentIndex].waveform = waveform
                 }
             } catch {
-                // Waveform generation failed silently — not critical
+                logger.warning("Input waveform generation failed for '\(file.url.lastPathComponent, privacy: .public)': \(error)")
             }
         }
     }
@@ -271,7 +274,7 @@ final class ContentViewModel {
                     files[currentIndex].outputWaveform = waveform
                 }
             } catch {
-                // Output waveform generation failed — non-critical, processed file is unaffected
+                logger.warning("Output waveform generation failed for '\(url.lastPathComponent, privacy: .public)': \(error)")
             }
         }
     }

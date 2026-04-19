@@ -32,7 +32,8 @@ actor AudioProcessor {
         guard !inputs.isEmpty else { return [] }
 
         let tools = try await FFmpegManager.shared.ensureTools()
-        let maxConcurrent = 3
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        let maxConcurrent = max(1, min(cores, 8))
 
         return try await withThrowingTaskGroup(of: JobResult.self) { group in
             var results: [JobResult] = []
@@ -242,12 +243,10 @@ actor AudioProcessor {
             throw ProcessingError.outputMissing
         }
 
-        if fm.fileExists(atPath: finalURL.path) {
-            try? fm.removeItem(at: finalURL)
-        }
-        try fm.moveItem(at: tmpURL, to: finalURL)
+        let resolvedURL = uniqueOutputURL(finalURL, fm: fm)
+        try fm.moveItem(at: tmpURL, to: resolvedURL)
 
-        return JobResult(id: id, input: input, output: finalURL)
+        return JobResult(id: id, input: input, output: resolvedURL)
     }
 
     // MARK: - Process runner
@@ -270,7 +269,22 @@ actor AudioProcessor {
         process.arguments = args
         process.standardInput = FileHandle.nullDevice
 
-        nonisolated(unsafe) var cancelled = false
+        // Thread-safe state shared between the cancellation handler (arbitrary thread)
+        // and the process termination handler (Process internal thread).
+        // stdoutData/stderrData are written by dispatch queues and read only after
+        // readGroup.wait(), which provides the required happens-before guarantee.
+        final class RunState: @unchecked Sendable {
+            private let lock = NSLock()
+            private var _cancelled = false
+            var cancelled: Bool {
+                get { lock.withLock { _cancelled } }
+                set { lock.withLock { _cancelled = newValue } }
+            }
+            var stdoutData = Data()
+            var stderrData = Data()
+        }
+        let state = RunState()
+
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
                 let stdoutPipe = Pipe()
@@ -278,32 +292,30 @@ actor AudioProcessor {
                 process.standardOutput = captureStdout ? stdoutPipe : FileHandle.nullDevice
                 process.standardError = stderrPipe
 
-                nonisolated(unsafe) var stdoutData = Data()
-                nonisolated(unsafe) var stderrData = Data()
                 let readGroup = DispatchGroup()
 
                 if captureStdout {
                     readGroup.enter()
                     DispatchQueue.global(qos: .utility).async {
-                        stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                        state.stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
                         readGroup.leave()
                     }
                 }
                 readGroup.enter()
                 DispatchQueue.global(qos: .utility).async {
-                    stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    state.stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
                     readGroup.leave()
                 }
 
                 process.terminationHandler = { proc in
                     readGroup.wait()
-                    if proc.terminationReason == .uncaughtSignal || cancelled {
+                    if proc.terminationReason == .uncaughtSignal || state.cancelled {
                         continuation.resume(throwing: CancellationError())
                         return
                     }
                     let exitCode = proc.terminationStatus
                     if exitCode != 0 {
-                        let msg = String(data: stderrData, encoding: .utf8) ?? ""
+                        let msg = String(data: state.stderrData, encoding: .utf8) ?? ""
                         continuation.resume(throwing: ProcessingError.ffmpegFailed(
                             code: exitCode,
                             message: msg.isEmpty ? "Exit code \(exitCode)" : msg
@@ -311,9 +323,9 @@ actor AudioProcessor {
                         return
                     }
                     if returnStderr {
-                        continuation.resume(returning: String(data: stderrData, encoding: .utf8) ?? "")
+                        continuation.resume(returning: String(data: state.stderrData, encoding: .utf8) ?? "")
                     } else if captureStdout {
-                        continuation.resume(returning: String(data: stdoutData, encoding: .utf8) ?? "")
+                        continuation.resume(returning: String(data: state.stdoutData, encoding: .utf8) ?? "")
                     } else {
                         continuation.resume(returning: "")
                     }
@@ -328,7 +340,7 @@ actor AudioProcessor {
                 }
             }
         } onCancel: {
-            cancelled = true
+            state.cancelled = true
             process.terminate()
         }
     }
@@ -342,6 +354,21 @@ actor AudioProcessor {
     }
 
     // MARK: - Helpers
+
+    /// Returns `url` unchanged if no file exists there, otherwise appends ` (1)`, ` (2)`, … until
+    /// a non-colliding path is found. Never overwrites an existing file silently.
+    private func uniqueOutputURL(_ url: URL, fm: FileManager) -> URL {
+        guard fm.fileExists(atPath: url.path) else { return url }
+        let stem = url.deletingPathExtension().lastPathComponent
+        let ext  = url.pathExtension
+        let dir  = url.deletingLastPathComponent()
+        var counter = 1
+        while true {
+            let candidate = dir.appendingPathComponent("\(stem) (\(counter)).\(ext)")
+            if !fm.fileExists(atPath: candidate.path) { return candidate }
+            counter += 1
+        }
+    }
 
     private func makeTemp(prefix: String) throws -> URL {
         let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -357,10 +384,12 @@ actor AudioProcessor {
     // Maps 0.0 (gentle) → 1.0 (aggressive) to dynaudnorm parameters.
     // Shorter frames and tighter Gaussian smoothing = more responsive leveling.
     private func levelingFilter(amount: Double) -> String {
-        let f = Int(750.0 - amount * 600.0)         // frame ms: 750 → 150
-        let gRaw = Int(31.0 - amount * 24.0)        // gaussian: 31 → 7
-        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw    // must be odd
-        let m = 8.0 + amount * 12.0                 // max gain factor: 8x → 20x
+        // Frame floored at 250 ms — below that, dynaudnorm causes audible pumping on transients.
+        // Gain ceiling at 12× — beyond that, noise floor and artefacts become objectionable.
+        let f = max(250, Int(750.0 - amount * 600.0))  // frame ms: 750 → 250
+        let gRaw = Int(31.0 - amount * 24.0)           // gaussian: 31 → 7
+        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw       // must be odd
+        let m = min(12.0, 8.0 + amount * 12.0)         // max gain: 8x → 12x
         return "dynaudnorm=f=\(f):g=\(g):r=1:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1"
     }
 
