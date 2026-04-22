@@ -1,111 +1,72 @@
+# ClipHack
+### Audio Clip Prep Utility for macOS
+
 <p align="center">
-  <img src="docs/icon.png" width="128" height="128" />
+  <strong>Broadcast & Clip Normalization Utility</strong>
   <br />
-  <br />
-  <strong>Clip Prep for macOS</strong>
-  <br />
-  <strong>Version: </strong>1.8.3
+  <strong>Version:</strong> 1.8.3
   <br />
   <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.8.3.dmg"><strong>Download</strong></a>
   ·
   <a href="https://sevmorris.github.io/ClipHack/manual/">Manual</a>
   ·
   <a href="https://sevmorris.github.io/ClipHack/manual/theory.html">Theory of Operation</a>
-  <br />
-  <br />
 </p>
 
-ClipHack prepares audio clips for use in a mix — leveling dynamics, normalizing loudness, and brick-wall limiting peaks. It's designed for broadcast clips (news, promos) that need to sit at a consistent level before dropping into a podcast or show. For your own raw recordings before editing, use WaxOn.
+**ClipHack** is an internal utility designed to prepare third-party audio clips (news, promos, broadcast assets) for seamless integration into a mix. It focuses on leveling dynamics, normalizing loudness, and enforcing peak ceilings so that disparate sources sit at a consistent level within a podcast or show.
 
-> ⚠️ **Important — Read Before First Launch**
->
-> macOS will block the app with a malware warning because it is not notarized with Apple. After mounting the DMG and dragging ClipHack to Applications, **you must run this command in Terminal:**
->
-> ```
-> xattr -cr /Applications/ClipHack.app
-> ```
->
-> Without this step, macOS will refuse to open the app.
+This tool was built to solve the specific challenge of "taming" unpredictable broadcast audio. While developed for personal use, it is made publicly available for others who need a reliable, automated pipeline for clip preparation.
 
-## Features
+---
 
-- **Noise Reduction**: RNNoise neural network model (arnndn) — removes broadband background noise (hiss, room tone, HVAC). Applied per-channel on stereo files.
-- **High Pass Filter**: High-pass filter (20–90 Hz) + allpass phase rotation, always applied. At 20 Hz it acts as a DC blocker; at 60–90 Hz it removes low-frequency rumble.
-- **De-esser**: Gentle sibilance reduction at ~7.5 kHz. Useful for news clips and voiced content going through a codec like Zoom.
-- **Level Audio**: Dynamic leveling via FFmpeg's dynaudnorm — evens out level variation across a clip without compressor pumping. Designed for broadcast sources, not dialog.
-- **Loudness Norm**: Two-pass EBU R128 loudness normalization to a target LUFS. Runs before the limiter.
-- **Brick-Wall Limiting**: Configurable ceiling (-6 to -1 dB) with 2× oversampled true peak limiting
-- **Stereo Output**: Optionally force stereo output (upmixes mono sources)
-- **LUFS Measurement**: Full ITU-R BS.1770 gated loudness displayed per file
-- **Noise Floor Detection**: Warns when high noise floor may affect level accuracy
-- **Stereo Waveform**: L/R channels displayed separately for stereo files
-- **Batch Processing**: Process multiple files in parallel with per-file progress
-- **Drag & Drop**: Drop audio or video files onto the window to process
-- **Custom Output Directory**: Optionally set a dedicated output folder
-- **Update Checker**: Checks for new releases on launch and via Help menu
+> [!CAUTION]
+> **Manual Authorization Required**
+> macOS will block execution because this utility is not notarized. To authorize:
+> 1. Move `ClipHack.app` to your `/Applications` folder.
+> 2. Run the following command in Terminal:
+>    `xattr -cr /Applications/ClipHack.app`
 
-## System Requirements
+---
 
-- macOS 14.0 (Sonoma) or later
+## Core Features
+* **Noise Reduction:** Optional RNNoise neural network model for removing broadband background hiss and room tone.
+* **High Pass Filter:** Configurable cutoff (20–90 Hz) paired with allpass phase rotation (always active).
+* **De-esser:** Gentle sibilance reduction at ~7.5 kHz, optimized for voice content and codec-compressed sources.
+* **Dynamic Leveling:** Uses `dynaudnorm` to even out volume variations without the "pumping" artifacts of standard compression.
+* **Loudness Normalization:** Two-pass EBU R128 normalization to a user-defined target (e.g., -18 LUFS).
+* **Peak Control:** 2× oversampled true peak brick-wall limiting with a configurable ceiling (-6 to -1 dB).
 
-## Output Naming
+---
 
-Output filenames reflect what processing was applied:
-
-```
-{original-name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav
-```
-
-Examples:
-```
-clip-44kclipped-1dB.wav
-clip-44knr-ds-leveled-norm-clipped-1dB.wav
-```
-
-## Settings
-
-- **Sample Rate**: Output sample rate — 44.1 kHz or 48 kHz
-- **Stereo Output**: Force stereo output; upmixes mono sources
-- **Channel**: For mono output, select Left or Right channel
-- **Ceiling**: Brick-wall limiter true-peak ceiling, from -6 dB to -1 dB
-- **High Pass**: High-pass filter cutoff (20–90 Hz). At 20 Hz acts as DC blocker only. Always applied.
-- **Noise Reduction**: Enable RNNoise neural network noise reduction
-- **De-esser**: Enable gentle sibilance reduction (~7.5 kHz)
-- **Level Audio**: Enable dynamic leveling (dynaudnorm)
-- **Aggressiveness**: Controls leveler responsiveness — frame size, Gaussian smoothing, and max gain scale together from Gentle to Aggressive
-- **Loudness Norm**: Enable two-pass EBU R128 loudness normalization
-- **Target**: Normalization target in LUFS (-35 to -14). -18 LUFS is a common podcast insertion target.
-- **Output Directory**: Custom output folder (default: same as source file)
+## Technical Specifications
+* **Loudness Measurement:** Full ITU-R BS.1770 gated loudness monitoring per file.
+* **Signal Monitoring:** Separate L/R waveform display for stereo files and noise floor detection warnings.
+* **Batch Processing:** Parallel file processing with independent progress tracking.
+* **Environment:** macOS 14.0+ (Sonoma); Native Apple Silicon and Intel support.
+* **Dependencies:** Bundled FFmpeg; no external installation required.
 
 ## Processing Pipeline
+ClipHack executes the following signal chain in 24-bit WAV format:
+1.  **Resampling** to target rate (44.1 kHz or 48 kHz).
+2.  **Noise Reduction** (optional).
+3.  **Channel Management** (Mono extraction or forced Stereo upmixing).
+4.  **High-Pass + Phase Rotation** (always applied).
+5.  **De-esser** (optional).
+6.  **Dynamic Leveling** (optional).
+7.  **Loudness Normalization** (optional).
+8.  **True Peak Limiting** (always applied).
 
-ClipHack uses FFmpeg. Each stage is optional except high-pass and the final limiter:
+---
 
-1. **Resample** to the target sample rate (skipped if already matching)
-2. **Noise Reduction** — RNNoise neural network model via arnndn (optional)
-3. **Channel Extraction** — pan stereo to mono (left or right channel; skipped for stereo output)
-4. **High-Pass + Phase Rotation** — removes rumble/DC offset; allpass corrects phase shift. Always applied.
-5. **De-esser** — gentle sibilance reduction at ~7.5 kHz (optional)
-6. **Level Audio** — dynaudnorm dynamic normalization (optional)
-7. **Loudness Norm** — two-pass EBU R128 normalization (optional)
-8. **Brick-wall limiting** with 2× oversampled true peak control
+## Technical Origin
+This utility is the result of a **Human-AI Collaboration**. 
 
-Output format: 24-bit WAV
+I am an audio engineer, not a developer; these tools are built using AI-assisted coding to bridge that technical gap. I act as the **Architect and Executive Producer**, defining the audio signal chains and logic, while the code is generated through iterative stress-testing with Large Language Models. 
 
-## Building
+This is a personal toolset provided "as-is." It is designed for utility and precision, not as a commercial product.
 
-```bash
-xcodebuild -project ClipHack.xcodeproj -scheme ClipHack -configuration Release
-```
+---
 
-## License
-
-Copyright © 2026. This app was designed and directed by Seven Morris, with code primarily generated through AI collaboration using [OpenClaw](https://openclaw.ai) and Claude (Anthropic).
-
-This program is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License v3.0](LICENSE).
-
-## A Note on AI
-
-I'm a freelance audio engineer, not a software developer. These tools exist because AI made it possible for me to build things I couldn't build alone. These aren't products. I made them for my own use and put them out there because they might be useful to others. 
-
-At the same time I want to acknowledge that AI raises deep questions about labor displacement, resource consumption, surveillance, the concentration of power in a small number of corporations, and the increasingly close relationship between those corporations and governments. It's reshaping culture in ways that are harder to quantify too: authors replacing illustrators with generated images, fabricated photos designed to deceive, political misinformation at scale. These aren't hypothetical risks; they're unfolding now, and the implications for ordinary people are significant.
+### License
+Copyright © 2026 Seven Morris.
+Distributed under the [GNU General Public License v3.0](LICENSE).
