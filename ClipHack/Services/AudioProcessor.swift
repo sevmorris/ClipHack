@@ -390,7 +390,10 @@ actor AudioProcessor {
         let gRaw = Int(31.0 - amount * 24.0)           // gaussian: 31 → 7
         let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw       // must be odd
         let m = min(12.0, 8.0 + amount * 12.0)         // max gain: 8x → 12x
-        return "dynaudnorm=f=\(f):g=\(g):r=1:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1"
+        // r=0 disables RMS targeting; peak-based normalization (p=0.95) is the only constraint.
+        // r=1 (target 0 dBFS RMS) is mathematically inert here because rms_gain = 1.0/RMS
+        // is always >= maximum_gain = 0.95/peak, so peak wins in every frame anyway.
+        return "dynaudnorm=f=\(f):g=\(g):r=0:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1"
     }
 
     private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
