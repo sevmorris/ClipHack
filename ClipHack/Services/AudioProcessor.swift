@@ -385,15 +385,17 @@ actor AudioProcessor {
     // Shorter frames and tighter Gaussian smoothing = more responsive leveling.
     private func levelingFilter(amount: Double) -> String {
         // Frame floored at 250 ms — below that, dynaudnorm causes audible pumping on transients.
-        // Gain ceiling at 12× — beyond that, noise floor and artefacts become objectionable.
         let f = max(250, Int(750.0 - amount * 600.0))  // frame ms: 750 → 250
         let gRaw = Int(31.0 - amount * 24.0)           // gaussian: 31 → 7
         let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw       // must be odd
-        let m = min(12.0, 8.0 + amount * 12.0)         // max gain: 8x → 12x
+        let m = 8.0 + amount * 4.0                     // max gain: 8× → 12× (linear across full slider)
         // r=0 disables RMS targeting; peak-based normalization (p=0.95) is the only constraint.
         // r=1 (target 0 dBFS RMS) is mathematically inert here because rms_gain = 1.0/RMS
         // is always >= maximum_gain = 0.95/peak, so peak wins in every frame anyway.
-        return "dynaudnorm=f=\(f):g=\(g):r=0:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1"
+        // t=0.05: peak-magnitude silence threshold (≈ −26 dBFS). Frames below this peak are
+        // passed at unity instead of boosted — prevents amplifying breath/room tone between
+        // words on sparse voice tracks. (Note: dynaudnorm's `s` is compress, not threshold.)
+        return "dynaudnorm=f=\(f):g=\(g):r=0:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1:t=0.05"
     }
 
     private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
