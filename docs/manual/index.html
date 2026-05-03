@@ -411,7 +411,7 @@
 
     <div class="hero">
       <h1>ClipHack</h1>
-      <p>Clip prep for macOS. Process broadcast clips — noise reduction, dynamic leveling, loudness normalization, brick-wall limiting — before dropping them into a mix.</p>
+      <p>Clip prep for macOS. Process broadcast clips — dynamic leveling, loudness normalization, brick-wall limiting — before dropping them into a mix.</p>
       <div class="hero-actions">
         <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.9.0.dmg" class="btn btn-primary">Download v1.9.0</a>
         <a href="https://github.com/sevmorris/ClipHack" class="btn btn-secondary">GitHub</a>
@@ -495,12 +495,6 @@
         </li>
         <li>
           <div>
-            <strong>Noise Reduction <span class="tag">optional</span></strong>
-            <span>RNNoise neural network model via arnndn. Attenuates broadband background noise — hiss, room tone, HVAC. For stereo files, each channel is processed independently, then recombined, so the stereo image is preserved.</span>
-          </div>
-        </li>
-        <li>
-          <div>
             <strong>Channel Extraction</strong>
             <span>For mono output from a stereo source, extracts the selected channel (Left or Right) using an explicit pan filter. Skipped for stereo input when Stereo Output is on.</span>
           </div>
@@ -509,12 +503,6 @@
           <div>
             <strong>High-Pass Filter + Phase Rotation</strong>
             <span>High-pass filter at the configured cutoff (20–90 Hz) removes low-frequency rumble and DC offset. An allpass filter at 200 Hz corrects the phase shift introduced by the high-pass. Always applied — drag the slider to 20 Hz to minimize effect.</span>
-          </div>
-        </li>
-        <li>
-          <div>
-            <strong>De-esser <span class="tag">optional</span></strong>
-            <span>Gentle sibilance reduction at ~7.5 kHz. Reduces harshness on voiced content — particularly useful for news clips and interviews going through a codec like Zoom.</span>
           </div>
         </li>
         <li>
@@ -539,7 +527,7 @@
 
       <div class="callout">
         <strong>Why this order?</strong>
-        Noise reduction runs on the raw signal — before any gain changes — so the model sees the noise at its original level. Channel extraction runs after NR so stereo NR can process both channels. High-pass runs after channel extraction on the final channel count. De-esser follows high-pass so it's working on a clean low end. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
+        Channel extraction runs first so all subsequent stages operate on the final channel count. High-pass runs next so leveling and loudness measurement aren't influenced by sub-audible rumble or DC offset. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
       </div>
     </section>
 
@@ -577,34 +565,6 @@
             <td>High Pass</td>
             <td>20–90 Hz</td>
             <td>High-pass filter cutoff. At 20 Hz it acts as a DC blocker only. Raise to 60–90 Hz to remove low-frequency rumble. Always applied — set to 20 Hz to minimize effect.</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3>Noise Reduction</h3>
-      <table class="settings-table">
-        <thead>
-          <tr><th>Setting</th><th>Range</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Noise Reduction</td>
-            <td>on / off</td>
-            <td>Enables RNNoise ML noise suppression. Best for clips with consistent background noise (HVAC, room hiss). Not designed for music.</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3>De-esser</h3>
-      <table class="settings-table">
-        <thead>
-          <tr><th>Setting</th><th>Range</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>De-esser</td>
-            <td>on / off</td>
-            <td>Enables gentle sibilance reduction at ~7.5 kHz. Reduces harshness on voiced content. Not recommended for music.</td>
           </tr>
         </tbody>
       </table>
@@ -671,7 +631,7 @@
     <section id="output">
       <h2>Output Naming</h2>
       <p>Output filenames encode what processing was applied:</p>
-      <pre><code>{original-name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav</code></pre>
+      <pre><code>{original-name}-{rate}{leveled-}{norm-}clipped-{limit}dB.wav</code></pre>
 
       <h4>Tokens</h4>
       <table class="settings-table">
@@ -683,16 +643,6 @@
             <td><code>{rate}</code></td>
             <td>Always</td>
             <td><code>44k</code> or <code>48k</code></td>
-          </tr>
-          <tr>
-            <td><code>nr-</code></td>
-            <td>Noise Reduction was applied</td>
-            <td><code>nr-</code></td>
-          </tr>
-          <tr>
-            <td><code>ds-</code></td>
-            <td>De-esser was applied</td>
-            <td><code>ds-</code></td>
           </tr>
           <tr>
             <td><code>leveled-</code></td>
@@ -714,8 +664,8 @@
 
       <h4>Examples</h4>
       <pre><code>clip-44kclipped-1dB.wav
-clip-44knr-ds-clipped-1dB.wav
-clip-48knr-ds-leveled-norm-clipped-3dB.wav</code></pre>
+clip-44kleveled-clipped-1dB.wav
+clip-48kleveled-norm-clipped-3dB.wav</code></pre>
     </section>
 
     <!-- FORMATS -->

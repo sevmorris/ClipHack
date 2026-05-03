@@ -297,7 +297,6 @@
     <a href="#zoom">Zoom &amp; Audio Quality</a>
     <a class="section-head" href="#">Processing</a>
     <a href="#overview">Pipeline Overview</a>
-    <a href="#rnnoise">RNNoise / arnndn</a>
     <a href="#dynaudnorm">dynaudnorm</a>
     <a href="#loudnorm">EBU R128 / loudnorm</a>
     <a href="#limiter">Brick-Wall Limiter</a>
@@ -327,13 +326,9 @@
         <div class="chain-row">
           <div class="chain-node">Resample</div>
           <div class="chain-arrow">→</div>
-          <div class="chain-node optional">Noise Reduction<br><span style="font-size:0.75rem;font-weight:400;">arnndn (per-channel)</span></div>
-          <div class="chain-arrow">→</div>
           <div class="chain-node optional">Channel Extract<br><span style="font-size:0.75rem;font-weight:400;">mono only</span></div>
           <div class="chain-arrow">→</div>
           <div class="chain-node">High-Pass + Phase<br><span style="font-size:0.75rem;font-weight:400;">HPF + 200 Hz allpass</span></div>
-          <div class="chain-arrow">→</div>
-          <div class="chain-node optional">De-esser<br><span style="font-size:0.75rem;font-weight:400;">7.5 kHz</span></div>
           <div class="chain-arrow">→</div>
           <div class="chain-node optional">Level Audio<br><span style="font-size:0.75rem;font-weight:400;">dynaudnorm</span></div>
           <div class="chain-arrow">→</div>
@@ -357,8 +352,7 @@
       <p><strong>Leveling (dynaudnorm)</strong> tames clips that are internally inconsistent — a reporter who starts quiet and builds, or a clip that cuts between two sources at very different levels. It's the stage that does the most to make broadcast clips behave predictably.</p>
       <p><strong>Loudness normalization (EBU R128)</strong> sets the overall integrated loudness to a consistent target. After leveling, normalization ensures every clip lands at approximately the same perceived loudness regardless of how the source was produced.</p>
       <p><strong>Brick-wall limiting</strong> catches any peaks that survived the previous stages and prevents them from clipping the codec or causing sudden loudness spikes on the receiving end.</p>
-      <p><strong>Noise reduction (RNNoise)</strong> is optional and situation-specific. Some clips — particularly local TV packages — have audible room noise or HVAC hum that becomes more noticeable when the clip is leveled up. RNNoise handles this reasonably well on voice content. It's off by default because it can introduce artifacts on heavily processed broadcast material.</p>
-      <p><strong>De-esser</strong> is useful for clips that will pass through Zoom's codec, which can exaggerate sibilance. A gentle pass at 7.5 kHz takes the edge off without affecting the overall character of the clip.</p>
+      <p>Destructive frequency-domain work — sibilance reduction, broadband noise suppression — is intentionally out of scope. Those tasks need careful A/B comparison against the source, which defeats ClipHack's "drop in, process, ship" workflow. They belong in dedicated tools like iZotope RX or DAW plugins.</p>
     </section>
 
     <!-- ZOOM -->
@@ -395,29 +389,8 @@
     <!-- OVERVIEW -->
     <section id="overview">
       <h2>Overview</h2>
-      <p>ClipHack is a thin orchestration layer over FFmpeg. It builds filter chains, runs FFmpeg subprocesses, and manages temp files. There is no custom audio DSP in the app — all signal processing is done by FFmpeg and the bundled RNNoise model.</p>
+      <p>ClipHack is a thin orchestration layer over FFmpeg. It builds filter chains, runs FFmpeg subprocesses, and manages temp files. There is no custom audio DSP in the app — all signal processing is done by FFmpeg's bundled filters.</p>
       <p>The pipeline is strictly sequential. Each optional stage writes an intermediate WAV to a temp directory, which becomes the input for the next stage. This avoids compounding rounding errors from chaining filters in a single FFmpeg invocation — each stage gets a fresh 24-bit PCM buffer.</p>
-    </section>
-
-    <!-- RNNOISE -->
-    <section id="rnnoise">
-      <h2>RNNoise / arnndn</h2>
-      <p>RNNoise is a noise suppression algorithm developed at Mozilla Research, published in 2018. It uses a recurrent neural network (GRU-based) trained on speech and noise samples. FFmpeg exposes it as the <code>arnndn</code> filter, which requires a model file.</p>
-
-      <h3>What it does</h3>
-      <p>arnndn processes audio in short frames (~10 ms), classifying each frame as speech or noise and applying per-band gain reduction to suppress non-speech content. It's designed for voice — it suppresses broadband noise (HVAC, room hiss, fan noise) while preserving speech intelligibility.</p>
-      <p>It is not a general-purpose noise suppressor. It works poorly on music, non-speech content, or intermittent transient noise (clicks, pops). For broadcast voice clips, it's typically effective — for anything else, leave it off.</p>
-
-      <h3>Stereo handling</h3>
-      <p>arnndn is a mono filter. For stereo files, ClipHack splits the channels with <code>channelsplit</code>, runs arnndn independently on L and R, then recombines them with <code>join</code>:</p>
-      <pre><code>[0:a]channelsplit=channel_layout=stereo[L][R];
-[L]arnndn=m=rnnoise[Lnr];
-[R]arnndn=m=rnnoise[Rnr];
-[Lnr][Rnr]join=inputs=2:channel_layout=stereo</code></pre>
-      <p>Processing channels independently preserves the stereo image — a stereo NR pass on the downmixed signal would collapse phase relationships.</p>
-
-      <h3>Model file</h3>
-      <p>The RNNoise model is bundled inside the app as a binary resource file. It's the standard model distributed with FFmpeg's arnndn filter. The model is loaded at runtime via its file path — it's not compiled into FFmpeg itself.</p>
     </section>
 
     <!-- DYNAUDNORM -->
