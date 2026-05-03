@@ -134,15 +134,13 @@ struct SettingsView: View {
                             }
                         }
                         .controlSize(.small)
-                        Button("Reset") {
-                            viewModel.settings.outputDirectoryPath = nil
+                        if viewModel.settings.outputDirectoryPath != nil {
+                            Button("Reset") {
+                                viewModel.settings.outputDirectoryPath = nil
+                            }
+                            .controlSize(.small)
                         }
-                        .controlSize(.small)
-                        .disabled(viewModel.settings.outputDirectoryPath == nil)
                     }
-                    Text("Where processed files are written. Reset writes alongside each source file.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 2)
