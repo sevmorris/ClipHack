@@ -7,7 +7,7 @@ struct SettingsView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                row("Sample Rate") {
+                row(nil) {
                     Picker("", selection: $viewModel.settings.sampleRate) {
                         Text("44.1 kHz").tag(ClipHackSettings.SampleRate.s44100)
                         Text("48 kHz").tag(ClipHackSettings.SampleRate.s48000)
@@ -15,7 +15,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                row("Output") {
+                row(nil) {
                     Picker("", selection: $viewModel.settings.stereoOutput) {
                         Text("Mono").tag(false)
                         Text("Stereo").tag(true)
@@ -23,7 +23,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                row("Channel") {
+                row(nil) {
                     Picker("", selection: $viewModel.settings.channel) {
                         Text("Left").tag(ClipHackSettings.MonoChannel.left)
                         Text("Right").tag(ClipHackSettings.MonoChannel.right)
@@ -36,7 +36,7 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
-                row("Ceiling") {
+                row("Ceiling", caption: "True-peak ceiling for the brick-wall limiter") {
                     HStack(spacing: 6) {
                         Slider(value: $viewModel.settings.limitDb, in: -6 ... -1, step: 1)
                         Text(String(format: "%.0f dB", viewModel.settings.limitDb))
@@ -46,7 +46,7 @@ struct SettingsView: View {
                 }
                 .help("Brick-wall limiter true-peak ceiling. Sets the maximum output level.")
 
-                row("High Pass") {
+                row("High Pass", caption: "Removes rumble and low-frequency noise; DC Block only removes offset") {
                     HStack(spacing: 6) {
                         Slider(
                             value: Binding(
@@ -64,32 +64,7 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
-                row("Noise Reduction") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Toggle("", isOn: $viewModel.settings.noiseReductionEnabled)
-                                .toggleStyle(.switch)
-                                .labelsHidden()
-                            Text("RNNoise (ML)")
-                        }
-                        Text("Check output before editing — artifacts are possible on heavy noise")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                row("De-esser") {
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: $viewModel.settings.deEsserEnabled)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                        Text("Gentle (7.5 kHz)")
-                    }
-                }
-
-                Divider().padding(.vertical, 6)
-
-                row("Level Audio") {
+                row("Level Audio", caption: "Evens out volume between loud and quiet sections") {
                     HStack(spacing: 8) {
                         Toggle("", isOn: $viewModel.settings.levelingEnabled)
                             .toggleStyle(.switch)
@@ -98,7 +73,7 @@ struct SettingsView: View {
                     }
                 }
 
-                row("Aggressiveness") {
+                row("Aggressiveness", caption: "Higher values flatten dynamics more strongly") {
                     HStack(spacing: 6) {
                         Slider(value: $viewModel.settings.levelingAmount, in: 0 ... 1)
                         Text(aggressivenessLabel(viewModel.settings.levelingAmount))
@@ -112,7 +87,7 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
-                row("Loudness Norm") {
+                row("Loudness Norm", caption: "Two-pass EBU R128 normalization to a target loudness") {
                     Toggle("", isOn: $viewModel.settings.loudnormEnabled)
                         .toggleStyle(.switch)
                         .labelsHidden()
@@ -159,13 +134,15 @@ struct SettingsView: View {
                             }
                         }
                         .controlSize(.small)
-                        if viewModel.settings.outputDirectoryPath != nil {
-                            Button("Reset") {
-                                viewModel.settings.outputDirectoryPath = nil
-                            }
-                            .controlSize(.small)
+                        Button("Reset") {
+                            viewModel.settings.outputDirectoryPath = nil
                         }
+                        .controlSize(.small)
+                        .disabled(viewModel.settings.outputDirectoryPath == nil)
                     }
+                    Text("Where processed files are written. Reset writes alongside each source file.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 2)
@@ -176,13 +153,24 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func row<Content: View>(
+        _ label: String?,
+        caption: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.tertiary)
-                .kerning(0.4)
+            if let label {
+                Text(label.uppercased())
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .kerning(0.4)
+            }
             content()
+            if let caption {
+                Text(caption)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 2)

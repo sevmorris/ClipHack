@@ -14,16 +14,14 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
 
     static let builtIn: [ClipHackPreset] = [
         // Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback.
-        // 16-bit for codec compatibility; leveling on low to tame wildly dynamic sources
-        // without pumping; de-esser for sibilance through Zoom.
+        // Leveling on low to tame wildly dynamic sources without pumping; loudness
+        // normalized to -18 LUFS for codec compatibility.
         ClipHackPreset(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             name: "Broadcast Conform",
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                noiseReductionEnabled: true,
-                deEsserEnabled: true,
                 levelingEnabled: true,
                 levelingAmount: 0.25,
                 dcBlockHz: 80,
@@ -42,8 +40,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                noiseReductionEnabled: false,
-                deEsserEnabled: false,
                 levelingEnabled: false,
                 levelingAmount: 0.5,
                 dcBlockHz: 20,
@@ -54,7 +50,7 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
                 outputDirectoryPath: nil
             )
         ),
-        // High-pass + EBU R128 loudness normalization + limiter. No leveling or NR.
+        // High-pass + EBU R128 loudness normalization + limiter. No leveling.
         // Good for sources with consistent dynamics that just need a loudness target.
         ClipHackPreset(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
@@ -62,8 +58,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                noiseReductionEnabled: false,
-                deEsserEnabled: false,
                 levelingEnabled: false,
                 levelingAmount: 0.5,
                 dcBlockHz: 80,

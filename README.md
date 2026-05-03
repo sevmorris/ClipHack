@@ -29,9 +29,7 @@ This tool was built to solve the specific challenge of "taming" unpredictable br
 ---
 
 ## Core Features
-* **Noise Reduction:** Optional RNNoise neural network model for removing broadband background hiss and room tone.
 * **High Pass Filter:** Configurable cutoff (20–90 Hz) paired with allpass phase rotation (always active).
-* **De-esser:** Gentle sibilance reduction at ~7.5 kHz, optimized for voice content and codec-compressed sources.
 * **Dynamic Leveling:** Uses `dynaudnorm` to even out volume variations without the "pumping" artifacts of standard compression.
 * **Loudness Normalization:** Two-pass EBU R128 normalization to a user-defined target (e.g., -18 LUFS).
 * **Peak Control:** 2× oversampled true peak brick-wall limiting with a configurable ceiling (-6 to -1 dB).
@@ -48,13 +46,11 @@ This tool was built to solve the specific challenge of "taming" unpredictable br
 ## Processing Pipeline
 ClipHack executes the following signal chain in 24-bit WAV format:
 1.  **Resampling** to target rate (44.1 kHz or 48 kHz).
-2.  **Noise Reduction** (optional).
-3.  **Channel Management** (Mono extraction or forced Stereo upmixing).
-4.  **High-Pass + Phase Rotation** (always applied).
-5.  **De-esser** (optional).
-6.  **Dynamic Leveling** (optional).
-7.  **Loudness Normalization** (optional).
-8.  **True Peak Limiting** (always applied).
+2.  **Channel Management** (Mono extraction or forced Stereo upmixing).
+3.  **High-Pass + Phase Rotation** (always applied).
+4.  **Dynamic Leveling** (optional).
+5.  **Loudness Normalization** (optional).
+6.  **True Peak Limiting** (always applied).
 
 ---
 

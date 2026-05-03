@@ -77,11 +77,9 @@ actor AudioProcessor {
         let limitAmp = pow(10.0, settings.limitDb / 20.0)
         let limitTag = formatDbTag(settings.limitDb)
         let outDir = bestOutputDir(for: input)
-        let nrTag = settings.noiseReductionEnabled ? "nr-" : ""
-        let dsTag = settings.deEsserEnabled ? "ds-" : ""
         let levelTag = settings.levelingEnabled ? "leveled-" : ""
         let normTag = settings.loudnormEnabled ? "norm-" : ""
-        let outName = "\(stem)-\(rateTag)\(nrTag)\(dsTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
+        let outName = "\(stem)-\(rateTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
         let finalURL = outDir.appendingPathComponent(outName)
         let tmpURL = outDir.appendingPathComponent(".\(outName).tmp")
 
@@ -117,34 +115,6 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 1.5: Noise reduction (optional)
-        if settings.noiseReductionEnabled,
-           let modelURL = Bundle.main.url(forResource: "rnnoise", withExtension: nil) {
-            let nrURL = work.appendingPathComponent("\(stem)_nr.wav")
-            if channels > 1 {
-                let fc = [
-                    "[0:a]channelsplit=channel_layout=stereo[L][R]",
-                    "[L]arnndn=m=\(modelURL.path)[Lnr]",
-                    "[R]arnndn=m=\(modelURL.path)[Rnr]",
-                    "[Lnr][Rnr]join=inputs=2:channel_layout=stereo"
-                ].joined(separator: ";")
-                try await runFFmpeg(exe: tools.ffmpeg, args: [
-                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                    "-i", currentURL.path, "-filter_complex", fc,
-                    "-c:a", "pcm_s24le", "-ar", "\(sr)", nrURL.path
-                ])
-            } else {
-                try await runFFmpeg(exe: tools.ffmpeg, args: [
-                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                    "-i", currentURL.path, "-af", "arnndn=m=\(modelURL.path)",
-                    "-c:a", "pcm_s24le", "-ar", "\(sr)", nrURL.path
-                ])
-            }
-            currentURL = nrURL
-        }
-
-        try Task.checkCancellation()
-
         // Stage 2: Channel extraction — pan stereo to mono when not in stereo mode
         if !settings.stereoOutput && channels > 1 {
             let chanURL = work.appendingPathComponent("\(stem)_ch.wav")
@@ -170,18 +140,6 @@ actor AudioProcessor {
         currentURL = hpURL
 
         try Task.checkCancellation()
-
-        // Stage 2.7: De-esser (optional)
-        if settings.deEsserEnabled {
-            let dsURL = work.appendingPathComponent("\(stem)_ds.wav")
-            try await runFFmpeg(exe: tools.ffmpeg, args: [
-                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", currentURL.path, "-af", "deesser=i=0.3:f=0.34:s=o",
-                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dsURL.path
-            ])
-            currentURL = dsURL
-            try Task.checkCancellation()
-        }
 
         // Stage 3: Leveling (optional)
         if settings.levelingEnabled {

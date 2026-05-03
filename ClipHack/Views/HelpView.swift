@@ -16,9 +16,9 @@ struct HelpView: View {
                 section("Presets") {
                     text("Presets save and recall all settings at once. Three built-in presets are included:")
                     VStack(alignment: .leading, spacing: 8) {
-                        definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. Leveling on low to tame wildly dynamic sources without pumping; de-esser for sibilance through Zoom. Loudness normalized to -18 LUFS.")
+                        definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. Leveling on low to tame wildly dynamic sources without pumping. Loudness normalized to -18 LUFS.")
                         definition("Clean & Limit", "Minimal processing — high-pass at DC block + limiter only. Good for already well-produced sources that just need a safety ceiling.")
-                        definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. No leveling or NR. Good for sources with consistent dynamics that just need a loudness target.")
+                        definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. No leveling. Good for sources with consistent dynamics that just need a loudness target.")
                     }
                     text("To save your own preset, open the preset menu and choose **Save Current Settings…**. To delete a custom preset, choose **Delete Preset** from the same menu. Built-in presets cannot be deleted.")
                 }
@@ -32,21 +32,19 @@ struct HelpView: View {
                 }
                 section("Output Naming") {
                     text("Output filenames reflect what processing was applied:")
-                    code("{original-name}-{rate}{nr-}{ds-}{leveled-}{norm-}clipped-{limit}dB.wav")
+                    code("{original-name}-{rate}{leveled-}{norm-}clipped-{limit}dB.wav")
                     VStack(alignment: .leading, spacing: 4) {
                         text("Examples:")
                         code("clip-44kclipped-1dB.wav")
-                        code("clip-44knr-ds-leveled-norm-clipped-1dB.wav")
+                        code("clip-44kleveled-norm-clipped-1dB.wav")
                     }
                 }
                 section("Processing Pipeline") {
                     text("ClipHack uses FFmpeg. Each stage is optional except high-pass, phase rotation, and the final limiter:")
                     numberedList([
                         "Resample to target sample rate (skipped if already matching).",
-                        "Noise Reduction — RNNoise neural network model (arnndn). Removes broadband background noise. Applied per-channel on stereo files.",
                         "Channel extraction — pan stereo to mono (left or right channel).",
                         "High-pass filter + phase rotation — removes low-frequency rumble and DC offset; allpass filter corrects phase shift. Always applied.",
-                        "De-esser — gentle sibilance reduction at 7.5 kHz (optional).",
                         "Level Audio — dynamic normalization via dynaudnorm. Evens out level variation across the clip.",
                         "Loudness Norm — two-pass EBU R128 loudness normalization to a target LUFS.",
                         "Brick-wall limiting with 2× oversampled true peak control."
@@ -57,8 +55,6 @@ struct HelpView: View {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
 definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff frequency (20–90 Hz). At 20 Hz it acts as a DC blocker only. Higher values (60–90 Hz) remove low-frequency rumble. Always applied — drag to 20 Hz to minimize effect.")
-                    definition("Noise Reduction", "Enables RNNoise neural network noise reduction (arnndn). Attenuates broadband background noise — hiss, room tone, HVAC. Applied before channel extraction. Check output before editing — artifacts are possible on heavy noise.")
-                    definition("De-esser", "Enables gentle sibilance reduction (deesser, ~7.5 kHz, intensity 0.3). Reduces harshness on voiced content — particularly useful for news clips and political ads going through a codec like Zoom.")
                     definition("Level Audio", "Enables dynamic leveling (dynaudnorm). Best for wildly dynamic sources. Not recommended for already-compressed broadcast content.")
                     definitionView("Aggressiveness") {
                         Text("Controls how responsive the leveler is. Three parameters scale together:")
