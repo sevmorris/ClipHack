@@ -73,18 +73,6 @@ struct SettingsView: View {
                     }
                 }
 
-                row("Aggressiveness", caption: "Higher values flatten dynamics more strongly") {
-                    HStack(spacing: 6) {
-                        Slider(value: $viewModel.settings.levelingAmount, in: 0 ... 1)
-                        Text(aggressivenessLabel(viewModel.settings.levelingAmount))
-                            .font(.system(size: 11).monospaced())
-                            .frame(width: 68, alignment: .trailing)
-                    }
-                }
-                .disabled(!viewModel.settings.levelingEnabled)
-                .opacity(!viewModel.settings.levelingEnabled ? 0.4 : 1)
-                .help(!viewModel.settings.levelingEnabled ? "Enable Level Audio to adjust" : "")
-
                 Divider().padding(.vertical, 6)
 
                 row("Loudness Norm", caption: "Two-pass EBU R128 normalization to a target loudness") {
@@ -174,13 +162,4 @@ struct SettingsView: View {
         .padding(.horizontal, 2)
     }
 
-    private func aggressivenessLabel(_ amount: Double) -> String {
-        switch amount {
-        case ..<0.25: return "Gentle"
-        case ..<0.5:  return "Low"
-        case ..<0.75: return "Medium"
-        case ..<0.9:  return "High"
-        default:      return "Aggressive"
-        }
-    }
 }

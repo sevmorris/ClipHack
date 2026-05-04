@@ -326,38 +326,6 @@
       margin-left: 6px;
     }
 
-    /* ── Aggressiveness table ── */
-    .agg-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-      margin-bottom: 14px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .agg-table th {
-      text-align: left;
-      font-family: var(--font-ui);
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--black);
-    }
-    .agg-table td {
-      color: var(--cream);
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-    }
-    .agg-table td:first-child { font-family: var(--font-body); font-weight: 600; color: var(--light); }
-    .agg-table tr:last-child td { border-bottom: none; }
-
     /* ── Responsive ── */
     @media (max-width: 800px) {
       body { flex-direction: column; }
@@ -496,7 +464,7 @@
         <li>
           <div>
             <strong>Level Audio <span class="tag">optional</span></strong>
-            <span>Dynamic leveling via FFmpeg's dynaudnorm. Evens out level variation across the clip. Three parameters — frame size, Gaussian smoothing, and max gain — scale together from Gentle to Aggressive.</span>
+            <span>Dynamic leveling via FFmpeg's dynaudnorm. Evens out level variation across the clip using a fixed moderate setting tuned for broadcast content.</span>
           </div>
         </li>
         <li>
@@ -566,31 +534,11 @@
           <tr>
             <td>Level Audio</td>
             <td>on / off</td>
-            <td>Enables dynaudnorm dynamic leveling. Evens out level variation within a clip. Best for broadcast sources with varying levels — not recommended for dialog or music.</td>
-          </tr>
-          <tr>
-            <td>Aggressiveness</td>
-            <td>Gentle → Aggressive</td>
-            <td>Controls how quickly the leveler responds to level changes. See the table below.</td>
+            <td>Enables dynaudnorm dynamic leveling. Evens out level variation within a clip using a fixed moderate setting. Best for broadcast sources with varying levels — not recommended for dialog or music.</td>
           </tr>
         </tbody>
       </table>
-
-      <h4>Aggressiveness Parameters</h4>
-      <p>Three dynaudnorm parameters scale together as you move the slider:</p>
-      <table class="agg-table">
-        <thead>
-          <tr><th>Level</th><th>Frame Size</th><th>Gaussian (g)</th><th>Max Gain</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Gentle</td><td>750 ms</td><td>31</td><td>8×</td></tr>
-          <tr><td>Low</td><td>600 ms</td><td>25</td><td>11×</td></tr>
-          <tr><td>Medium</td><td>450 ms</td><td>19</td><td>14×</td></tr>
-          <tr><td>High</td><td>300 ms</td><td>13</td><td>17×</td></tr>
-          <tr><td>Aggressive</td><td>150 ms</td><td>7</td><td>20×</td></tr>
-        </tbody>
-      </table>
-      <p>Three parameters are always fixed: <strong>RMS-based</strong> measurement (responds to perceived loudness, not transient peaks), <strong>channel-coupled</strong> (L and R get the same gain, preserving the stereo image), and <strong>boundary extension</strong> (gain holds steady at the start and end of the file rather than tapering to zero).</p>
+      <p>The leveler uses a fixed moderate setting (450 ms frame, Gaussian g=19, max gain 10×) tuned for broadcast clip conforming. A gain compress factor guards against sections dipping too low in highly variable content. See <a href="theory.html#dynaudnorm">Theory of Operation → dynaudnorm</a> for parameter details.</p>
 
       <h3>Loudness Normalization</h3>
       <table class="settings-table">

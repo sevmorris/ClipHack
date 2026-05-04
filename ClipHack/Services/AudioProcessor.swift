@@ -142,13 +142,22 @@ actor AudioProcessor {
         try Task.checkCancellation()
 
         // Stage 3: Leveling (optional)
+        // dynaudnorm boundary fix: the Gaussian window looks ahead into zero-frames at the
+        // tail, causing a fade-out artifact. Padding with silence pushes the artifact into
+        // the padding; -t trims it from the output.
         if settings.levelingEnabled {
             let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
-            try await runFFmpeg(exe: tools.ffmpeg, args: [
-                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", currentURL.path, "-af", levelingFilter(amount: settings.levelingAmount),
-                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path
+            let durationOutput = try? await runFFmpegCapture(exe: tools.ffprobe, args: [
+                "-v", "error", "-select_streams", "a:0",
+                "-show_entries", "format=duration",
+                "-of", "csv=p=0", currentURL.path
             ])
+            let fileDuration = durationOutput.flatMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            var args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                        "-i", currentURL.path, "-af", "apad=pad_dur=16,\(levelingFilter())"]
+            if let d = fileDuration { args += ["-t", String(format: "%.6f", d)] }
+            args += ["-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
+            try await runFFmpeg(exe: tools.ffmpeg, args: args)
             currentURL = leveledURL
         }
 
@@ -339,21 +348,17 @@ actor AudioProcessor {
         return dir
     }
 
-    // Maps 0.0 (gentle) → 1.0 (aggressive) to dynaudnorm parameters.
-    // Shorter frames and tighter Gaussian smoothing = more responsive leveling.
-    private func levelingFilter(amount: Double) -> String {
-        // Frame floored at 250 ms — below that, dynaudnorm causes audible pumping on transients.
-        let f = max(250, Int(750.0 - amount * 600.0))  // frame ms: 750 → 250
-        let gRaw = Int(31.0 - amount * 24.0)           // gaussian: 31 → 7
-        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw       // must be odd
-        let m = 8.0 + amount * 4.0                     // max gain: 8× → 12× (linear across full slider)
-        // r=0 disables RMS targeting; peak-based normalization (p=0.95) is the only constraint.
-        // r=1 (target 0 dBFS RMS) is mathematically inert here because rms_gain = 1.0/RMS
-        // is always >= maximum_gain = 0.95/peak, so peak wins in every frame anyway.
-        // t=0.05: peak-magnitude silence threshold (≈ −26 dBFS). Frames below this peak are
-        // passed at unity instead of boosted — prevents amplifying breath/room tone between
-        // words on sparse voice tracks. (Note: dynaudnorm's `s` is compress, not threshold.)
-        return "dynaudnorm=f=\(f):g=\(g):r=0:p=0.95:m=\(String(format: "%.1f", m)):n=1:b=1:t=0.05"
+    // Fixed moderate dynaudnorm parameters tuned for broadcast clip conforming.
+    // f=450ms, g=19: responsive enough to catch within-clip level swings without pumping.
+    // p=0.95: peak target per frame; r=0 = peak-based (not RMS).
+    // m=10.0: max gain cap prevents runaway boost on very quiet frames.
+    // s=5.0: compress factor limits extreme gain excursions in both directions,
+    //        guarding against sections dipping too low in highly variable content.
+    // t=0.05: silence threshold (≈ −26 dBFS) passes near-silent frames at unity.
+    // n=1: boundary extension holds gain steady at file edges instead of tapering.
+    // b=1: channel-coupled — L and R get identical gain, preserving stereo image.
+    private func levelingFilter() -> String {
+        "dynaudnorm=f=450:g=19:r=0:p=0.95:m=10.0:s=5.0:n=1:b=1:t=0.05"
     }
 
     private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {

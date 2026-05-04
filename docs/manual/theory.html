@@ -399,7 +399,7 @@
       <p>dynaudnorm (Dynamic Audio Normalizer) is an FFmpeg filter that applies time-varying gain normalization. Unlike static normalization (which applies a single gain to the whole file), dynaudnorm adjusts gain frame-by-frame to even out level variation over time.</p>
 
       <h3>What it does</h3>
-      <p>The filter divides the signal into overlapping frames, measures the RMS level of each frame, computes a target gain, and applies it with Gaussian smoothing to avoid abrupt gain changes. The result is a clip where loud and quiet sections are brought closer together in level — without the pumping or breathing of a conventional compressor.</p>
+      <p>The filter divides the signal into overlapping frames, measures the peak level of each frame, computes a target gain, and applies it with Gaussian smoothing to avoid abrupt gain changes. The result is a clip where loud and quiet sections are brought closer together in level — without the pumping or breathing of a conventional compressor.</p>
 
       <h3>When to use it</h3>
       <p>dynaudnorm works well on broadcast clips with inconsistent levels — a reporter clip that starts quiet and gets louder, or a clip with multiple speakers at different distances. It is <strong>not</strong> recommended for:</p>
@@ -409,19 +409,20 @@
         <li>Clips that are already consistently leveled — running dynaudnorm won't hurt, but it won't help</li>
       </ul>
 
-      <h3>Aggressiveness parameters</h3>
-      <p>ClipHack exposes three dynaudnorm parameters via the Aggressiveness slider. All three scale together:</p>
+      <h3>Fixed moderate parameters</h3>
+      <p>ClipHack uses a single fixed parameter set tuned for broadcast clip conforming. There is no user-adjustable aggressiveness — the setting is optimized for the tool's specific use case: highly variable broadcast content that needs consistent playback level.</p>
       <ul>
-        <li><strong>Frame size</strong> — how long each analysis frame is. Shorter frames = faster response = more aggressive.</li>
-        <li><strong>Gaussian smoothing (g)</strong> — the half-width of the Gaussian smoothing kernel. Higher = smoother gain transitions. Scales inversely with aggressiveness.</li>
-        <li><strong>Max gain</strong> — the maximum gain (in linear) that can be applied to any single frame. Prevents the filter from boosting very quiet sections into audibility.</li>
+        <li><strong>Frame size (f=450 ms)</strong> — analysis frame length. 450 ms is responsive enough to catch within-clip level swings without the pumping artifacts that shorter frames introduce on transients.</li>
+        <li><strong>Gaussian smoothing (g=19)</strong> — the half-width of the Gaussian smoothing kernel. Produces smooth gain transitions between frames.</li>
+        <li><strong>Peak-based (r=0, p=0.95)</strong> — gain targets the per-frame peak at 0.95 (≈ −0.45 dBFS). Peak-based measurement responds directly to signal amplitude; the silence threshold (<code>t=0.05</code>, ≈ −26 dBFS) passes near-silent frames at unity gain to avoid boosting breath noise or room tone between words.</li>
+        <li><strong>Max gain (m=10×)</strong> — caps the maximum gain applied to any single frame, preventing runaway boost on very quiet frames.</li>
+        <li><strong>Compress factor (s=5.0)</strong> — applies a soft compression curve to the gain function itself, limiting extreme gain excursions in both directions. This guards against sections dipping too low when the leveler transitions from a loud passage to a quiet one.</li>
+        <li><strong>Boundary extension (n=1)</strong> — gain holds steady at the start and end of the file rather than tapering to zero. Prevents a gain-change artifact at edit points.</li>
+        <li><strong>Channel-coupled (b=1)</strong> — L and R channels receive the same gain at every moment, preserving the stereo image.</li>
       </ul>
-      <p>Three parameters are always fixed regardless of the aggressiveness setting:</p>
-      <ul>
-        <li><strong>RMS-based</strong> — gain is measured from RMS level, not peak. This makes it respond to perceived loudness rather than transient peaks, which is appropriate for broadcast content.</li>
-        <li><strong>Channel-coupled</strong> — L and R channels receive the same gain at every moment. This is critical for stereo content — independent gain on each channel would shift the stereo image.</li>
-        <li><strong>Boundary extension</strong> — gain holds steady at the beginning and end of the file rather than ramping from zero. Without this, you'd hear a gain change artifact at the edit point.</li>
-      </ul>
+
+      <h3>Tail-fade fix</h3>
+      <p>dynaudnorm's Gaussian window is symmetric — it looks both backward and forward in time. At the end of a file, the filter has no future frames to look at, so it pads with zeros. This can cause the gain computation to underestimate the signal level in the last few frames, producing a subtle fade-out artifact. ClipHack works around this by padding the input with 16 seconds of silence before running dynaudnorm, then trimming the output back to the original duration. The artifact lands in the padding and is discarded.</p>
     </section>
 
     <!-- LOUDNORM -->

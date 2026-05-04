@@ -14,8 +14,7 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
 
     static let builtIn: [ClipHackPreset] = [
         // Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback.
-        // Leveling on low to tame wildly dynamic sources without pumping; loudness
-        // normalized to -18 LUFS for codec compatibility.
+        // Leveling tames wildly dynamic sources; loudness normalized to -18 LUFS.
         ClipHackPreset(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             name: "Broadcast Conform",
@@ -23,7 +22,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
                 sampleRate: .s44100,
                 limitDb: -1.0,
                 levelingEnabled: true,
-                levelingAmount: 0.25,
                 dcBlockHz: 80,
                 loudnormEnabled: true,
                 loudnormTarget: -18.0,
@@ -41,7 +39,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
                 sampleRate: .s44100,
                 limitDb: -1.0,
                 levelingEnabled: false,
-                levelingAmount: 0.5,
                 dcBlockHz: 20,
                 loudnormEnabled: false,
                 loudnormTarget: -18.0,
@@ -59,7 +56,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
                 sampleRate: .s44100,
                 limitDb: -1.0,
                 levelingEnabled: false,
-                levelingAmount: 0.5,
                 dcBlockHz: 80,
                 loudnormEnabled: true,
                 loudnormTarget: -18.0,
