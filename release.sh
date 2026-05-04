@@ -74,6 +74,7 @@ sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" \
     docs/index.html docs/manual/index.html README.md
 sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" \
     docs/index.html docs/manual/index.html
+sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" docs/manual/index.html
 sed -i '' "s|ClipHack v[0-9][0-9.]* (DMG).*ClipHack-v[0-9][0-9.]*.dmg|ClipHack ${TAG} (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-${TAG}.dmg|g" README.md
 
 if [[ -n "$(git status --porcelain)" ]]; then
