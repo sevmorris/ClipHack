@@ -19,15 +19,6 @@ This tool was built to solve the specific challenge of "taming" unpredictable br
 
 ---
 
-> [!CAUTION]
-> **Manual Authorization Required**
-> macOS will block execution because this utility is not notarized. To authorize:
-> 1. Move `ClipHack.app` to your `/Applications` folder.
-> 2. Run the following command in Terminal:
->    `xattr -cr /Applications/ClipHack.app`
-
----
-
 ## Core Features
 * **High Pass Filter:** Configurable cutoff (20–90 Hz) paired with allpass phase rotation (always active).
 * **Dynamic Leveling:** Uses `dynaudnorm` to even out volume variations without the "pumping" artifacts of standard compression.
