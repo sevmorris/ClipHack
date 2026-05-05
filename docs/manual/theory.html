@@ -421,8 +421,9 @@
         <li><strong>Channel-coupled (b=1)</strong> — L and R channels receive the same gain at every moment, preserving the stereo image.</li>
       </ul>
 
-      <h3>Boundary-fade fix</h3>
-      <p>dynaudnorm's Gaussian window is symmetric — it looks both backward and forward in time. At the start of a file the filter has no past frames; at the end it has no future frames. In both cases the window extends into nonexistent samples (effectively zero-padded), causing the gain computation to underestimate the signal level near the boundary. The audible result is a slow ramp-up at the head of the file and a slow fade-out at the tail. ClipHack works around this by prepending 16 seconds of silence with <code>adelay</code> and appending 16 seconds with <code>apad</code>, then using output-side <code>-ss 16</code> and <code>-t {duration}</code> to skip the head padding and trim the tail. Both artifacts land in the discarded silence; the output file matches the original duration exactly.</p>
+      <h3>Mirror-padding boundary fix</h3>
+      <p>dynaudnorm's Gaussian smoothing window is symmetric — it looks both backward and forward in time. At the start of a file the filter has no past frames; at the end it has no future frames. The naive workaround of padding with silence does not solve this: dynaudnorm assigns silent frames a gain of 1.0 (its silence threshold behavior), and those unity-gain values get averaged into the smoothing window at the audio/silence boundary, pulling the smoothed gain down and producing an audible ramp into the real audio.</p>
+      <p>The actual fix is <strong>mirror padding</strong>: prepend a reversed copy of the first 16 seconds and append a reversed copy of the last 16 seconds. The smoothing window now sees real audio with matching gain values on both sides of the boundary, so the smoothed gain at the edge is the same as it would be in the middle of the file. After processing, the padding is trimmed off and the output matches the original duration exactly. For clips shorter than 16 seconds, the pad length is capped at the clip's length.</p>
     </section>
 
     <!-- LOUDNORM -->

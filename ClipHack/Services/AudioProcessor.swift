@@ -142,10 +142,13 @@ actor AudioProcessor {
         try Task.checkCancellation()
 
         // Stage 3: Leveling (optional)
-        // dynaudnorm boundary fix: the Gaussian window extends into nonexistent frames
-        // at both the head and the tail, causing fade-in / fade-out artifacts. adelay
-        // prepends 16s of silence and apad appends 16s; -ss skips the head padding and
-        // -t trims the tail. Both artifacts land in the discarded silence.
+        // Mirror padding: dynaudnorm's Gaussian smoothing window extends into nonexistent
+        // frames at the file boundaries. Padding with silence doesn't help — silent frames
+        // get gain=1.0 (silence threshold) which still pulls the smoothed gain down at the
+        // audio boundary, producing a ramp. Mirror padding (reversed copies of the first
+        // and last 16s) gives the smoothing window real audio with matching gain values
+        // on both sides of the boundary, so the smoothed gain at the edge matches what
+        // the audio actually needs.
         if settings.levelingEnabled {
             let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
             let durationOutput = try? await runFFmpegCapture(exe: tools.ffprobe, args: [
@@ -154,12 +157,20 @@ actor AudioProcessor {
                 "-of", "csv=p=0", currentURL.path
             ])
             let fileDuration = durationOutput.flatMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            var args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+            let args: [String]
+            if let d = fileDuration {
+                let filterComplex = mirrorPaddedFilter(duration: d, leveler: levelingFilter())
+                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                         "-i", currentURL.path,
-                        "-af", "adelay=delays=16000:all=1,apad=pad_dur=16,\(levelingFilter())",
-                        "-ss", "16"]
-            if let d = fileDuration { args += ["-t", String(format: "%.6f", d)] }
-            args += ["-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
+                        "-filter_complex", filterComplex,
+                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
+            } else {
+                // Duration probe failed — fall back to plain dynaudnorm (boundary artifacts will be present).
+                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                        "-i", currentURL.path,
+                        "-af", levelingFilter(),
+                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
+            }
             try await runFFmpeg(exe: tools.ffmpeg, args: args)
             currentURL = leveledURL
         }
@@ -362,6 +373,23 @@ actor AudioProcessor {
     // b=1: channel-coupled — L and R get identical gain, preserving stereo image.
     private func levelingFilter() -> String {
         "dynaudnorm=f=450:g=19:r=0:p=0.95:m=10.0:s=5.0:n=1:b=1:t=0.05"
+    }
+
+    // Builds a filter_complex that mirror-pads the audio with reversed copies of the
+    // first and last `padDur` seconds (capped at 16s, or the file length if shorter),
+    // runs the leveler over the padded stream, then trims the padding back off.
+    private func mirrorPaddedFilter(duration: Double, leveler: String) -> String {
+        let padDur = min(16.0, duration)
+        let tailStart = max(0.0, duration - padDur)
+        let pad = String(format: "%.6f", padDur)
+        let tStart = String(format: "%.6f", tailStart)
+        let dur = String(format: "%.6f", duration)
+        return "[0:a]asplit=3[h][m][t];" +
+               "[h]atrim=duration=\(pad),areverse,asetpts=PTS-STARTPTS[head];" +
+               "[m]asetpts=PTS-STARTPTS[body];" +
+               "[t]atrim=start=\(tStart),areverse,asetpts=PTS-STARTPTS[tail];" +
+               "[head][body][tail]concat=n=3:v=0:a=1," +
+               "\(leveler),atrim=start=\(pad):duration=\(dur),asetpts=PTS-STARTPTS"
     }
 
     private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
