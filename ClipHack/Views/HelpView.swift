@@ -18,7 +18,7 @@ struct HelpView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. Loudness normalized to -18 LUFS.")
                         definition("Clean & Limit", "Minimal processing — high-pass at DC block + limiter only. Good for already well-produced sources that just need a safety ceiling.")
-                        definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. No leveling. Good for sources with consistent dynamics that just need a loudness target.")
+                        definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. Good for sources with consistent dynamics that just need a loudness target.")
                     }
                     text("To save your own preset, open the preset menu and choose **Save Current Settings…**. To delete a custom preset, choose **Delete Preset** from the same menu. Built-in presets cannot be deleted.")
                 }
