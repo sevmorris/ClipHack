@@ -64,17 +64,6 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
-                row("Level Audio", caption: "Evens out volume between loud and quiet sections") {
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: $viewModel.settings.levelingEnabled)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                        Text("dynaudnorm")
-                    }
-                }
-
-                Divider().padding(.vertical, 6)
-
                 row("Loudness Norm", caption: "Two-pass EBU R128 normalization to a target loudness") {
                     Toggle("", isOn: $viewModel.settings.loudnormEnabled)
                         .toggleStyle(.switch)

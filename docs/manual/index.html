@@ -378,7 +378,7 @@
 
     <div class="hero">
       <h1>ClipHack</h1>
-      <p>Clip prep for macOS. Process broadcast clips — dynamic leveling, loudness normalization, brick-wall limiting — before dropping them into a mix.</p>
+      <p>Clip prep for macOS. Process broadcast clips — loudness normalization, brick-wall limiting — before dropping them into a mix.</p>
       <div class="hero-actions">
         <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.9.7.dmg" class="btn btn-primary">Download v1.9.7</a>
         <a href="https://github.com/sevmorris/ClipHack" class="btn btn-secondary">GitHub</a>
@@ -463,12 +463,6 @@
         </li>
         <li>
           <div>
-            <strong>Level Audio <span class="tag">optional</span></strong>
-            <span>Dynamic leveling via FFmpeg's dynaudnorm. Evens out level variation across the clip using a fixed moderate setting tuned for broadcast content.</span>
-          </div>
-        </li>
-        <li>
-          <div>
             <strong>Loudness Norm <span class="tag">optional</span></strong>
             <span>Two-pass EBU R128 loudness normalization. First pass measures integrated loudness; second pass applies a linear gain to hit the target LUFS. Runs before the limiter.</span>
           </div>
@@ -483,7 +477,7 @@
 
       <div class="callout">
         <strong>Why this order?</strong>
-        Channel extraction runs first so all subsequent stages operate on the final channel count. High-pass runs next so leveling and loudness measurement aren't influenced by sub-audible rumble or DC offset. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
+        Channel extraction runs first so all subsequent stages operate on the final channel count. High-pass runs next so loudness measurement isn't influenced by sub-audible rumble or DC offset. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
       </div>
     </section>
 
@@ -525,21 +519,6 @@
         </tbody>
       </table>
 
-      <h3>Level Audio</h3>
-      <table class="settings-table">
-        <thead>
-          <tr><th>Setting</th><th>Range</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Level Audio</td>
-            <td>on / off</td>
-            <td>Enables dynaudnorm dynamic leveling. Evens out level variation within a clip using a fixed moderate setting. Best for broadcast sources with varying levels — not recommended for dialog or music.</td>
-          </tr>
-        </tbody>
-      </table>
-      <p>The leveler uses a fixed moderate setting (450 ms frame, Gaussian g=19, max gain 10×) tuned for broadcast clip conforming. A gain compress factor guards against sections dipping too low in highly variable content. See <a href="theory.html#dynaudnorm">Theory of Operation → dynaudnorm</a> for parameter details.</p>
-
       <h3>Loudness Normalization</h3>
       <table class="settings-table">
         <thead>
@@ -567,7 +546,7 @@
     <section id="output">
       <h2>Output Naming</h2>
       <p>Output filenames encode what processing was applied:</p>
-      <pre><code>{original-name}-{rate}{leveled-}{norm-}clipped-{limit}dB.wav</code></pre>
+      <pre><code>{original-name}-{rate}{norm-}clipped-{limit}dB.wav</code></pre>
 
       <h4>Tokens</h4>
       <table class="settings-table">
@@ -579,11 +558,6 @@
             <td><code>{rate}</code></td>
             <td>Always</td>
             <td><code>44k</code> or <code>48k</code></td>
-          </tr>
-          <tr>
-            <td><code>leveled-</code></td>
-            <td>Level Audio was applied</td>
-            <td><code>leveled-</code></td>
           </tr>
           <tr>
             <td><code>norm-</code></td>
@@ -600,8 +574,7 @@
 
       <h4>Examples</h4>
       <pre><code>clip-44kclipped-1dB.wav
-clip-44kleveled-clipped-1dB.wav
-clip-48kleveled-norm-clipped-3dB.wav</code></pre>
+clip-48knorm-clipped-3dB.wav</code></pre>
     </section>
 
     <!-- FORMATS -->

@@ -13,15 +13,12 @@
   <a href="https://sevmorris.github.io/ClipHack/manual/theory.html">Theory of Operation</a>
 </p>
 
-**ClipHack** is an internal utility designed to prepare third-party audio clips (news, promos, broadcast assets) for seamless integration into a mix. It focuses on leveling dynamics, normalizing loudness, and enforcing peak ceilings so that disparate sources sit at a consistent level within a podcast or show.
-
-This tool was built to solve the specific challenge of "taming" unpredictable broadcast audio. While developed for personal use, it is made publicly available for others who need a reliable, automated pipeline for clip preparation.
+**ClipHack** is an internal utility designed to prepare third-party audio clips (news, promos, broadcast assets) for seamless integration into a mix. It focuses on normalizing loudness and enforcing peak ceilings so that disparate sources sit at a consistent level within a podcast or show.
 
 ---
 
 ## Core Features
 * **High Pass Filter:** Configurable cutoff (20–90 Hz) paired with allpass phase rotation (always active).
-* **Dynamic Leveling:** Uses `dynaudnorm` to even out volume variations without the "pumping" artifacts of standard compression.
 * **Loudness Normalization:** Two-pass EBU R128 normalization to a user-defined target (e.g., -18 LUFS).
 * **Peak Control:** 2× oversampled true peak brick-wall limiting with a configurable ceiling (-6 to -1 dB).
 
@@ -39,9 +36,8 @@ ClipHack executes the following signal chain in 24-bit WAV format:
 1.  **Resampling** to target rate (44.1 kHz or 48 kHz).
 2.  **Channel Management** (Mono extraction or forced Stereo upmixing).
 3.  **High-Pass + Phase Rotation** (always applied).
-4.  **Dynamic Leveling** (optional).
-5.  **Loudness Normalization** (optional).
-6.  **True Peak Limiting** (always applied).
+4.  **Loudness Normalization** (optional).
+5.  **True Peak Limiting** (always applied).
 
 ---
 

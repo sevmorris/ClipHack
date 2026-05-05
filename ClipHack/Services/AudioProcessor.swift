@@ -77,9 +77,8 @@ actor AudioProcessor {
         let limitAmp = pow(10.0, settings.limitDb / 20.0)
         let limitTag = formatDbTag(settings.limitDb)
         let outDir = bestOutputDir(for: input)
-        let levelTag = settings.levelingEnabled ? "leveled-" : ""
         let normTag = settings.loudnormEnabled ? "norm-" : ""
-        let outName = "\(stem)-\(rateTag)\(levelTag)\(normTag)clipped-\(limitTag).wav"
+        let outName = "\(stem)-\(rateTag)\(normTag)clipped-\(limitTag).wav"
         let finalURL = outDir.appendingPathComponent(outName)
         let tmpURL = outDir.appendingPathComponent(".\(outName).tmp")
 
@@ -141,43 +140,7 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 3: Leveling (optional)
-        // Mirror padding: dynaudnorm's Gaussian smoothing window extends into nonexistent
-        // frames at the file boundaries. Padding with silence doesn't help — silent frames
-        // get gain=1.0 (silence threshold) which still pulls the smoothed gain down at the
-        // audio boundary, producing a ramp. Mirror padding (reversed copies of the first
-        // and last 16s) gives the smoothing window real audio with matching gain values
-        // on both sides of the boundary, so the smoothed gain at the edge matches what
-        // the audio actually needs.
-        if settings.levelingEnabled {
-            let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
-            let durationOutput = try? await runFFmpegCapture(exe: tools.ffprobe, args: [
-                "-v", "error", "-select_streams", "a:0",
-                "-show_entries", "format=duration",
-                "-of", "csv=p=0", currentURL.path
-            ])
-            let fileDuration = durationOutput.flatMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            let args: [String]
-            if let d = fileDuration {
-                let filterComplex = mirrorPaddedFilter(duration: d, leveler: levelingFilter())
-                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                        "-i", currentURL.path,
-                        "-filter_complex", filterComplex,
-                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
-            } else {
-                // Duration probe failed — fall back to plain dynaudnorm (boundary artifacts will be present).
-                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                        "-i", currentURL.path,
-                        "-af", levelingFilter(),
-                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
-            }
-            try await runFFmpeg(exe: tools.ffmpeg, args: args)
-            currentURL = leveledURL
-        }
-
-        try Task.checkCancellation()
-
-        // Stage 4: Loudness normalization (optional, two-pass EBU R128)
+        // Stage 3: Loudness normalization (optional, two-pass EBU R128)
         if settings.loudnormEnabled {
             let target = settings.loudnormTarget
             let tp = settings.limitDb
@@ -200,7 +163,7 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 5: Brick-wall limiter with 2x oversampling
+        // Stage 4: Brick-wall limiter with 2x oversampling
         let oversampleSr = sr * 2
         let limiterAf = [
             "aresample=\(oversampleSr)",
@@ -360,36 +323,6 @@ actor AudioProcessor {
             throw ProcessingError.tempDirectoryFailed
         }
         return dir
-    }
-
-    // Fixed moderate dynaudnorm parameters tuned for broadcast clip conforming.
-    // f=450ms, g=19: responsive enough to catch within-clip level swings without pumping.
-    // p=0.95: peak target per frame; r=0 = peak-based (not RMS).
-    // m=10.0: max gain cap prevents runaway boost on very quiet frames.
-    // s=5.0: compress factor limits extreme gain excursions in both directions,
-    //        guarding against sections dipping too low in highly variable content.
-    // t=0.05: silence threshold (≈ −26 dBFS) passes near-silent frames at unity.
-    // n=1: boundary extension holds gain steady at file edges instead of tapering.
-    // b=1: channel-coupled — L and R get identical gain, preserving stereo image.
-    private func levelingFilter() -> String {
-        "dynaudnorm=f=450:g=19:r=0:p=0.95:m=10.0:s=5.0:n=1:b=1:t=0.05"
-    }
-
-    // Builds a filter_complex that mirror-pads the audio with reversed copies of the
-    // first and last `padDur` seconds (capped at 16s, or the file length if shorter),
-    // runs the leveler over the padded stream, then trims the padding back off.
-    private func mirrorPaddedFilter(duration: Double, leveler: String) -> String {
-        let padDur = min(16.0, duration)
-        let tailStart = max(0.0, duration - padDur)
-        let pad = String(format: "%.6f", padDur)
-        let tStart = String(format: "%.6f", tailStart)
-        let dur = String(format: "%.6f", duration)
-        return "[0:a]asplit=3[h][m][t];" +
-               "[h]atrim=duration=\(pad),areverse,asetpts=PTS-STARTPTS[head];" +
-               "[m]asetpts=PTS-STARTPTS[body];" +
-               "[t]atrim=start=\(tStart),areverse,asetpts=PTS-STARTPTS[tail];" +
-               "[head][body][tail]concat=n=3:v=0:a=1," +
-               "\(leveler),atrim=start=\(pad):duration=\(dur),asetpts=PTS-STARTPTS"
     }
 
     private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
