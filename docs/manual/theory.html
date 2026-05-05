@@ -421,8 +421,8 @@
         <li><strong>Channel-coupled (b=1)</strong> — L and R channels receive the same gain at every moment, preserving the stereo image.</li>
       </ul>
 
-      <h3>Tail-fade fix</h3>
-      <p>dynaudnorm's Gaussian window is symmetric — it looks both backward and forward in time. At the end of a file, the filter has no future frames to look at, so it pads with zeros. This can cause the gain computation to underestimate the signal level in the last few frames, producing a subtle fade-out artifact. ClipHack works around this by padding the input with 16 seconds of silence before running dynaudnorm, then trimming the output back to the original duration. The artifact lands in the padding and is discarded.</p>
+      <h3>Boundary-fade fix</h3>
+      <p>dynaudnorm's Gaussian window is symmetric — it looks both backward and forward in time. At the start of a file the filter has no past frames; at the end it has no future frames. In both cases the window extends into nonexistent samples (effectively zero-padded), causing the gain computation to underestimate the signal level near the boundary. The audible result is a slow ramp-up at the head of the file and a slow fade-out at the tail. ClipHack works around this by prepending 16 seconds of silence with <code>adelay</code> and appending 16 seconds with <code>apad</code>, then using output-side <code>-ss 16</code> and <code>-t {duration}</code> to skip the head padding and trim the tail. Both artifacts land in the discarded silence; the output file matches the original duration exactly.</p>
     </section>
 
     <!-- LOUDNORM -->

@@ -142,9 +142,10 @@ actor AudioProcessor {
         try Task.checkCancellation()
 
         // Stage 3: Leveling (optional)
-        // dynaudnorm boundary fix: the Gaussian window looks ahead into zero-frames at the
-        // tail, causing a fade-out artifact. Padding with silence pushes the artifact into
-        // the padding; -t trims it from the output.
+        // dynaudnorm boundary fix: the Gaussian window extends into nonexistent frames
+        // at both the head and the tail, causing fade-in / fade-out artifacts. adelay
+        // prepends 16s of silence and apad appends 16s; -ss skips the head padding and
+        // -t trims the tail. Both artifacts land in the discarded silence.
         if settings.levelingEnabled {
             let leveledURL = work.appendingPathComponent("\(stem)_leveled.wav")
             let durationOutput = try? await runFFmpegCapture(exe: tools.ffprobe, args: [
@@ -154,7 +155,9 @@ actor AudioProcessor {
             ])
             let fileDuration = durationOutput.flatMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
             var args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                        "-i", currentURL.path, "-af", "apad=pad_dur=16,\(levelingFilter())"]
+                        "-i", currentURL.path,
+                        "-af", "adelay=delays=16000:all=1,apad=pad_dur=16,\(levelingFilter())",
+                        "-ss", "16"]
             if let d = fileDuration { args += ["-t", String(format: "%.6f", d)] }
             args += ["-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", leveledURL.path]
             try await runFFmpeg(exe: tools.ffmpeg, args: args)
