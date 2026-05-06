@@ -389,6 +389,28 @@
       <p>The pipeline is strictly sequential. Each optional stage writes an intermediate WAV to a temp directory, which becomes the input for the next stage. This avoids compounding rounding errors from chaining filters in a single FFmpeg invocation — each stage gets a fresh 24-bit PCM buffer.</p>
     </section>
 
+    <!-- LEVELING -->
+    <section id="leveling">
+      <h2>Dynamic Leveling</h2>
+      <p>Dynamic leveling is a bidirectional dynamic range compression process. Unlike standard downward compression (which only reduces peaks), dynamic leveling also applies upward gain to quiet passages. The goal is to maintain a consistent average level throughout a clip.</p>
+      <p>ClipHack uses the FFmpeg <code>dynaudnorm</code> (Dynamic Audio Normalizer) filter for this stage. It is particularly effective for recordings with significant volume variations, such as a field interview where one speaker is further from the mic than the other.</p>
+
+      <h3>Bidirectional processing</h3>
+      <p><code>dynaudnorm</code> is "bidirectional" because it uses a lookahead window to analyze upcoming audio before applying gain. This allows it to smoothly transition between gain levels without the pumping or breathing artifacts common in traditional hardware compressors or AGV (Automatic Gain Control) circuits.</p>
+
+      <h3>Aggressiveness mapping</h3>
+      <p>The "Aggressiveness" slider in ClipHack (0.0 to 1.0) maps to three key <code>dynaudnorm</code> parameters:</p>
+      <ul>
+        <li><strong>Frame length (f):</strong> The analysis window. High aggressiveness uses shorter windows (150ms) to react more quickly to level changes; low aggressiveness uses longer windows (500ms) for smoother transitions.</li>
+        <li><strong>Gaussian window size (g):</strong> The smoothing window. Aggressive settings use fewer frames for smoothing (g=15), while gentle settings use more (g=31).</li>
+        <li><strong>Maximum gain (m):</strong> The gain ceiling. Gentle settings cap correction at 2x (+6 dB), while aggressive settings allow up to 6x (+15 dB) gain correction.</li>
+      </ul>
+
+      <h3>Mirror-padding boundary fix</h3>
+      <p>A technical limitation of <code>dynaudnorm</code> is its behavior at the start and end of a file. Because the Gaussian smoothing window is symmetric, it expects audio data before the start and after the end. Without this data, the gain calculation "ramps up" at the start and "ramps down" at the end, causing an audible volume dip.</p>
+      <p>ClipHack solves this using <strong>mirror padding</strong>. Before processing, it prepends a reversed copy of the first 16 seconds of the file and appends a reversed copy of the last 16 seconds. <code>dynaudnorm</code> runs over this padded stream, seeing consistent audio levels at the boundaries. The padding is then precisely trimmed off, resulting in an output file with perfect boundary gain and matching original duration.</p>
+    </section>
+
     <!-- LOUDNORM -->
     <section id="loudnorm">
       <h2>EBU R128 / loudnorm</h2>

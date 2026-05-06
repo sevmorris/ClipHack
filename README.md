@@ -19,6 +19,7 @@
 
 ## Core Features
 * **High Pass Filter:** Configurable cutoff (20–90 Hz) paired with allpass phase rotation (always active).
+* **Dynamic Leveling:** Intelligent bidirectional leveling via `dynaudnorm` to tame inconsistent speakers or wildly dynamic clips. Includes mirror padding to prevent boundary artifacts.
 * **Loudness Normalization:** Two-pass EBU R128 normalization to a user-defined target (e.g., -18 LUFS).
 * **Peak Control:** 2× oversampled true peak brick-wall limiting with a configurable ceiling (-6 to -1 dB).
 
@@ -27,6 +28,7 @@
 ## Technical Specifications
 * **Loudness Measurement:** Full ITU-R BS.1770 gated loudness monitoring per file.
 * **Signal Monitoring:** Separate L/R waveform display for stereo files and noise floor detection warnings.
+* **Boundary Integrity:** Custom mirror-padding logic for Dynamic Leveling prevents gain ramps at file start/end.
 * **Batch Processing:** Parallel file processing with independent progress tracking.
 * **Environment:** macOS 14.0+ (Sonoma); Native Apple Silicon and Intel support.
 * **Dependencies:** Bundled FFmpeg; no external installation required.
@@ -36,8 +38,9 @@ ClipHack executes the following signal chain in 24-bit WAV format:
 1.  **Resampling** to target rate (44.1 kHz or 48 kHz).
 2.  **Channel Management** (Mono extraction or forced Stereo upmixing).
 3.  **High-Pass + Phase Rotation** (always applied).
-4.  **Loudness Normalization** (optional).
-5.  **True Peak Limiting** (always applied).
+4.  **Dynamic Leveling** (optional bidirectional compression).
+5.  **Loudness Normalization** (optional linear gain).
+6.  **True Peak Limiting** (always applied).
 
 ---
 
