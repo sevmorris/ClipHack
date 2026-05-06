@@ -4,7 +4,7 @@
 <p align="center">
   <strong>Broadcast & Clip Normalization Utility</strong>
   <br />
-  <strong>Version:</strong> 1.11.0
+  <strong>Version:</strong> 1.11.1
   <br />
   <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.11.1.dmg"><strong>Download</strong></a>
   ·
