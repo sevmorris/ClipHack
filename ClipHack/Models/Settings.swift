@@ -14,6 +14,8 @@ struct ClipHackSettings: Codable, Equatable, Sendable {
     var sampleRate: SampleRate = .s44100
     var limitDb: Double = -1.0
     var dcBlockHz: Int = 80
+    var dynamicLevelingEnabled: Bool = false
+    var dynamicLevelingAmount: Double = 0.5
     var loudnormEnabled: Bool = false
     var loudnormTarget: Double = -18.0
     var stereoOutput: Bool = false

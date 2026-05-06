@@ -64,6 +64,25 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
+                row("Dynamic Leveling", caption: "Bidirectional dynaudnorm. Lifts quiet voices and tames loud ones.") {
+                    Toggle("", isOn: $viewModel.settings.dynamicLevelingEnabled)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+
+                row("Aggressiveness") {
+                    HStack(spacing: 6) {
+                        Slider(value: $viewModel.settings.dynamicLevelingAmount, in: 0.0 ... 1.0)
+                        Text(String(format: "%.1f", viewModel.settings.dynamicLevelingAmount))
+                            .font(.system(size: 11).monospaced())
+                            .frame(width: 30, alignment: .trailing)
+                    }
+                }
+                .disabled(!viewModel.settings.dynamicLevelingEnabled)
+                .opacity(!viewModel.settings.dynamicLevelingEnabled ? 0.4 : 1)
+
+                Divider().padding(.vertical, 6)
+
                 row("Loudness Norm", caption: "Two-pass EBU R128 normalization to a target loudness") {
                     Toggle("", isOn: $viewModel.settings.loudnormEnabled)
                         .toggleStyle(.switch)

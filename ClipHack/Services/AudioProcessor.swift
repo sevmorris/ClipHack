@@ -140,6 +140,30 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
+        // Stage 2.75: Dynamic leveling (optional, dynaudnorm bidirectional)
+        // Mirror padding: dynaudnorm's Gaussian smoothing window extends into nonexistent
+        // frames at the file boundaries. Mirror padding prevents boundary dip artifacts.
+        if settings.dynamicLevelingEnabled {
+            let dynLevelURL = work.appendingPathComponent("\(stem)_dynleveled.wav")
+            let dynFilter = dynamicLevelingFilter(amount: settings.dynamicLevelingAmount)
+            let args: [String]
+            if let d = try? await getAudioDuration(exe: tools.ffprobe, url: currentURL) {
+                let filterComplex = mirrorPaddedFilter(duration: d, leveler: dynFilter)
+                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                        "-i", currentURL.path,
+                        "-filter_complex", filterComplex,
+                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dynLevelURL.path]
+            } else {
+                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                        "-i", currentURL.path,
+                        "-af", dynFilter,
+                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dynLevelURL.path]
+            }
+            try await runFFmpeg(exe: tools.ffmpeg, args: args)
+            currentURL = dynLevelURL
+            try Task.checkCancellation()
+        }
+
         // Stage 3: Loudness normalization (optional, two-pass EBU R128)
         if settings.loudnormEnabled {
             let target = settings.loudnormTarget
@@ -298,6 +322,44 @@ actor AudioProcessor {
     }
 
     // MARK: - Helpers
+
+    // Maps 0.0 (gentle) → 1.0 (aggressive) to dynaudnorm parameters.
+    private func dynamicLevelingFilter(amount: Double) -> String {
+        let f = Int(500.0 - amount * 350.0)         // frame ms: 500 → 150
+        let gRaw = Int(31.0 - amount * 16.0)        // gaussian: 31 → 15
+        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw    // must be odd
+        let m = 2.0 + amount * 4.0                  // max gain factor: 2x → 6x (+6 to +15 dB)
+        return "dynaudnorm=f=\(f):g=\(g):p=0.95:m=\(String(format: "%.1f", m))"
+    }
+
+    // Builds a filter_complex that mirror-pads the audio
+    private func mirrorPaddedFilter(duration: Double, leveler: String) -> String {
+        let padDur = min(16.0, duration)
+        let tailStart = max(0.0, duration - padDur)
+        let pad = String(format: "%.6f", padDur)
+        let tStart = String(format: "%.6f", tailStart)
+        let dur = String(format: "%.6f", duration)
+        return "[0:a]asplit=3[h][m][t];" +
+               "[h]atrim=duration=\(pad),areverse,asetpts=PTS-STARTPTS[head];" +
+               "[m]asetpts=PTS-STARTPTS[body];" +
+               "[t]atrim=start=\(tStart),areverse,asetpts=PTS-STARTPTS[tail];" +
+               "[head][body][tail]concat=n=3:v=0:a=1," +
+               "\(leveler),atrim=start=\(pad):duration=\(dur),asetpts=PTS-STARTPTS"
+    }
+
+    private nonisolated func getAudioDuration(exe: String, url: URL) async throws -> Double {
+        let output = try await runFFmpegCapture(exe: exe, args: [
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            url.path
+        ], captureStderr: false)
+        let str = output.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        guard let d = Double(str) else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse audio duration")
+        }
+        return d
+    }
 
     /// Returns `url` unchanged if no file exists there, otherwise appends ` (1)`, ` (2)`, … until
     /// a non-colliding path is found. Never overwrites an existing file silently.
