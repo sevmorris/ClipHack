@@ -6,7 +6,7 @@
   <br />
   <strong>Version:</strong> 1.11.2
   <br />
-  <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.11.2.dmg"><strong>Download</strong></a>
+  <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.11.3.dmg"><strong>Download</strong></a>
   ·
   <a href="https://sevmorris.github.io/ClipHack/manual/">Manual</a>
   ·
