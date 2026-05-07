@@ -324,6 +324,13 @@ actor AudioProcessor {
     // MARK: - Helpers
 
     // Maps 0.0 (gentle) → 1.0 (aggressive) to dynaudnorm parameters.
+    // Shorter frames and tighter Gaussian smoothing = more responsive leveling.
+    // No t (silence threshold): an active threshold causes severe attenuation at
+    // speech-to-silence transitions because the Gaussian window interpolates
+    // between gated (unity-gain) and ungated frames, producing audible fade-outs
+    // on the trailing edge of every utterance. The cost of dropping t is that the
+    // noise floor between words gets boosted by up to m dB — acceptable on the
+    // clean source material Dynamic Leveling targets (panel / multi-voice).
     private func dynamicLevelingFilter(amount: Double) -> String {
         let f = Int(500.0 - amount * 350.0)         // frame ms: 500 → 150
         let gRaw = Int(31.0 - amount * 16.0)        // gaussian: 31 → 15
