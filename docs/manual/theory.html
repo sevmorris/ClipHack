@@ -457,7 +457,7 @@
       <p>ClipHack measures the loudness of each file before processing. This tells you what you're starting with, and lets you compare the original to the output.</p>
 
       <h3>ITU-R BS.1770 gating</h3>
-      <p>Integrated loudness is measured using the BS.1770 algorithm: the signal is K-weighted (a frequency weighting that models human loudness perception), then measured in 400 ms blocks with 75% overlap. Blocks below −70 LUFS are excluded as silence. Blocks below the relative threshold (−10 LU below the mean of the ungated measurement) are also excluded — this prevents quiet passages from pulling the integrated loudness down.</p>
+      <p>Integrated loudness is measured using the BS.1770 algorithm: the signal is K-weighted (a frequency weighting that models human loudness perception), then measured in non-overlapping 400 ms blocks. Blocks below −70 LUFS are excluded as silence. Blocks below the relative threshold (−10 LU below the mean of the ungated measurement) are also excluded — this prevents quiet passages from pulling the integrated loudness down.</p>
       <p>The result is a single number in LUFS representing the perceived loudness of the perceptible content in the file.</p>
 
       <h3>Noise floor warning</h3>
@@ -482,7 +482,7 @@
       <p>Intermediate files are written to a temporary directory that's cleaned up after processing. If processing fails, ClipHack attempts to clean up temp files but may leave them in <code>/tmp</code> if the process is interrupted.</p>
 
       <h3>Concurrency</h3>
-      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files is not artificially limited — it scales with the system's CPU and I/O capacity.</p>
+      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files scales with the system's CPU core count, up to a maximum of 8 files at a time.</p>
     </section>
 
   </main>
