@@ -46,7 +46,7 @@ struct SettingsView: View {
                 }
                 .help("Brick-wall limiter true-peak ceiling. Sets the maximum output level.")
 
-                row("High Pass", caption: "DC Block removes offset only · 40 Hz subsonic rumble · 80 Hz voice standard. Always applied.") {
+                row("High Pass", caption: "DC Block removes offset only · 40 Hz subsonic rumble · 80 Hz voice standard.") {
                     Picker("", selection: $viewModel.settings.hpfCutoff) {
                         Text("DC Block").tag(ClipHackSettings.HPFCutoff.dcBlock)
                         Text("40 Hz").tag(ClipHackSettings.HPFCutoff.lowCut)
