@@ -11,9 +11,15 @@ struct ClipHackSettings: Codable, Equatable, Sendable {
         case right
     }
 
+    enum HPFCutoff: Int, CaseIterable, Codable, Sendable {
+        case dcBlock  = 20
+        case lowCut   = 40
+        case standard = 80
+    }
+
     var sampleRate: SampleRate = .s44100
     var limitDb: Double = -1.0
-    var dcBlockHz: Int = 80
+    var hpfCutoff: HPFCutoff = .standard
     var dynamicLevelingEnabled: Bool = false
     var dynamicLevelingAmount: Double = 0.5
     var loudnormEnabled: Bool = false
@@ -49,7 +55,7 @@ extension ClipHackSettings {
         self.init(
             sampleRate:             try c.decodeIfPresent(SampleRate.self,  forKey: .sampleRate)             ?? d.sampleRate,
             limitDb:                try c.decodeIfPresent(Double.self,      forKey: .limitDb)                ?? d.limitDb,
-            dcBlockHz:              try c.decodeIfPresent(Int.self,         forKey: .dcBlockHz)              ?? d.dcBlockHz,
+            hpfCutoff:              try c.decodeIfPresent(HPFCutoff.self,   forKey: .hpfCutoff)              ?? d.hpfCutoff,
             dynamicLevelingEnabled: try c.decodeIfPresent(Bool.self,        forKey: .dynamicLevelingEnabled) ?? d.dynamicLevelingEnabled,
             dynamicLevelingAmount:  try c.decodeIfPresent(Double.self,      forKey: .dynamicLevelingAmount)  ?? d.dynamicLevelingAmount,
             loudnormEnabled:        try c.decodeIfPresent(Bool.self,        forKey: .loudnormEnabled)        ?? d.loudnormEnabled,

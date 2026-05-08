@@ -459,7 +459,7 @@
         <li>
           <div>
             <strong>High-Pass Filter + Phase Rotation</strong>
-            <span>High-pass filter at the configured cutoff (20–90 Hz) removes low-frequency rumble and DC offset. An allpass filter at 200 Hz corrects the phase shift introduced by the high-pass. Always applied — drag the slider to 20 Hz to minimize effect.</span>
+            <span>High-pass filter at the selected cutoff (DC Block 20 Hz / 40 Hz / 80 Hz) removes low-frequency content and DC offset. An allpass filter at 200 Hz corrects the phase shift introduced by the high-pass. Always applied.</span>
           </div>
         </li>
         <li>
@@ -520,8 +520,8 @@
           </tr>
           <tr>
             <td>High Pass</td>
-            <td>20–90 Hz</td>
-            <td>High-pass filter cutoff. At 20 Hz it acts as a DC blocker only. Raise to 60–90 Hz to remove low-frequency rumble. Always applied — set to 20 Hz to minimize effect.</td>
+            <td>DC Block · 40 Hz · 80 Hz</td>
+            <td>High-pass filter cutoff. DC Block (20 Hz) removes DC offset only, passing all audible content including bass fundamentals. 40 Hz removes subsonic rumble while preserving music bass. 80 Hz is the standard voice HPF — removes proximity effect and handling noise. Always applied.</td>
           </tr>
         </tbody>
       </table>

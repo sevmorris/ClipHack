@@ -21,7 +21,7 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                dcBlockHz: 80,
+                hpfCutoff: .standard,
                 loudnormEnabled: true,
                 loudnormTarget: -18.0,
                 stereoOutput: false,
@@ -37,7 +37,7 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                dcBlockHz: 20,
+                hpfCutoff: .dcBlock,
                 loudnormEnabled: false,
                 loudnormTarget: -18.0,
                 stereoOutput: false,
@@ -53,7 +53,7 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
             settings: ClipHackSettings(
                 sampleRate: .s44100,
                 limitDb: -1.0,
-                dcBlockHz: 80,
+                hpfCutoff: .standard,
                 loudnormEnabled: true,
                 loudnormTarget: -18.0,
                 stereoOutput: false,
