@@ -46,20 +46,13 @@ struct SettingsView: View {
                 }
                 .help("Brick-wall limiter true-peak ceiling. Sets the maximum output level.")
 
-                row("High Pass", caption: "Removes rumble and low-frequency noise; DC Block only removes offset") {
-                    HStack(spacing: 6) {
-                        Slider(
-                            value: Binding(
-                                get: { Double(viewModel.settings.dcBlockHz) },
-                                set: { viewModel.settings.dcBlockHz = Int($0) }
-                            ),
-                            in: 20...90,
-                            step: 5
-                        )
-                        Text(viewModel.settings.dcBlockHz == 20 ? "DC Block" : "\(viewModel.settings.dcBlockHz) Hz")
-                            .font(.system(size: 11).monospaced())
-                            .frame(width: 55, alignment: .trailing)
+                row("High Pass", caption: "DC Block removes offset only · 40 Hz subsonic rumble · 80 Hz voice standard. Always applied.") {
+                    Picker("", selection: $viewModel.settings.hpfCutoff) {
+                        Text("DC Block").tag(ClipHackSettings.HPFCutoff.dcBlock)
+                        Text("40 Hz").tag(ClipHackSettings.HPFCutoff.lowCut)
+                        Text("80 Hz").tag(ClipHackSettings.HPFCutoff.standard)
                     }
+                    .pickerStyle(.segmented)
                 }
 
                 Divider().padding(.vertical, 6)

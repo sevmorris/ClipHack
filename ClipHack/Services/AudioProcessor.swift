@@ -130,7 +130,7 @@ actor AudioProcessor {
 
         // Stage 2.5: High-pass filter + phase rotation (always applied)
         let hpURL = work.appendingPathComponent("\(stem)_hp.wav")
-        let hpAf = "highpass=f=\(settings.dcBlockHz),allpass=f=200:t=q:w=0.707"
+        let hpAf = "highpass=f=\(settings.hpfCutoff.rawValue),allpass=f=200:t=q:w=0.707"
         try await runFFmpeg(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-i", currentURL.path, "-af", hpAf,
