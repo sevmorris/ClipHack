@@ -2,7 +2,7 @@
 # release.sh — Build, verify, package, and publish a ClipHack release.
 #
 # Usage: ./release.sh <version>
-#   e.g. ./release.sh 1.3.3
+#   e.g. ./release.sh 1.11.8
 #
 # Requires: xcodebuild, hdiutil, gh (GitHub CLI), git
 
@@ -13,7 +13,7 @@ REPO="sevmorris/ClipHack"
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <version>"
-    echo "  e.g. $0 1.3.3"
+    echo "  e.g. $0 1.11.8"
     exit 1
 fi
 
@@ -28,20 +28,17 @@ APP_PATH="$DERIVED_DATA/Build/Products/Release/ClipHack.app"
 STAGING="/tmp/cliphack_dmg_${VERSION}"
 DMG="/tmp/ClipHack-${TAG}.dmg"
 MOUNT="/tmp/cliphack_verify_${VERSION}"
+MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
+LANDING_IDX="$PROJECT_DIR/docs/index.html"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
 ok()    { echo "  ✓ $*"; }
 fail()  { echo "\n  ✗ $*" >&2; exit 1; }
 
-cleanup() {
-    rm -rf "$STAGING" "$MOUNT" "$DERIVED_DATA"
-    rm -f "$DMG"
-}
-
 # ── Preflight ─────────────────────────────────────────────────────────────────
 step "Preflight checks"
-for cmd in xcodebuild hdiutil gh git; do
+for cmd in xcodebuild hdiutil gh git codesign xcrun curl; do
     command -v $cmd &>/dev/null || fail "'$cmd' not found in PATH"
 done
 ok "Tools present"
@@ -58,38 +55,39 @@ if git tag | grep -q "^${TAG}$"; then
 fi
 ok "Tag $TAG is available"
 
-# ── Version bump & docs update ────────────────────────────────────────────────
+# ── Version bump ──────────────────────────────────────────────────────────────
 step "Bumping version to $VERSION"
 CURRENT=$(grep MARKETING_VERSION "$PROJECT/project.pbxproj" | head -1 | grep -o '[0-9][0-9.]*')
 if [[ "$CURRENT" == "$VERSION" ]]; then
     ok "Already at $VERSION"
 else
-    sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
+    ESC_CURRENT=$(printf '%s' "$CURRENT" | sed 's/[.[\*^$]/\\&/g')
+    ESC_VERSION=$(printf '%s'  "$VERSION" | sed 's/[.[\*^$]/\\&/g')
+    sed -i '' "s/MARKETING_VERSION = ${ESC_CURRENT};/MARKETING_VERSION = ${ESC_VERSION};/g" \
         "$PROJECT/project.pbxproj"
     ok "Bumped $CURRENT → $VERSION"
-fi
-
-# Always update docs — runs even if version was pre-bumped
-sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" \
-    docs/index.html docs/manual/index.html README.md
-sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" \
-    docs/index.html docs/manual/index.html
-sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" docs/manual/index.html
-sed -i '' "s|ClipHack v[0-9][0-9.]* (DMG).*ClipHack-v[0-9][0-9.]*.dmg|ClipHack ${TAG} (DMG)](https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-${TAG}.dmg|g" README.md
-
-if [[ -n "$(git status --porcelain)" ]]; then
-    git add "$PROJECT/project.pbxproj" docs/index.html docs/manual/index.html README.md
+    git add "$PROJECT/project.pbxproj"
     git commit -m "Bump version to $VERSION"
     ok "Committed version bump"
-else
-    ok "All files already up to date"
 fi
+
+step "Bumping build number"
+BUILD_NUM=$(grep 'CURRENT_PROJECT_VERSION = ' "$PROJECT/project.pbxproj" | head -1 | grep -o '[0-9][0-9]*')
+NEXT_BUILD=$((BUILD_NUM + 1))
+sed -i '' "s/CURRENT_PROJECT_VERSION = ${BUILD_NUM};/CURRENT_PROJECT_VERSION = ${NEXT_BUILD};/g" \
+    "$PROJECT/project.pbxproj"
+ok "Build number ${BUILD_NUM} → ${NEXT_BUILD}"
+
+step "Fetching FFmpeg binaries"
+chmod +x "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
+"$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
+ok "FFmpeg present"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 step "Building (clean, Release)"
 rm -rf "$DERIVED_DATA"
-rm -rf ~/Library/Caches/com.apple.dt.Xcode* 2>/dev/null || true
-rm -rf ~/Library/Developer/Xcode/DerivedData/ModuleCache* 2>/dev/null || true
+rm -rf ~/Library/Caches/com.apple.dt.Xcode*(N) 2>/dev/null || true
+rm -rf ~/Library/Developer/Xcode/DerivedData/ModuleCache*(N) 2>/dev/null || true
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
@@ -103,11 +101,8 @@ step "Codesigning binaries and app"
 IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)"
 ENTITLEMENTS="$PROJECT_DIR/ClipHack/ClipHack.entitlements"
 
-# Sign bundled binaries with Hardened Runtime
 codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffmpeg"
 codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffprobe"
-
-# Sign the app bundle
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
 ok "Codesigning complete"
 
@@ -124,7 +119,7 @@ rm -rf "$STAGING"
 mkdir "$STAGING"
 cp -R "$APP_PATH" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
-ok "App, Applications alias"
+ok "App and Applications alias staged"
 
 # ── Create DMG ────────────────────────────────────────────────────────────────
 step "Creating DMG"
@@ -140,7 +135,6 @@ ok "Created $(du -sh $DMG | cut -f1) DMG"
 
 # ── Notarize ──────────────────────────────────────────────────────────────────
 step "Notarizing DMG"
-# Reusing 'WoWoNotary' profile from WaxOnWaxOff
 xcrun notarytool submit "$DMG" --wait --keychain-profile "WoWoNotary"
 xcrun stapler staple "$DMG"
 ok "Notarization complete"
@@ -156,10 +150,26 @@ hdiutil detach "$MOUNT" -quiet
     fail "DMG version mismatch: expected $VERSION, got $DMG_VERSION"
 ok "DMG contains $DMG_VERSION"
 
+# ── Update docs ───────────────────────────────────────────────────────────────
+step "Updating docs to ${TAG}"
+sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
+sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$MANUAL_IDX" "$LANDING_IDX"
+sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
+sed -i '' "s|<strong>Version:</strong> [0-9][0-9.]*|<strong>Version:</strong> ${VERSION}|g" "$PROJECT_DIR/README.md"
+sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" "$PROJECT_DIR/README.md"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+    git add "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
+    git commit -m "docs: update download link to ${TAG}"
+    ok "Docs point to ${TAG}"
+else
+    ok "Docs already up to date"
+fi
+
 # ── Tag and push ──────────────────────────────────────────────────────────────
 step "Tagging and pushing"
 git tag "$TAG"
-git push
+git push -u origin main
 git push origin "$TAG"
 ok "Pushed $TAG"
 
@@ -175,7 +185,9 @@ else
         | grep -v "^- Bump version" \
         | grep -v "^- docs: update download link")
 fi
-RELEASE_NOTES="### Changes
+RELEASE_NOTES="**[Manual](https://sevmorris.github.io/ClipHack/manual/)**
+
+### Changes
 ${CHANGES}"
 gh release create "$TAG" "$DMG" \
     --repo "$REPO" \
@@ -183,10 +195,11 @@ gh release create "$TAG" "$DMG" \
     --notes "$RELEASE_NOTES"
 ok "Release published"
 
-# ── Remove old releases ───────────────────────────────────────────────────────
-step "Removing old releases"
+# ── Remove old releases (keep the ${KEEP_RELEASES} most recent) ───────────────
+KEEP_RELEASES=5
+step "Removing old releases (keeping ${KEEP_RELEASES} most recent)"
 OLD_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
-    --jq '.[].tagName' | grep -v "^${TAG}$" || true)
+    --jq '.[].tagName' | tail -n +$((KEEP_RELEASES + 1)) || true)
 if [[ -z "$OLD_TAGS" ]]; then
     ok "No old releases to remove"
 else
@@ -203,7 +216,6 @@ rm -rf "$STAGING" "$MOUNT" "$DERIVED_DATA"
 rm -f "$DMG"
 ok "Temp files removed"
 
-# ── Open release page ─────────────────────────────────────────────────────────
 RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
 echo "\n✓ ClipHack $TAG released successfully."
 echo "  $RELEASE_URL"

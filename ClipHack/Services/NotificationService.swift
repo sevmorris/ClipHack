@@ -3,6 +3,7 @@ import UserNotifications
 
 enum NotificationService {
     static func showCompletionNotification(fileCount: Int) async {
+        guard fileCount > 0 else { return }
         let center = UNUserNotificationCenter.current()
 
         do {

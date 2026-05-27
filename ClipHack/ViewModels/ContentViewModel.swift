@@ -122,8 +122,6 @@ final class ContentViewModel {
     // MARK: - Processing
 
     func process() {
-        // Only process files that are ready or retrying after an error.
-        // Exclude files still analyzing, already in-flight, or not yet added to the queue.
         let processable = files.filter {
             switch $0.status {
             case .ready, .error: return true
@@ -139,13 +137,26 @@ final class ContentViewModel {
             return
         }
 
+        let inputs = processable.map { JobInput(id: $0.id, url: $0.url) }
+        let outputDirectories = inputs.map {
+            OutputDirectory.clipHackOutputDirectory(for: $0.url, settings: settings)
+        }
+        let concurrentJobs = max(1, min(ProcessInfo.processInfo.activeProcessorCount, 8))
+        if let reason = DiskSpaceChecker.clipHackBatchBlockedReason(
+            inputURLs: inputs.map(\.url),
+            outputDirectories: outputDirectories,
+            concurrentJobs: concurrentJobs
+        ) {
+            alertTitle = "Error"
+            alertMessage = reason
+            return
+        }
+
         isProcessing = true
         processingCancelled = false
 
         let currentSettings = settings
-        let inputs = processable.map { JobInput(id: $0.id, url: $0.url) }
 
-        // Snapshot analysis stats so they survive the status transition to .processing
         for i in files.indices {
             if case .ready(let stats) = files[i].status {
                 files[i].analysisStats = stats
@@ -157,33 +168,51 @@ final class ContentViewModel {
                 let processor = AudioProcessor(
                     settings: currentSettings,
                     onFileStarted: { [weak self] id in
-                        guard let self else { return }
-                        Task { @MainActor [self] in
-                            guard !self.processingCancelled else { return }
+                        Task { @MainActor [weak self] in
+                            guard let self, !self.processingCancelled else { return }
                             if let index = self.files.firstIndex(where: { $0.id == id }) {
                                 self.files[index].status = .processing
                             }
                         }
-                    },
-                    onFileCompleted: { [weak self] id, outputURL in
-                        guard let self else { return }
-                        Task { @MainActor [self] in
-                            guard !self.processingCancelled else { return }
-                            if let index = self.files.firstIndex(where: { $0.id == id }) {
-                                self.files[index].status = .processed(outputURL: outputURL)
-                            }
-                            self.generateOutputWaveform(id: id, url: outputURL)
-                            self.analyzeOutputFile(id: id, url: outputURL)
-                        }
                     }
                 )
-                let results = try await processor.run(inputs: inputs)
-                await NotificationService.showCompletionNotification(fileCount: results.count)
+                let batch = try await processor.run(inputs: inputs)
+
+                for result in batch.successes {
+                    if let index = files.firstIndex(where: { $0.id == result.id }) {
+                        files[index].status = .processed(outputURL: result.output)
+                    }
+                }
+
+                for failure in batch.failures {
+                    if let index = files.firstIndex(where: { $0.id == failure.id }) {
+                        files[index].status = .error(failure.message)
+                    }
+                }
+
+                resetStuckProcessingRows()
+
+                for result in batch.successes {
+                    generateOutputWaveform(id: result.id, url: result.output)
+                    analyzeOutputFile(id: result.id, url: result.output)
+                }
+
+                if batch.failures.isEmpty {
+                    await NotificationService.showCompletionNotification(fileCount: batch.successes.count)
+                } else if batch.successes.isEmpty {
+                    alertTitle = "Error"
+                    alertMessage = "Processing failed for all files."
+                } else {
+                    alertTitle = "Notice"
+                    alertMessage = "\(batch.successes.count) file\(batch.successes.count == 1 ? "" : "s") processed, \(batch.failures.count) failed."
+                    await NotificationService.showCompletionNotification(fileCount: batch.successes.count)
+                }
             } catch is CancellationError {
-                // User cancelled — no alert needed
+                resetStuckProcessingRows()
             } catch {
                 alertTitle = "Error"
                 alertMessage = error.localizedDescription
+                resetStuckProcessingRows()
             }
 
             isProcessing = false
@@ -195,6 +224,7 @@ final class ContentViewModel {
         processingCancelled = true
         processingTask?.cancel()
         processingTask = nil
+        isProcessing = false
         for i in files.indices {
             if case .processing = files[i].status {
                 if let stats = files[i].analysisStats {
@@ -202,6 +232,17 @@ final class ContentViewModel {
                 } else {
                     files[i].status = .pending
                 }
+            }
+        }
+    }
+
+    private func resetStuckProcessingRows() {
+        for i in files.indices {
+            guard case .processing = files[i].status else { continue }
+            if let stats = files[i].analysisStats {
+                files[i].status = .ready(stats)
+            } else {
+                files[i].status = .error("Processing interrupted")
             }
         }
     }

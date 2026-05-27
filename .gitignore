@@ -11,5 +11,9 @@ xcuserdata/
 # DMG artifacts
 *.dmg
 
+# Bundled FFmpeg binaries (downloaded via scripts/fetch-ffmpeg.sh)
+ClipHack/ffmpeg
+ClipHack/ffprobe
+
 # Claude
 .claude/

@@ -6,6 +6,17 @@ struct JobResult: Sendable {
     let output: URL
 }
 
+struct ClipHackJobFailure: Sendable {
+    let id: UUID
+    let message: String
+}
+
+/// Per-file outcomes from a batch — one file failing does not abort the rest.
+struct ClipHackBatchRunResult: Sendable {
+    let successes: [JobResult]
+    let failures: [ClipHackJobFailure]
+}
+
 enum ProcessingError: LocalizedError {
     case invalidInput
     case tempDirectoryFailed

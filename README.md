@@ -4,7 +4,7 @@
 <p align="center">
   <strong>Broadcast & Clip Normalization Utility</strong>
   <br />
-  <strong>Version:</strong> 1.11.2
+  <strong>Version:</strong> 1.11.7
   <br />
   <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.11.7.dmg"><strong>Download</strong></a>
   ·
@@ -32,6 +32,17 @@
 * **Batch Processing:** Parallel file processing with independent progress tracking.
 * **Environment:** macOS 14.0+ (Sonoma); Native Apple Silicon and Intel support.
 * **Dependencies:** Bundled FFmpeg; no external installation required.
+
+## Building from Source
+
+```bash
+git clone https://github.com/sevmorris/ClipHack.git
+cd ClipHack
+./scripts/fetch-ffmpeg.sh   # downloads pinned ffmpeg/ffprobe (~100 MB)
+open ClipHack.xcodeproj
+```
+
+FFmpeg binaries are fetched from the shared [WaxOnWaxOff deps release](https://github.com/sevmorris/WaxOnWaxOff/releases/tag/ffmpeg-deps-8.0-arm64). Xcode also runs `scripts/fetch-ffmpeg.sh` before each build.
 
 ## Processing Pipeline
 ClipHack executes the following signal chain in 24-bit WAV format:

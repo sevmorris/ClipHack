@@ -1,13 +1,5 @@
 import Foundation
 
-private struct LoudnormStats {
-    let inputI: String
-    let inputTP: String
-    let inputLRA: String
-    let inputThresh: String
-    let targetOffset: String
-}
-
 struct JobInput: Sendable {
     let id: UUID
     let url: URL
@@ -16,27 +8,37 @@ struct JobInput: Sendable {
 actor AudioProcessor {
     let settings: ClipHackSettings
     let onFileStarted: (@Sendable (UUID) -> Void)?
-    let onFileCompleted: (@Sendable (UUID, URL) -> Void)?
+
+    private var reservedOutputPaths: Set<String> = []
 
     init(
         settings: ClipHackSettings,
-        onFileStarted: (@Sendable (UUID) -> Void)? = nil,
-        onFileCompleted: (@Sendable (UUID, URL) -> Void)? = nil
+        onFileStarted: (@Sendable (UUID) -> Void)? = nil
     ) {
         self.settings = settings
         self.onFileStarted = onFileStarted
-        self.onFileCompleted = onFileCompleted
     }
 
-    func run(inputs: [JobInput]) async throws -> [JobResult] {
-        guard !inputs.isEmpty else { return [] }
+    private enum JobOutcome: Sendable {
+        case success(JobResult)
+        case failure(ClipHackJobFailure)
+        case cancelled
+    }
+
+    func run(inputs: [JobInput]) async throws -> ClipHackBatchRunResult {
+        guard !inputs.isEmpty else {
+            return ClipHackBatchRunResult(successes: [], failures: [])
+        }
+
+        reservedOutputPaths.removeAll(keepingCapacity: true)
 
         let tools = try await FFmpegManager.shared.ensureTools()
         let cores = ProcessInfo.processInfo.activeProcessorCount
         let maxConcurrent = max(1, min(cores, 8))
 
-        return try await withThrowingTaskGroup(of: JobResult.self) { group in
-            var results: [JobResult] = []
+        return try await withThrowingTaskGroup(of: JobOutcome.self) { group in
+            var successes: [JobResult] = []
+            var failures: [ClipHackJobFailure] = []
             var index = 0
 
             func addNext() {
@@ -44,11 +46,17 @@ actor AudioProcessor {
                 let input = inputs[index]
                 index += 1
                 group.addTask {
-                    try Task.checkCancellation()
-                    self.onFileStarted?(input.id)
-                    let result = try await self.processOne(input.url, id: input.id, tools: tools)
-                    self.onFileCompleted?(result.id, result.output)
-                    return result
+                    do {
+                        try Task.checkCancellation()
+                        self.onFileStarted?(input.id)
+                        let result = try await self.processOne(input.url, id: input.id, tools: tools)
+                        return .success(result)
+                    } catch is CancellationError {
+                        return .cancelled
+                    } catch {
+                        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                        return .failure(ClipHackJobFailure(id: input.id, message: message))
+                    }
                 }
             }
 
@@ -56,12 +64,20 @@ actor AudioProcessor {
                 addNext()
             }
 
-            for try await result in group {
-                results.append(result)
+            for try await outcome in group {
+                switch outcome {
+                case .success(let result):
+                    successes.append(result)
+                case .failure(let failure):
+                    failures.append(failure)
+                case .cancelled:
+                    group.cancelAll()
+                    throw CancellationError()
+                }
                 addNext()
             }
 
-            return results
+            return ClipHackBatchRunResult(successes: successes, failures: failures)
         }
     }
 
@@ -75,36 +91,29 @@ actor AudioProcessor {
         let rateTag = sr == 44100 ? "44k" : "48k"
         let stem = input.deletingPathExtension().lastPathComponent
         let limitAmp = pow(10.0, settings.limitDb / 20.0)
-        let limitTag = formatDbTag(settings.limitDb)
-        let outDir = bestOutputDir(for: input)
+        let limitTag = ClipHackFilename.formatDbTag(settings.limitDb)
         let normTag = settings.loudnormEnabled ? "norm-" : ""
-        let outName = "\(stem)-\(rateTag)\(normTag)clipped-\(limitTag).wav"
-        let finalURL = outDir.appendingPathComponent(outName)
+        let outDir = OutputDirectory.clipHackOutputDirectory(for: input, settings: settings)
+        let (finalURL, outName) = allocateOutput(
+            stem: stem,
+            rateTag: rateTag,
+            normTag: normTag,
+            limitTag: limitTag,
+            input: input,
+            outDir: outDir
+        )
         let tmpURL = outDir.appendingPathComponent(".\(outName).tmp")
 
-        let work = try makeTemp(prefix: "cliphacker_\(rateTag)_")
+        let work = try makeTemp(prefix: "cliphack_\(rateTag)_")
         defer { try? fm.removeItem(at: work) }
 
-        // Detect input channel count and sample rate.
-        // Fields are output in ffprobe's internal order (sample_rate, channels) regardless
-        // of the order specified in show_entries — parsing matches that internal order.
-        let probeArgs = [
-            "-v", "error", "-select_streams", "a:0",
-            "-show_entries", "stream=sample_rate,channels",
-            "-of", "csv=p=0", input.path
-        ]
-        let probeOutput = try await runFFmpegCapture(exe: tools.ffprobe, args: probeArgs)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let probeFields = probeOutput.split(separator: ",")
-        let inputSampleRate = probeFields.count >= 1 ? Int(probeFields[0]) ?? sr : sr
-        let channels = probeFields.count >= 2 ? Int(probeFields[1]) ?? 2 : 2
+        let (inputSampleRate, channels) = try await probeStream(exe: tools.ffprobe, url: input)
         let outputChannels = settings.stereoOutput ? max(2, channels) : 1
 
-        // Stage 1: Resample to target sample rate (skip if already matching)
         var currentURL: URL = input
         if inputSampleRate != sr {
             let midURL = work.appendingPathComponent("\(stem)_\(rateTag)24.wav")
-            try await runFFmpeg(exe: tools.ffmpeg, args: [
+            try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                 "-i", currentURL.path, "-af", "aresample=\(sr)",
                 "-c:a", "pcm_s24le", "-ar", "\(sr)", midURL.path
@@ -114,11 +123,10 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 2: Channel extraction — pan stereo to mono when not in stereo mode
         if !settings.stereoOutput && channels > 1 {
             let chanURL = work.appendingPathComponent("\(stem)_ch.wav")
             let pan = settings.channel == .left ? "pan=1c|c0=c0" : "pan=1c|c0=c1"
-            try await runFFmpeg(exe: tools.ffmpeg, args: [
+            try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                 "-i", currentURL.path, "-af", pan,
                 "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "1", chanURL.path
@@ -128,10 +136,9 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 2.5: High-pass filter + phase rotation (always applied)
         let hpURL = work.appendingPathComponent("\(stem)_hp.wav")
         let hpAf = "highpass=f=\(settings.hpfCutoff.rawValue),allpass=f=200:t=q:w=0.707"
-        try await runFFmpeg(exe: tools.ffmpeg, args: [
+        try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-i", currentURL.path, "-af", hpAf,
             "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", hpURL.path
@@ -140,44 +147,52 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 2.75: Dynamic leveling (optional, dynaudnorm bidirectional)
-        // Mirror padding: dynaudnorm's Gaussian smoothing window extends into nonexistent
-        // frames at the file boundaries. Mirror padding prevents boundary dip artifacts.
         if settings.dynamicLevelingEnabled {
             let dynLevelURL = work.appendingPathComponent("\(stem)_dynleveled.wav")
             let dynFilter = dynamicLevelingFilter(amount: settings.dynamicLevelingAmount)
-            let args: [String]
-            if let d = try? await getAudioDuration(exe: tools.ffprobe, url: currentURL) {
-                let filterComplex = mirrorPaddedFilter(duration: d, leveler: dynFilter)
-                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                        "-i", currentURL.path,
-                        "-filter_complex", filterComplex,
-                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dynLevelURL.path]
+            if let duration = try? await getAudioDuration(exe: tools.ffprobe, url: currentURL) {
+                let filterComplex = mirrorPaddedFilter(duration: duration, leveler: dynFilter)
+                try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
+                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", currentURL.path,
+                    "-filter_complex", filterComplex,
+                    "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dynLevelURL.path
+                ])
             } else {
-                args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                        "-i", currentURL.path,
-                        "-af", dynFilter,
-                        "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dynLevelURL.path]
+                try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
+                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", currentURL.path,
+                    "-af", dynFilter,
+                    "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", dynLevelURL.path
+                ])
             }
-            try await runFFmpeg(exe: tools.ffmpeg, args: args)
             currentURL = dynLevelURL
             try Task.checkCancellation()
         }
 
-        // Stage 3: Loudness normalization (optional, two-pass EBU R128)
         if settings.loudnormEnabled {
             let target = settings.loudnormTarget
             let tp = settings.limitDb
             let analyzeAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:print_format=json"
-            let analysisOutput = try await runFFmpegCapture(exe: tools.ffmpeg, args: [
+            let analysisOutput = try await FFmpegRunner.capture(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner",
                 "-i", currentURL.path, "-af", analyzeAf,
                 "-f", "null", "/dev/null"
-            ], captureStderr: true)
-            let stats = try parseLoudnormStats(analysisOutput)
-            let normAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(stats.inputI):measured_TP=\(stats.inputTP):measured_LRA=\(stats.inputLRA):measured_thresh=\(stats.inputThresh):offset=\(stats.targetOffset):linear=true"
+            ])
+            guard let lnDict = FFmpegRunner.parseLoudnormJSON(from: analysisOutput),
+                  FFmpegRunner.loudnormMeasurementsAreFinite(lnDict),
+                  let inputI = lnDict["input_i"],
+                  let inputTP = lnDict["input_tp"],
+                  let inputLRA = lnDict["input_lra"],
+                  let inputThresh = lnDict["input_thresh"],
+                  let targetOffset = lnDict["target_offset"]
+            else {
+                throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
+            }
+
+            let normAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(inputI):measured_TP=\(inputTP):measured_LRA=\(inputLRA):measured_thresh=\(inputThresh):offset=\(targetOffset):linear=true"
             let normURL = work.appendingPathComponent("\(stem)_norm.wav")
-            try await runFFmpeg(exe: tools.ffmpeg, args: [
+            try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                 "-i", currentURL.path, "-af", normAf,
                 "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", normURL.path
@@ -187,7 +202,6 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        // Stage 4: Brick-wall limiter with 2x oversampling
         let oversampleSr = sr * 2
         let limiterAf = [
             "aresample=\(oversampleSr)",
@@ -199,7 +213,7 @@ actor AudioProcessor {
             try? fm.removeItem(at: tmpURL)
         }
 
-        try await runFFmpeg(exe: tools.ffmpeg, args: [
+        try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-i", currentURL.path, "-af", limiterAf,
             "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", "-f", "wav", tmpURL.path
@@ -211,135 +225,82 @@ actor AudioProcessor {
             throw ProcessingError.outputMissing
         }
 
-        let resolvedURL = uniqueOutputURL(finalURL, fm: fm)
+        let resolvedURL = ClipHackFilename.uniqueOutputURL(finalURL, fm: fm)
         try fm.moveItem(at: tmpURL, to: resolvedURL)
 
         return JobResult(id: id, input: input, output: resolvedURL)
     }
 
-    // MARK: - Process runner
+    private func allocateOutput(
+        stem: String,
+        rateTag: String,
+        normTag: String,
+        limitTag: String,
+        input: URL,
+        outDir: URL
+    ) -> (url: URL, name: String) {
+        let suffix = "\(rateTag)\(normTag)clipped-\(limitTag).wav"
+        let baseName = "\(stem)-\(suffix)"
+        let baseURL = outDir.appendingPathComponent(baseName)
 
-    /// Runs an FFmpeg-compatible process. Captures stdout when `captureStdout` is true,
-    /// returns stderr content when `returnStderr` is true. Always reads stderr for error reporting.
-    @discardableResult
-    private nonisolated func runProcess(
-        exe: String,
-        args: [String],
-        captureStdout: Bool = false,
-        returnStderr: Bool = false
-    ) async throws -> String {
-        guard FileManager.default.fileExists(atPath: exe) else {
-            throw ProcessingError.ffmpegNotFound
+        if !reservedOutputPaths.contains(baseURL.path) {
+            reservedOutputPaths.insert(baseURL.path)
+            return (baseURL, baseName)
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: exe)
-        process.arguments = args
-        process.standardInput = FileHandle.nullDevice
-
-        // Thread-safe state shared between the cancellation handler (arbitrary thread)
-        // and the process termination handler (Process internal thread).
-        // stdoutData/stderrData are written by dispatch queues and read only after
-        // readGroup.wait(), which provides the required happens-before guarantee.
-        final class RunState: @unchecked Sendable {
-            private let lock = NSLock()
-            private var _cancelled = false
-            var cancelled: Bool {
-                get { lock.withLock { _cancelled } }
-                set { lock.withLock { _cancelled = newValue } }
-            }
-            var stdoutData = Data()
-            var stderrData = Data()
+        let tag = Self.shortPathTag(for: input.path)
+        var name = "\(stem)-\(tag)-\(suffix)"
+        var url = outDir.appendingPathComponent(name)
+        if reservedOutputPaths.contains(url.path) {
+            name = "\(stem)-\(tag)-\(UUID().uuidString.prefix(4))-\(suffix)"
+            url = outDir.appendingPathComponent(name)
         }
-        let state = RunState()
+        reservedOutputPaths.insert(url.path)
+        return (url, name)
+    }
 
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-                let stdoutPipe = Pipe()
-                let stderrPipe = Pipe()
-                process.standardOutput = captureStdout ? stdoutPipe : FileHandle.nullDevice
-                process.standardError = stderrPipe
-
-                let readGroup = DispatchGroup()
-
-                if captureStdout {
-                    readGroup.enter()
-                    DispatchQueue.global(qos: .utility).async {
-                        state.stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-                        readGroup.leave()
-                    }
-                }
-                readGroup.enter()
-                DispatchQueue.global(qos: .utility).async {
-                    state.stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                    readGroup.leave()
-                }
-
-                process.terminationHandler = { proc in
-                    readGroup.wait()
-                    if proc.terminationReason == .uncaughtSignal || state.cancelled {
-                        continuation.resume(throwing: CancellationError())
-                        return
-                    }
-                    let exitCode = proc.terminationStatus
-                    if exitCode != 0 {
-                        let msg = String(data: state.stderrData, encoding: .utf8) ?? ""
-                        continuation.resume(throwing: ProcessingError.ffmpegFailed(
-                            code: exitCode,
-                            message: msg.isEmpty ? "Exit code \(exitCode)" : msg
-                        ))
-                        return
-                    }
-                    if returnStderr {
-                        continuation.resume(returning: String(data: state.stderrData, encoding: .utf8) ?? "")
-                    } else if captureStdout {
-                        continuation.resume(returning: String(data: state.stdoutData, encoding: .utf8) ?? "")
-                    } else {
-                        continuation.resume(returning: "")
-                    }
-                }
-
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: ProcessingError.ffmpegFailed(
-                        code: -1, message: "Failed to launch: \(error.localizedDescription)"
-                    ))
-                }
-            }
-        } onCancel: {
-            state.cancelled = true
-            process.terminate()
+    private nonisolated static func shortPathTag(for path: String) -> String {
+        var hash: UInt64 = 5381
+        for byte in path.utf8 {
+            hash = ((hash << 5) &+ hash) &+ UInt64(byte)
         }
+        return String(format: "%06x", hash & 0xFFFFFF)
     }
 
-    private nonisolated func runFFmpeg(exe: String, args: [String]) async throws {
-        try await runProcess(exe: exe, args: args)
+    private nonisolated func probeStream(exe: String, url: URL) async throws -> (sampleRate: Int, channels: Int) {
+        let output = try await FFmpegRunner.captureStdout(exe: exe, args: [
+            "-v", "error", "-select_streams", "a:0",
+            "-show_entries", "stream=sample_rate,channels",
+            "-of", "csv=p=0", url.path
+        ])
+        let fields = output.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ",")
+        guard fields.count >= 2,
+              let sampleRate = Int(fields[0]), sampleRate > 0,
+              let channels = Int(fields[1]), channels > 0 else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse stream metadata")
+        }
+        return (sampleRate, channels)
     }
 
-    private nonisolated func runFFmpegCapture(exe: String, args: [String], captureStderr: Bool = false) async throws -> String {
-        try await runProcess(exe: exe, args: args, captureStdout: !captureStderr, returnStderr: captureStderr)
+    private func makeTemp(prefix: String) throws -> URL {
+        let dir = FileManager.cliphackTempDirectory
+            .appendingPathComponent(prefix + UUID().uuidString.prefix(8), isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            throw ProcessingError.tempDirectoryFailed
+        }
+        return dir
     }
 
-    // MARK: - Helpers
-
-    // Maps 0.0 (gentle) → 1.0 (aggressive) to dynaudnorm parameters.
-    // Shorter frames and tighter Gaussian smoothing = more responsive leveling.
-    // No t (silence threshold): an active threshold causes severe attenuation at
-    // speech-to-silence transitions because the Gaussian window interpolates
-    // between gated (unity-gain) and ungated frames, producing audible fade-outs
-    // on the trailing edge of every utterance. The cost of dropping t is that the
-    // noise floor between words gets boosted by up to m dB — acceptable on the
-    // clean source material Dynamic Leveling targets (panel / multi-voice).
     private func dynamicLevelingFilter(amount: Double) -> String {
-        let f = Int(500.0 - amount * 350.0)         // frame ms: 500 → 150
-        let gRaw = Int(31.0 - amount * 16.0)        // gaussian: 31 → 15
-        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw    // must be odd
-        let m = 2.0 + amount * 4.0                  // max gain factor: 2x → 6x (+6 to +15 dB)
+        let f = Int(500.0 - amount * 350.0)
+        let gRaw = Int(31.0 - amount * 16.0)
+        let g = gRaw % 2 == 0 ? gRaw - 1 : gRaw
+        let m = 2.0 + amount * 4.0
         return "dynaudnorm=f=\(f):g=\(g):p=0.95:m=\(String(format: "%.1f", m))"
     }
 
-    // Builds a filter_complex that mirror-pads the audio
     private func mirrorPaddedFilter(duration: Double, leveler: String) -> String {
         let padDur = min(16.0, duration)
         let tailStart = max(0.0, duration - padDur)
@@ -355,111 +316,16 @@ actor AudioProcessor {
     }
 
     private nonisolated func getAudioDuration(exe: String, url: URL) async throws -> Double {
-        let output = try await runFFmpegCapture(exe: exe, args: [
+        let output = try await FFmpegRunner.captureStdout(exe: exe, args: [
             "-v", "error",
             "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1",
             url.path
-        ], captureStderr: false)
-        let str = output.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        ])
+        let str = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let d = Double(str) else {
             throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse audio duration")
         }
         return d
-    }
-
-    /// Returns `url` unchanged if no file exists there, otherwise appends ` (1)`, ` (2)`, … until
-    /// a non-colliding path is found. Never overwrites an existing file silently.
-    private func uniqueOutputURL(_ url: URL, fm: FileManager) -> URL {
-        guard fm.fileExists(atPath: url.path) else { return url }
-        let stem = url.deletingPathExtension().lastPathComponent
-        let ext  = url.pathExtension
-        let dir  = url.deletingLastPathComponent()
-        var counter = 1
-        while true {
-            let candidate = dir.appendingPathComponent("\(stem) (\(counter)).\(ext)")
-            if !fm.fileExists(atPath: candidate.path) { return candidate }
-            counter += 1
-        }
-    }
-
-    private func makeTemp(prefix: String) throws -> URL {
-        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let dir = base.appendingPathComponent(prefix + UUID().uuidString, isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        } catch {
-            throw ProcessingError.tempDirectoryFailed
-        }
-        return dir
-    }
-
-    private nonisolated func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
-        // Find the last '{' (start of the JSON block), then scan forward to its matching '}'
-        guard let braceRange = output.range(of: "{", options: .backwards) else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
-        }
-        var depth = 0
-        var jsonEnd: String.Index?
-        outer: for idx in output[braceRange.lowerBound...].indices {
-            switch output[idx] {
-            case "{": depth += 1
-            case "}":
-                depth -= 1
-                if depth == 0 { jsonEnd = idx; break outer }
-            default: break
-            }
-        }
-        guard let jsonEnd else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
-        }
-        let jsonStr = String(output[braceRange.lowerBound...jsonEnd])
-        guard let data = jsonStr.data(using: .utf8),
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON output")
-        }
-        func field(_ key: String) throws -> String {
-            guard let value = json[key] as? String else {
-                throw ProcessingError.ffmpegFailed(code: -1, message: "Missing loudnorm field: \(key)")
-            }
-            return value
-        }
-        return LoudnormStats(
-            inputI:      try field("input_i"),
-            inputTP:     try field("input_tp"),
-            inputLRA:    try field("input_lra"),
-            inputThresh: try field("input_thresh"),
-            targetOffset: try field("target_offset")
-        )
-    }
-
-    /// Formats a limiter ceiling value as a filename tag.
-    /// The ceiling is always negative (e.g. -1.0 dB), so the sign is implicit
-    /// and omitted to avoid double-dashes in the output filename.
-    private func formatDbTag(_ db: Double) -> String {
-        var s = String(format: "%.2f", abs(db))
-        while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) {
-            s.removeLast()
-        }
-        return "\(s)dB"
-    }
-
-    private func bestOutputDir(for input: URL) -> URL {
-        let fm = FileManager.default
-
-        if let customPath = settings.outputDirectoryPath {
-            let customURL = URL(fileURLWithPath: customPath, isDirectory: true)
-            if fm.isWritableFile(atPath: customURL.path) { return customURL }
-        }
-
-        let here = input.deletingLastPathComponent()
-        if fm.isWritableFile(atPath: here.path) { return here }
-
-        let music = fm.homeDirectoryForCurrentUser.appendingPathComponent("Music/ClipHack", isDirectory: true)
-        if (try? fm.createDirectory(at: music, withIntermediateDirectories: true)) != nil {
-            return music
-        }
-
-        return fm.homeDirectoryForCurrentUser.appendingPathComponent("Desktop", isDirectory: true)
     }
 }
