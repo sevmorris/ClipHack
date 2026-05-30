@@ -94,6 +94,7 @@ xcodebuild \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
     -quiet
+[[ -d "$APP_PATH" ]] || fail "Build did not produce $APP_PATH"
 ok "Build complete"
 
 # ── Sign ──────────────────────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ ENTITLEMENTS="$PROJECT_DIR/ClipHack/ClipHack.entitlements"
 codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffmpeg"
 codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffprobe"
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
+codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 | tail -3
 ok "Codesigning complete"
 
 # ── Verify app version ────────────────────────────────────────────────────────
@@ -151,6 +153,8 @@ hdiutil detach "$MOUNT" -quiet
 ok "DMG contains $DMG_VERSION"
 
 # ── Update docs ───────────────────────────────────────────────────────────────
+# Per project convention: rewrite unconditionally and let `git status --porcelain`
+# decide whether anything actually changed before committing.
 step "Updating docs to ${TAG}"
 sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
 sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$MANUAL_IDX" "$LANDING_IDX"
@@ -158,8 +162,16 @@ sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
 sed -i '' "s|<strong>Version:</strong> [0-9][0-9.]*|<strong>Version:</strong> ${VERSION}|g" "$PROJECT_DIR/README.md"
 sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" "$PROJECT_DIR/README.md"
 
+# Sanity-check: nothing should still reference the old version.
+if grep -E "ClipHack-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md" \
+        | grep -v "${TAG}\.dmg" >/dev/null; then
+    fail "Stale version references remain after rewrite — check sed patterns"
+fi
+
 if [[ -n "$(git status --porcelain)" ]]; then
-    git add "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
+    # Also pick up the build-number bump from the pbxproj so it actually lands
+    # in the repo (otherwise the build bump stays uncommitted across runs).
+    git add "$PROJECT/project.pbxproj" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
     git commit -m "docs: update download link to ${TAG}"
     ok "Docs point to ${TAG}"
 else
@@ -169,22 +181,28 @@ fi
 # ── Tag and push ──────────────────────────────────────────────────────────────
 step "Tagging and pushing"
 git tag "$TAG"
-git push -u origin main
-git push origin "$TAG"
-ok "Pushed $TAG"
+# Resolve the tracked remote/branch so this works from any branch (e.g. a
+# worktree branch whose name differs from its upstream).
+UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}')
+REMOTE="${UPSTREAM%%/*}"
+BRANCH="${UPSTREAM#*/}"
+git push "$REMOTE" "HEAD:$BRANCH"
+git push "$REMOTE" "$TAG"
+ok "Pushed $TAG to $REMOTE/$BRANCH"
 
 # ── GitHub release ────────────────────────────────────────────────────────────
 step "Creating GitHub release"
-PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1)
+PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
 if [[ -n "$PREV_TAG" ]]; then
     CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
         | grep -v "^- Bump version" \
-        | grep -v "^- docs: update download link")
+        | grep -v "^- docs: update download link" || true)
 else
     CHANGES=$(git log --pretty=format:"- %s" \
         | grep -v "^- Bump version" \
-        | grep -v "^- docs: update download link")
+        | grep -v "^- docs: update download link" || true)
 fi
+[[ -n "$CHANGES" ]] || CHANGES="- Initial release"
 RELEASE_NOTES="**[Manual](https://sevmorris.github.io/ClipHack/manual/)**
 
 ### Changes
@@ -208,6 +226,24 @@ else
         git tag -d "$old_tag" 2>/dev/null || true
         ok "Removed $old_tag"
     done <<< "$OLD_TAGS"
+fi
+
+# ── Remove old Pages deployments ─────────────────────────────────────────────
+step "Removing old Pages deployments"
+ALL_DEPLOY_IDS=$(gh api "repos/$REPO/deployments?environment=github-pages&per_page=100" \
+    --jq '.[].id')
+OLD_DEPLOY_IDS=$(echo "$ALL_DEPLOY_IDS" | tail -n +2)
+if [[ -z "$OLD_DEPLOY_IDS" ]]; then
+    ok "No old deployments to remove"
+else
+    COUNT=0
+    while IFS= read -r deploy_id; do
+        gh api -X POST "repos/$REPO/deployments/${deploy_id}/statuses" \
+            -f state=inactive --silent 2>/dev/null || true
+        gh api -X DELETE "repos/$REPO/deployments/${deploy_id}" --silent 2>/dev/null || true
+        COUNT=$((COUNT + 1))
+    done <<< "$OLD_DEPLOY_IDS"
+    ok "Removed $COUNT old deployment(s)"
 fi
 
 # ── Clean up temp files ───────────────────────────────────────────────────────
