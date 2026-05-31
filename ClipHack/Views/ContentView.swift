@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -41,6 +42,15 @@ struct ContentView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.alertMessage ?? "")
+        }
+        .alert("Already Processed?", isPresented: $viewModel.showReprocessWarning) {
+            Button("Add Anyway") { viewModel.confirmReprocessWarning() }
+            Button("Cancel", role: .cancel) { viewModel.dismissReprocessWarning() }
+        } message: {
+            Text("One or more files look like ClipHack outputs (*clipped*.wav). Re-processing will create another generation.")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            viewModel.cancelProcessing()
         }
     }
 

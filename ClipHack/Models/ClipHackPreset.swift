@@ -13,6 +13,21 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
     }
 
     static let builtIn: [ClipHackPreset] = [
+        // Zoom / Loopback path: 48 kHz matches ZoomAudioDevice; −18 LUFS for live injection.
+        ClipHackPreset(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
+            name: "Zoom 48 kHz",
+            settings: ClipHackSettings(
+                sampleRate: .s48000,
+                limitDb: -1.0,
+                hpfCutoff: .standard,
+                loudnormEnabled: true,
+                loudnormTarget: -18.0,
+                stereoOutput: false,
+                channel: .left,
+                outputDirectoryPath: nil
+            )
+        ),
         // Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback.
         // High-pass filter + loudness normalized to -18 LUFS.
         ClipHackPreset(

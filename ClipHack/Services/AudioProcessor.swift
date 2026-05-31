@@ -87,10 +87,14 @@ actor AudioProcessor {
             throw ProcessingError.invalidInput
         }
 
+        guard await AudioStreamProbe.hasAudioStream(ffprobe: tools.ffprobe, url: input) else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "No audio stream found — file may be misnamed or unsupported.")
+        }
+
         let sr = settings.sampleRate.rawValue
         let rateTag = sr == 44100 ? "44k" : "48k"
         let stem = input.deletingPathExtension().lastPathComponent
-        let limitAmp = pow(10.0, settings.limitDb / 20.0)
+        let limitAmp = FFmpegFilters.limiterCeilingAmplitude(dBFS: settings.limitDb)
         let limitTag = ClipHackFilename.formatDbTag(settings.limitDb)
         let normTag = settings.loudnormEnabled ? "norm-" : ""
         let outDir = OutputDirectory.clipHackOutputDirectory(for: input, settings: settings)
@@ -115,7 +119,7 @@ actor AudioProcessor {
             let midURL = work.appendingPathComponent("\(stem)_\(rateTag)24.wav")
             try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", currentURL.path, "-af", "aresample=\(sr)",
+                "-i", currentURL.path, "-af", FFmpegFilters.aresample(to: sr),
                 "-c:a", "pcm_s24le", "-ar", "\(sr)", midURL.path
             ])
             currentURL = midURL
@@ -179,34 +183,35 @@ actor AudioProcessor {
                 "-i", currentURL.path, "-af", analyzeAf,
                 "-f", "null", "/dev/null"
             ])
-            guard let lnDict = FFmpegRunner.parseLoudnormJSON(from: analysisOutput),
-                  FFmpegRunner.loudnormMeasurementsAreFinite(lnDict),
-                  let inputI = lnDict["input_i"],
-                  let inputTP = lnDict["input_tp"],
-                  let inputLRA = lnDict["input_lra"],
-                  let inputThresh = lnDict["input_thresh"],
-                  let targetOffset = lnDict["target_offset"]
-            else {
+            guard let lnDict = FFmpegRunner.parseLoudnormJSON(from: analysisOutput) else {
                 throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
             }
 
-            let normAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(inputI):measured_TP=\(inputTP):measured_LRA=\(inputLRA):measured_thresh=\(inputThresh):offset=\(targetOffset):linear=true"
-            let normURL = work.appendingPathComponent("\(stem)_norm.wav")
-            try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
-                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                "-i", currentURL.path, "-af", normAf,
-                "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", normURL.path
-            ])
-            currentURL = normURL
+            // Silent / near-silent inputs emit non-finite loudnorm measurements; skip pass 2.
+            if FFmpegRunner.loudnormMeasurementsAreFinite(lnDict),
+               let inputI = lnDict["input_i"],
+               let inputTP = lnDict["input_tp"],
+               let inputLRA = lnDict["input_lra"],
+               let inputThresh = lnDict["input_thresh"],
+               let targetOffset = lnDict["target_offset"] {
+                let normAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(inputI):measured_TP=\(inputTP):measured_LRA=\(inputLRA):measured_thresh=\(inputThresh):offset=\(targetOffset):linear=true"
+                let normURL = work.appendingPathComponent("\(stem)_norm.wav")
+                try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
+                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", currentURL.path, "-af", normAf,
+                    "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", normURL.path
+                ])
+                currentURL = normURL
+            }
         }
 
         try Task.checkCancellation()
 
         let oversampleSr = sr * 2
         let limiterAf = [
-            "aresample=\(oversampleSr)",
+            FFmpegFilters.aresample(to: oversampleSr),
             "alimiter=limit=\(limitAmp):attack=5:release=50:level=disabled",
-            "aresample=\(sr)"
+            FFmpegFilters.aresampleWithDither(to: sr)
         ].joined(separator: ",")
 
         if fm.fileExists(atPath: tmpURL.path) {
@@ -216,6 +221,7 @@ actor AudioProcessor {
         try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-i", currentURL.path, "-af", limiterAf,
+            "-map_metadata", "0",
             "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", "-f", "wav", tmpURL.path
         ])
 

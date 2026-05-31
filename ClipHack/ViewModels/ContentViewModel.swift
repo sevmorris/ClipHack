@@ -17,6 +17,8 @@ final class ContentViewModel {
     var isProcessing = false
     var alertMessage: String?
     var alertTitle: String = "Error"
+    var showReprocessWarning = false
+    private var pendingReprocessFiles: [URL] = []
     private var processingTask: Task<Void, Never>?
     private var processingCancelled = false
     private var analysisTasks: [UUID: Task<Void, Never>] = [:]
@@ -80,7 +82,29 @@ final class ContentViewModel {
             alertMessage = notices.joined(separator: "\n\n")
         }
 
-        let newFiles = valid.map { FileItem(url: $0) }
+        if valid.contains(where: ClipHackOutputNaming.looksLikeClipHackOutput) {
+            pendingReprocessFiles = valid
+            showReprocessWarning = true
+            return
+        }
+
+        commitFiles(valid)
+    }
+
+    func confirmReprocessWarning() {
+        let toAdd = pendingReprocessFiles
+        pendingReprocessFiles = []
+        showReprocessWarning = false
+        commitFiles(toAdd)
+    }
+
+    func dismissReprocessWarning() {
+        pendingReprocessFiles = []
+        showReprocessWarning = false
+    }
+
+    private func commitFiles(_ urls: [URL]) {
+        let newFiles = urls.map { FileItem(url: $0) }
         files.append(contentsOf: newFiles)
 
         for file in newFiles {
@@ -138,8 +162,17 @@ final class ContentViewModel {
         }
 
         let inputs = processable.map { JobInput(id: $0.id, url: $0.url) }
-        let outputDirectories = inputs.map {
-            OutputDirectory.clipHackOutputDirectory(for: $0.url, settings: settings)
+        var outputWarnings: [String] = []
+        let outputDirectories = inputs.map { input in
+            OutputDirectory.clipHackOutputDirectory(for: input.url, settings: settings) { warning in
+                if !outputWarnings.contains(warning) {
+                    outputWarnings.append(warning)
+                }
+            }
+        }
+        if !outputWarnings.isEmpty {
+            alertTitle = "Notice"
+            alertMessage = outputWarnings.joined(separator: "\n\n")
         }
         let concurrentJobs = max(1, min(ProcessInfo.processInfo.activeProcessorCount, 8))
         if let reason = DiskSpaceChecker.clipHackBatchBlockedReason(
@@ -254,12 +287,21 @@ final class ContentViewModel {
         files[index].status = .analyzing
 
         let task = Task {
-            if let info = try? await AudioAnalyzer.info(url: file.url),
-               let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
-                files[currentIndex].fileInfo = info
-            }
-
             do {
+                let tools = try await FFmpegManager.shared.ensureTools()
+                guard await AudioStreamProbe.hasAudioStream(ffprobe: tools.ffprobe, url: file.url) else {
+                    if let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
+                        files[currentIndex].status = .error("No audio stream found — file may be misnamed or unsupported.")
+                    }
+                    analysisTasks.removeValue(forKey: file.id)
+                    return
+                }
+
+                if let info = try? await AudioAnalyzer.info(url: file.url),
+                   let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
+                    files[currentIndex].fileInfo = info
+                }
+
                 let stats = try await AudioAnalyzer.analyze(url: file.url)
                 if let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
                     files[currentIndex].status = .ready(stats)

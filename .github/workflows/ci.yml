@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+
+      - name: Fetch FFmpeg
+        run: ./scripts/fetch-ffmpeg.sh
+
+      - name: Build and test
+        run: |
+          xcodebuild \
+            -project ClipHack.xcodeproj \
+            -scheme ClipHack \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            test

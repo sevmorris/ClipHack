@@ -30,8 +30,10 @@
 * **Signal Monitoring:** Separate L/R waveform display for stereo files and noise floor detection warnings.
 * **Boundary Integrity:** Custom mirror-padding logic for Dynamic Leveling prevents gain ramps at file start/end.
 * **Batch Processing:** Parallel file processing with independent progress tracking.
-* **Environment:** macOS 14.0+ (Sonoma); Native Apple Silicon and Intel support.
-* **Dependencies:** Bundled FFmpeg; no external installation required.
+* **Environment:** macOS 14.0+ (Sonoma) on **Apple Silicon** (arm64).
+* **Dependencies:** Bundled arm64 FFmpeg 8.0; no external installation required.
+
+> **Security:** App Sandbox is disabled so ClipHack can run bundled `ffmpeg`/`ffprobe`. Download builds from [official releases](https://github.com/sevmorris/ClipHack/releases) only.
 
 ## Building from Source
 
@@ -42,7 +44,9 @@ cd ClipHack
 open ClipHack.xcodeproj
 ```
 
-FFmpeg binaries are fetched from the shared [WaxOnWaxOff deps release](https://github.com/sevmorris/WaxOnWaxOff/releases/tag/ffmpeg-deps-8.0-arm64). Xcode also runs `scripts/fetch-ffmpeg.sh` before each build.
+FFmpeg binaries (arm64 only) are fetched from the shared [WaxOnWaxOff deps release](https://github.com/sevmorris/WaxOnWaxOff/releases/tag/ffmpeg-deps-8.0-arm64). Xcode also runs `scripts/fetch-ffmpeg.sh` before each build.
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Processing Pipeline
 ClipHack executes the following signal chain in 24-bit WAV format:

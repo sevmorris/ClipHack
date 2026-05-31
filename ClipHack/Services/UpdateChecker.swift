@@ -29,28 +29,27 @@ actor UpdateChecker {
         }
     }
 
+    /// App release tags only (`v1.2.3`). Ignores non-semver asset releases.
+    private static func isAppReleaseTag(_ tag: String) -> Bool {
+        guard tag.first == "v" else { return false }
+        let version = tag.dropFirst()
+        guard version.contains(".") else { return false }
+        return version.allSatisfy { $0.isNumber || $0 == "." }
+    }
+
     func check() async -> Result {
-        guard let apiURL = URL(string: "https://api.github.com/repos/sevmorris/ClipHack/releases/latest") else {
-            return .error("Invalid update URL.")
-        }
-
         do {
-            var request = URLRequest(url: apiURL, cachePolicy: .reloadIgnoringLocalCacheData)
-            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                return .error("Could not reach GitHub. Check your internet connection.")
+            guard let release = try await fetchLatestAppRelease() else {
+                return .error("No app release found on GitHub.")
             }
-
-            let release = try JSONDecoder().decode(Release.self, from: data)
 
             let latestVersion = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
 
-            let releaseURL = URL(string: release.htmlUrl)
-                ?? URL(string: "https://github.com/sevmorris/ClipHack/releases")!
+            guard let releaseURL = URL(string: release.htmlUrl)
+                    ?? URL(string: "https://github.com/sevmorris/ClipHack/releases") else {
+                return .error("Invalid release URL in GitHub response.")
+            }
             let downloadURL = release.assets.first(where: { $0.name.hasSuffix(".dmg") })
                 .flatMap { URL(string: $0.browserDownloadUrl) }
                 ?? releaseURL
@@ -64,6 +63,46 @@ actor UpdateChecker {
         } catch {
             return .error(error.localizedDescription)
         }
+    }
+
+    private func githubRequest(path: String) async throws -> (Data, HTTPURLResponse) {
+        guard let url = URL(string: "https://api.github.com\(path)") else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard http.statusCode == 200 else {
+            throw UpdateFetchError.badResponse
+        }
+        return (data, http)
+    }
+
+    private func fetchLatestAppRelease() async throws -> Release? {
+        let (latestData, _) = try await githubRequest(
+            path: "/repos/sevmorris/ClipHack/releases/latest"
+        )
+        let latest = try JSONDecoder().decode(Release.self, from: latestData)
+        if Self.isAppReleaseTag(latest.tagName) {
+            return latest
+        }
+
+        let (listData, _) = try await githubRequest(
+            path: "/repos/sevmorris/ClipHack/releases?per_page=30"
+        )
+        let releases = try JSONDecoder().decode([Release].self, from: listData)
+        return releases.first { Self.isAppReleaseTag($0.tagName) }
+    }
+}
+
+private enum UpdateFetchError: LocalizedError {
+    case badResponse
+
+    var errorDescription: String? {
+        "Could not reach GitHub. Check your internet connection."
     }
 }
 
