@@ -8,7 +8,8 @@
 
 set -euo pipefail
 
-REPO="sevmorris/ClipHack"
+SOURCE_REPO="sevmorris/ClipHack"          # private — source, tags
+RELEASES_REPO="sevmorris/ClipHack-releases" # public — DMG artifacts, updater target
 
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -ne 1 ]]; then
@@ -28,8 +29,6 @@ APP_PATH="$DERIVED_DATA/Build/Products/Release/ClipHack.app"
 STAGING="/tmp/cliphack_dmg_${VERSION}"
 DMG="/tmp/ClipHack-${TAG}.dmg"
 MOUNT="/tmp/cliphack_verify_${VERSION}"
-MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
-LANDING_IDX="$PROJECT_DIR/docs/index.html"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
@@ -152,30 +151,25 @@ hdiutil detach "$MOUNT" -quiet
     fail "DMG version mismatch: expected $VERSION, got $DMG_VERSION"
 ok "DMG contains $DMG_VERSION"
 
-# ── Update docs ───────────────────────────────────────────────────────────────
-# Per project convention: rewrite unconditionally and let `git status --porcelain`
-# decide whether anything actually changed before committing.
-step "Updating docs to ${TAG}"
-sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
-sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$MANUAL_IDX" "$LANDING_IDX"
-sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
+# ── Update README download link ──────────────────────────────────────────────
+step "Updating README to ${TAG}"
+sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$PROJECT_DIR/README.md"
 sed -i '' "s|<strong>Version:</strong> [0-9][0-9.]*|<strong>Version:</strong> ${VERSION}|g" "$PROJECT_DIR/README.md"
 sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" "$PROJECT_DIR/README.md"
 
-# Sanity-check: nothing should still reference the old version.
-if grep -E "ClipHack-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md" \
+if grep -E "ClipHack-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$PROJECT_DIR/README.md" \
         | grep -v "${TAG}\.dmg" >/dev/null; then
-    fail "Stale version references remain after rewrite — check sed patterns"
+    fail "Stale version references remain in README after rewrite — check sed patterns"
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
-    # Also pick up the build-number bump from the pbxproj so it actually lands
-    # in the repo (otherwise the build bump stays uncommitted across runs).
-    git add "$PROJECT/project.pbxproj" "$MANUAL_IDX" "$LANDING_IDX" "$PROJECT_DIR/README.md"
+    # Pick up the build-number bump from the pbxproj so it actually lands in the
+    # repo (otherwise the build bump stays uncommitted across runs).
+    git add "$PROJECT/project.pbxproj" "$PROJECT_DIR/README.md"
     git commit -m "docs: update download link to ${TAG}"
-    ok "Docs point to ${TAG}"
+    ok "README points to ${TAG}"
 else
-    ok "Docs already up to date"
+    ok "README already up to date"
 fi
 
 # ── Tag and push ──────────────────────────────────────────────────────────────
@@ -209,47 +203,29 @@ else
         | grep -v "^- docs: update download link" || true)
 fi
 [[ -n "$CHANGES" ]] || CHANGES="- Initial release"
-RELEASE_NOTES="**[Manual](https://sevmorris.github.io/ClipHack/manual/)**
-
-### Changes
+RELEASE_NOTES="### Changes
 ${CHANGES}"
+# The releases repo is a separate public repo with no source tree, so target
+# its default branch's HEAD when creating the tag remotely.
 gh release create "$TAG" "$DMG" \
-    --repo "$REPO" \
+    --repo "$RELEASES_REPO" \
+    --target main \
     --title "ClipHack $TAG" \
     --notes "$RELEASE_NOTES"
-ok "Release published"
+ok "Release published to $RELEASES_REPO"
 
 # ── Remove old app releases (keep the ${KEEP_RELEASES} most recent v* tags) ───
 KEEP_RELEASES=5
 step "Removing old app releases (keeping ${KEEP_RELEASES} most recent v* tags)"
-OLD_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
+OLD_TAGS=$(gh release list --repo "$RELEASES_REPO" --limit 100 --json tagName \
     --jq '.[].tagName' | grep -E '^v[0-9]' | tail -n +$((KEEP_RELEASES + 1)) || true)
 if [[ -z "$OLD_TAGS" ]]; then
     ok "No old releases to remove"
 else
     while IFS= read -r old_tag; do
-        gh release delete "$old_tag" --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
-        git tag -d "$old_tag" 2>/dev/null || true
-        ok "Removed $old_tag"
+        gh release delete "$old_tag" --repo "$RELEASES_REPO" --yes --cleanup-tag 2>/dev/null || true
+        ok "Removed $old_tag from $RELEASES_REPO"
     done <<< "$OLD_TAGS"
-fi
-
-# ── Remove old Pages deployments ─────────────────────────────────────────────
-step "Removing old Pages deployments"
-ALL_DEPLOY_IDS=$(gh api "repos/$REPO/deployments?environment=github-pages&per_page=100" \
-    --jq '.[].id')
-OLD_DEPLOY_IDS=$(echo "$ALL_DEPLOY_IDS" | tail -n +2)
-if [[ -z "$OLD_DEPLOY_IDS" ]]; then
-    ok "No old deployments to remove"
-else
-    COUNT=0
-    while IFS= read -r deploy_id; do
-        gh api -X POST "repos/$REPO/deployments/${deploy_id}/statuses" \
-            -f state=inactive --silent 2>/dev/null || true
-        gh api -X DELETE "repos/$REPO/deployments/${deploy_id}" --silent 2>/dev/null || true
-        COUNT=$((COUNT + 1))
-    done <<< "$OLD_DEPLOY_IDS"
-    ok "Removed $COUNT old deployment(s)"
 fi
 
 # ── Clean up temp files ───────────────────────────────────────────────────────
@@ -258,7 +234,7 @@ rm -rf "$STAGING" "$MOUNT" "$DERIVED_DATA"
 rm -f "$DMG"
 ok "Temp files removed"
 
-RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+RELEASE_URL="https://github.com/${RELEASES_REPO}/releases/tag/${TAG}"
 echo "\n✓ ClipHack $TAG released successfully."
 echo "  $RELEASE_URL"
 open "$RELEASE_URL"

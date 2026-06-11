@@ -47,7 +47,7 @@ actor UpdateChecker {
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
 
             guard let releaseURL = URL(string: release.htmlUrl)
-                    ?? URL(string: "https://github.com/sevmorris/ClipHack/releases") else {
+                    ?? URL(string: "https://github.com/sevmorris/ClipHack-releases/releases") else {
                 return .error("Invalid release URL in GitHub response.")
             }
             let downloadURL = release.assets.first(where: { $0.name.hasSuffix(".dmg") })
@@ -83,7 +83,7 @@ actor UpdateChecker {
 
     private func fetchLatestAppRelease() async throws -> Release? {
         let (latestData, _) = try await githubRequest(
-            path: "/repos/sevmorris/ClipHack/releases/latest"
+            path: "/repos/sevmorris/ClipHack-releases/releases/latest"
         )
         let latest = try JSONDecoder().decode(Release.self, from: latestData)
         if Self.isAppReleaseTag(latest.tagName) {
@@ -91,7 +91,7 @@ actor UpdateChecker {
         }
 
         let (listData, _) = try await githubRequest(
-            path: "/repos/sevmorris/ClipHack/releases?per_page=30"
+            path: "/repos/sevmorris/ClipHack-releases/releases?per_page=30"
         )
         let releases = try JSONDecoder().decode([Release].self, from: listData)
         return releases.first { Self.isAppReleaseTag($0.tagName) }

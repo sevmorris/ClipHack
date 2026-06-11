@@ -6,11 +6,7 @@
   <br />
   <strong>Version:</strong> 1.12.0
   <br />
-  <a href="https://github.com/sevmorris/ClipHack/releases/latest/download/ClipHack-v1.12.0.dmg"><strong>Download</strong></a>
-  ·
-  <a href="https://sevmorris.github.io/ClipHack/manual/">Manual</a>
-  ·
-  <a href="https://sevmorris.github.io/ClipHack/manual/theory.html">Theory of Operation</a>
+  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.12.0.dmg"><strong>Download</strong></a>
 </p>
 
 **ClipHack** is an internal utility designed to prepare third-party audio clips (news, promos, broadcast assets) for seamless integration into a mix. It focuses on normalizing loudness and enforcing peak ceilings so that disparate sources sit at a consistent level within a podcast or show.
@@ -33,7 +29,7 @@
 * **Environment:** macOS 14.0+ (Sonoma) on **Apple Silicon** (arm64).
 * **Dependencies:** Bundled arm64 FFmpeg 8.0; no external installation required.
 
-> **Security:** App Sandbox is disabled so ClipHack can run bundled `ffmpeg`/`ffprobe`. Download builds from [official releases](https://github.com/sevmorris/ClipHack/releases) only.
+> **Security:** App Sandbox is disabled so ClipHack can run bundled `ffmpeg`/`ffprobe`. Download builds from [official releases](https://github.com/sevmorris/ClipHack-releases/releases) only.
 
 ## Building from Source
 
