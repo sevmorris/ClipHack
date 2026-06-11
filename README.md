@@ -4,9 +4,9 @@
 <p align="center">
   <strong>Broadcast & Clip Normalization Utility</strong>
   <br />
-  <strong>Version:</strong> 1.12.0
+  <strong>Version:</strong> 1.13.0
   <br />
-  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.12.0.dmg"><strong>Download</strong></a>
+  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.13.0.dmg"><strong>Download</strong></a>
 </p>
 
 **ClipHack** is an internal utility designed to prepare third-party audio clips (news, promos, broadcast assets) for seamless integration into a mix. It focuses on normalizing loudness and enforcing peak ceilings so that disparate sources sit at a consistent level within a podcast or show.
