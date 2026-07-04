@@ -104,6 +104,96 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(vm.downloadNameField, "")
     }
 
+    // MARK: - Notes and clip list
+
+    func testFinishDownloadAttachesTrimmedNotesToRow() {
+        let vm = makeViewModel()
+        vm.downloadNotesField = "  :30 to :12  "
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: "/tmp/cliphack-tests/Title.m4a"
+        )
+
+        XCTAssertEqual(vm.files[0].notes, ":30 to :12")
+        XCTAssertEqual(vm.downloadNotesField, "", "notes clear once they're on the row")
+    }
+
+    func testEmptyNotesLeaveRowNotesNil() {
+        let vm = makeViewModel()
+        vm.downloadNotesField = "   "
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: "/tmp/cliphack-tests/Title.m4a"
+        )
+        XCTAssertNil(vm.files[0].notes)
+    }
+
+    func testClipListWrittenNextToDownloadWhenEnabled() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-vm-manifest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let vm = makeViewModel()
+        let wasEnabled = vm.clipListEnabled
+        defer { vm.clipListEnabled = wasEnabled }
+        vm.clipListEnabled = true
+        vm.downloadNotesField = "the good part"
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: dir.appendingPathComponent("Title.m4a").path
+        )
+
+        let manifestURL = dir.appendingPathComponent(ClipListManifest.manifestFilename())
+        let content = try String(contentsOf: manifestURL, encoding: .utf8)
+        XCTAssertEqual(content, "Title.m4a\nthe good part\nhttps://example.com/watch?v=abc\n\n")
+    }
+
+    func testClipListSkippedWhenDisabled() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-vm-manifest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let vm = makeViewModel()
+        let wasEnabled = vm.clipListEnabled
+        defer { vm.clipListEnabled = wasEnabled }
+        vm.clipListEnabled = false
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: dir.appendingPathComponent("Title.m4a").path
+        )
+
+        let manifestURL = dir.appendingPathComponent(ClipListManifest.manifestFilename())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: manifestURL.path))
+    }
+
+    func testDuplicateURLWritesNoClipListEntry() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-vm-manifest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let vm = makeViewModel()
+        let wasEnabled = vm.clipListEnabled
+        defer { vm.clipListEnabled = wasEnabled }
+        vm.clipListEnabled = true
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: dir.appendingPathComponent("Title.m4a").path
+        )
+        let manifestURL = dir.appendingPathComponent(ClipListManifest.manifestFilename())
+        let afterFirst = try String(contentsOf: manifestURL, encoding: .utf8)
+
+        vm.downloadURLField = "https://example.com/watch?v=abc"
+        vm.downloadNotesField = "should not be logged"
+        vm.startDownload()
+
+        XCTAssertEqual(try String(contentsOf: manifestURL, encoding: .utf8), afterFirst,
+                       "a duplicate-URL selection downloads nothing and logs nothing")
+        XCTAssertEqual(vm.downloadNotesField, "", "duplicate path clears the notes field")
+    }
+
     func testDuplicateURLClearsNameFieldWithoutDownloading() {
         let vm = makeViewModel()
         vm.finishDownload(

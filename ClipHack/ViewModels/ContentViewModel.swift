@@ -31,6 +31,7 @@ final class ContentViewModel {
 
     init() {
         self.settings = ClipHackSettings.load()
+        self.clipListEnabled = UserDefaults.standard.bool(forKey: Self.clipListKey)
     }
 
     // nonisolated: with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor the implicit
@@ -166,6 +167,14 @@ final class ContentViewModel {
     var downloadURLField: String = ""
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
+    /// Optional free-text carried onto the added row and into the clip list.
+    var downloadNotesField: String = ""
+    /// "Save clip list": append an entry to the daily clip-list file next to
+    /// each successful download. Persisted across launches.
+    var clipListEnabled: Bool {
+        didSet { UserDefaults.standard.set(clipListEnabled, forKey: Self.clipListKey) }
+    }
+    private static let clipListKey = "clipListEnabled"
     var isDownloadPopoverPresented = false
     var downloadState: DownloadState = .idle
 
@@ -228,6 +237,7 @@ final class ContentViewModel {
             selectedFileIDs = [existingID]
             downloadURLField = ""
             downloadNameField = ""
+            downloadNotesField = ""
             downloadState = .idle
             isDownloadPopoverPresented = false
             return
@@ -263,7 +273,8 @@ final class ContentViewModel {
     }
 
     /// Feeds a completed download through the existing add-files path, then
-    /// records and selects the row that landed. Internal for unit tests.
+    /// records and selects the row that landed, attaches notes, and appends
+    /// to the clip list when enabled. Internal for unit tests.
     func finishDownload(sourceURL: String, filePath: String) {
         let fileURL = URL(fileURLWithPath: filePath)
         let countBefore = files.count
@@ -271,15 +282,38 @@ final class ContentViewModel {
         // addFiles can reject (unsupported extension) or defer to the
         // reprocess warning — only record and select a row that landed.
         guard files.count > countBefore,
-              let added = files.last(where: { $0.url == fileURL }) else {
+              let index = files.lastIndex(where: { $0.url == fileURL }) else {
             downloadState = .idle
             return
         }
-        downloadedURLToFileID[sourceURL] = added.id
-        selectedFileIDs = [added.id]
+
+        let notes = downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !notes.isEmpty {
+            files[index].notes = notes
+        }
+
+        if clipListEnabled {
+            do {
+                try ClipListManifest.append(
+                    entry: ClipListManifest.entry(
+                        filename: fileURL.lastPathComponent,
+                        notes: notes,
+                        sourceURL: sourceURL
+                    ),
+                    in: fileURL.deletingLastPathComponent()
+                )
+            } catch {
+                alertTitle = "Notice"
+                alertMessage = "Downloaded, but the clip list could not be written: \(error.localizedDescription)"
+            }
+        }
+
+        downloadedURLToFileID[sourceURL] = files[index].id
+        selectedFileIDs = [files[index].id]
         downloadState = .idle
         downloadURLField = ""
         downloadNameField = ""
+        downloadNotesField = ""
         isDownloadPopoverPresented = false
     }
 

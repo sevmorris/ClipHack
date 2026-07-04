@@ -49,6 +49,8 @@ struct FileItem: Identifiable, Equatable {
     var analysisStats: AudioStats?
     var outputStats: AudioStats?
     var outputFileInfo: FileInfo?
+    /// Free-text from the download popover; nil for dropped files.
+    var notes: String?
 
     init(url: URL) {
         self.id = UUID()
@@ -82,6 +84,6 @@ struct FileItem: Identifiable, Equatable {
         lhs.id == rhs.id && lhs.status == rhs.status && lhs.analysisStats == rhs.analysisStats
             && lhs.waveform == rhs.waveform && lhs.outputWaveform == rhs.outputWaveform
             && lhs.fileInfo == rhs.fileInfo && lhs.outputStats == rhs.outputStats
-            && lhs.outputFileInfo == rhs.outputFileInfo
+            && lhs.outputFileInfo == rhs.outputFileInfo && lhs.notes == rhs.notes
     }
 }
