@@ -36,23 +36,84 @@ final class YtDlpService {
     /// filepath out of stdout without exposing it to the progress callback.
     static let filepathMarker = "CLIPHACK_OUT|"
 
+    /// Filesystem-safe stem from a user-entered name, or nil when the input
+    /// is blank (nil means: keep yt-dlp's default %(title)s naming).
+    /// --restrict-filenames does NOT sanitize literal -o template text
+    /// (verified against 2026.06.09), so this is ClipHack's job: newlines and
+    /// whitespace runs collapse to single spaces, "/" and ":" become "-"
+    /// (path separator; Finder renders ":" as "/"), NUL is dropped, leading
+    /// dots (hidden files) and trailing dots are trimmed, and the result is
+    /// capped at 180 UTF-8 bytes on a character boundary.
+    static func sanitizedStem(_ raw: String) -> String? {
+        var stem = raw
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: "\0", with: "")
+
+        while stem.hasPrefix(".") { stem.removeFirst() }
+        while stem.hasSuffix(".") { stem.removeLast() }
+        stem = stem.trimmingCharacters(in: .whitespaces)
+
+        if stem.utf8.count > 180 {
+            var trimmed = ""
+            for char in stem {
+                if (trimmed + String(char)).utf8.count > 180 { break }
+                trimmed.append(char)
+            }
+            stem = trimmed.trimmingCharacters(in: .whitespaces)
+        }
+
+        return stem.isEmpty ? nil : stem
+    }
+
+    /// First stem not claimed by `isTaken`: the stem itself, else "stem-2",
+    /// "stem-3", … Closes the wrong-content edge where yt-dlp would treat an
+    /// existing file with the same target name as "already downloaded".
+    static func uniqueStem(_ stem: String, isTaken: (String) -> Bool) -> String {
+        guard isTaken(stem) else { return stem }
+        var counter = 2
+        while isTaken("\(stem)-\(counter)") { counter += 1 }
+        return "\(stem)-\(counter)"
+    }
+
+    /// A stem is taken when any file in `directory` starts with "<stem>." —
+    /// catches every extension and yt-dlp's in-flight ".part" files.
+    /// Case-insensitive to match APFS's default.
+    private static func stemIsTaken(_ stem: String, in directory: URL) -> Bool {
+        let filenames = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        let prefix = stem.lowercased() + "."
+        return filenames.contains { $0.lowercased().hasPrefix(prefix) }
+    }
+
     /// Builds the yt-dlp argument list. Kept separate so flags stay easy to audit.
     /// `-f ba/b` prefers a native audio-only stream (no video bytes downloaded);
     /// `-x` strips audio out of combined formats via the bundled ffmpeg. No
     /// --audio-format on purpose: keep the native codec, no re-encode.
     /// --no-quiet is required because --print implies quiet mode, which would
     /// suppress the progress lines and the already-downloaded notice.
+    /// `customStem` is a sanitized filesystem stem; "%" is escaped here because
+    /// literal template text is yt-dlp template syntax.
     static func buildArguments(
         url: String,
         destination: String,
-        ffmpegDirectory: String
+        ffmpegDirectory: String,
+        customStem: String? = nil
     ) -> [String] {
-        [
+        let template: String
+        if let customStem {
+            template = customStem.replacingOccurrences(of: "%", with: "%%") + ".%(ext)s"
+        } else {
+            template = "%(title)s.%(ext)s"
+        }
+        return [
             "-f", "ba/b",
             "-x",
             "--ffmpeg-location", ffmpegDirectory,
             "-P", destination,
-            "-o", "%(title)s.%(ext)s",
+            "-o", template,
             "--print", "after_move:\(filepathMarker)%(filepath)s",
             "--no-quiet",
             "--no-playlist",
@@ -103,9 +164,13 @@ final class YtDlpService {
 
     /// Streams yt-dlp output line-by-line via `onProgress`. Cancels by terminating
     /// the child process when the surrounding `Task` is cancelled.
+    /// `customStem` (already sanitized) names the output file; it is uniquified
+    /// against the download directory so a colliding name can never make yt-dlp
+    /// skip the download and resolve someone else's file.
     /// Returns the absolute path of the downloaded (or already-present) file.
     func downloadAudio(
         url: String,
+        customStem: String? = nil,
         onProgress: @escaping @Sendable (String) -> Void
     ) async throws -> String {
         let binary = try await YtDlpManager.shared.ensureTool()
@@ -114,13 +179,18 @@ final class YtDlpService {
         let destination = Self.downloadDirectory
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
+        let uniqueCustomStem = customStem.map { stem in
+            Self.uniqueStem(stem) { Self.stemIsTaken($0, in: destination) }
+        }
+
         let marker = Self.filepathMarker
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binary)
         process.arguments = Self.buildArguments(
             url: url,
             destination: destination.path,
-            ffmpegDirectory: ffmpegDir
+            ffmpegDirectory: ffmpegDir,
+            customStem: uniqueCustomStem
         )
         process.standardInput = FileHandle.nullDevice
 

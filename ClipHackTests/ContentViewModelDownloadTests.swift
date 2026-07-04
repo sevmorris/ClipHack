@@ -94,6 +94,31 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertFalse(vm.isDownloadPopoverPresented)
     }
 
+    func testFinishDownloadClearsNameField() {
+        let vm = makeViewModel()
+        vm.downloadNameField = "My Clip"
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: "/tmp/cliphack-tests/My_Clip.m4a"
+        )
+        XCTAssertEqual(vm.downloadNameField, "")
+    }
+
+    func testDuplicateURLClearsNameFieldWithoutDownloading() {
+        let vm = makeViewModel()
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: "/tmp/cliphack-tests/Title.m4a"
+        )
+        vm.downloadURLField = "https://example.com/watch?v=abc"
+        vm.downloadNameField = "Different Name"
+        vm.startDownload()
+
+        XCTAssertEqual(vm.downloadState, .idle,
+                       "same URL with a new name still selects the existing row")
+        XCTAssertEqual(vm.downloadNameField, "")
+    }
+
     func testFinishDownloadWithUnsupportedExtensionAddsNothing() {
         let vm = makeViewModel()
         vm.finishDownload(

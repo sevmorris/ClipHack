@@ -164,6 +164,8 @@ final class ContentViewModel {
     }
 
     var downloadURLField: String = ""
+    /// Optional custom filename (stem only); blank keeps the source title.
+    var downloadNameField: String = ""
     var isDownloadPopoverPresented = false
     var downloadState: DownloadState = .idle
 
@@ -225,17 +227,19 @@ final class ContentViewModel {
         if let existingID = existingDownloadRowID(for: url) {
             selectedFileIDs = [existingID]
             downloadURLField = ""
+            downloadNameField = ""
             downloadState = .idle
             isDownloadPopoverPresented = false
             return
         }
 
+        let stem = YtDlpService.sanitizedStem(downloadNameField)
         downloadState = .downloading(progress: "Starting download…")
 
         downloadTask = Task {
             defer { downloadTask = nil }
             do {
-                let path = try await YtDlpService.shared.downloadAudio(url: url) { [weak self] line in
+                let path = try await YtDlpService.shared.downloadAudio(url: url, customStem: stem) { [weak self] line in
                     Task { @MainActor in
                         // Stale lines can trail a finished/failed download —
                         // never let one overwrite a terminal state.
@@ -275,6 +279,7 @@ final class ContentViewModel {
         selectedFileIDs = [added.id]
         downloadState = .idle
         downloadURLField = ""
+        downloadNameField = ""
         isDownloadPopoverPresented = false
     }
 
