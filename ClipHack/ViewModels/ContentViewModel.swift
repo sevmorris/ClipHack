@@ -32,6 +32,14 @@ final class ContentViewModel {
         self.settings = ClipHackSettings.load()
     }
 
+    // nonisolated: with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor the implicit
+    // deinit would be MainActor-isolated, and macOS 15's isolated-deinit runtime
+    // (swift_task_deinitOnExecutor) malloc-aborts when one isolated deinit nests
+    // inside another — here, this deinit releasing presetStore. Nothing in
+    // teardown needs the actor, so opt out. Covered by deallocation in
+    // ContentViewModelDownloadTests.
+    nonisolated deinit {}
+
     // MARK: - Computed
 
     /// True when at least one file is ready to process.
