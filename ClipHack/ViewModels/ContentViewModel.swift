@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import OSLog
@@ -149,6 +150,118 @@ final class ContentViewModel {
 
     func moveFiles(from source: IndexSet, to destination: Int) {
         files.move(fromOffsets: source, toOffset: destination)
+    }
+
+    // MARK: - Download from URL
+
+    var downloadURLField: String = ""
+    var isDownloadPopoverPresented = false
+    var isDownloading = false
+    /// Latest yt-dlp progress line while a download runs.
+    var downloadStatus: String?
+    var downloadError: String?
+    private var downloadTask: Task<Void, Never>?
+    /// Source URL → file-browser row added for it, for session-scoped dedupe.
+    private var downloadedURLToFileID: [String: UUID] = [:]
+
+    /// Trimmed http(s) URL, or nil if the string isn't a usable web URL.
+    static func validatedWebURL(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsed = URL(string: trimmed),
+              let scheme = parsed.scheme?.lowercased(),
+              scheme == "http" || scheme == "https"
+        else { return nil }
+        return trimmed
+    }
+
+    /// A URL dropped onto the window: prefill the popover and open it. Never
+    /// starts the download — that takes an explicit click on Download.
+    @discardableResult
+    func acceptDroppedURL(_ raw: String) -> Bool {
+        guard let url = Self.validatedWebURL(raw) else { return false }
+        downloadURLField = url
+        downloadError = nil
+        isDownloadPopoverPresented = true
+        return true
+    }
+
+    /// Convenience when the popover opens: prefill an empty URL field from the
+    /// pasteboard if it holds a plausible web URL. Never starts the download.
+    func prefillDownloadFromPasteboard() {
+        guard downloadURLField.isEmpty,
+              let pasted = NSPasteboard.general.string(forType: .string),
+              let url = Self.validatedWebURL(pasted) else { return }
+        downloadURLField = url
+    }
+
+    /// The row previously added for `sourceURL`, if it is still in the list.
+    func existingDownloadRowID(for sourceURL: String) -> UUID? {
+        guard let id = downloadedURLToFileID[sourceURL],
+              files.contains(where: { $0.id == id }) else { return nil }
+        return id
+    }
+
+    func startDownload() {
+        guard !isDownloading else { return }
+        guard let url = Self.validatedWebURL(downloadURLField) else {
+            downloadError = "Enter a valid http(s) URL."
+            return
+        }
+
+        if let existingID = existingDownloadRowID(for: url) {
+            selectedFileIDs = [existingID]
+            downloadURLField = ""
+            isDownloadPopoverPresented = false
+            return
+        }
+
+        isDownloading = true
+        downloadError = nil
+        downloadStatus = "Starting download…"
+
+        downloadTask = Task {
+            defer {
+                isDownloading = false
+                downloadTask = nil
+            }
+            do {
+                let path = try await YtDlpService.shared.downloadAudio(url: url) { [weak self] line in
+                    Task { @MainActor in self?.downloadStatus = line }
+                }
+                finishDownload(sourceURL: url, filePath: path)
+            } catch is CancellationError {
+                downloadStatus = "Cancelled"
+            } catch YtDlpError.cancelled {
+                downloadStatus = "Cancelled"
+            } catch {
+                downloadError = error.localizedDescription
+                downloadStatus = nil
+            }
+        }
+    }
+
+    func cancelDownload() {
+        downloadTask?.cancel()
+    }
+
+    /// Feeds a completed download through the existing add-files path, then
+    /// records and selects the row that landed. Internal for unit tests.
+    func finishDownload(sourceURL: String, filePath: String) {
+        let fileURL = URL(fileURLWithPath: filePath)
+        let countBefore = files.count
+        addFiles([fileURL])
+        // addFiles can reject (unsupported extension) or defer to the
+        // reprocess warning — only record and select a row that landed.
+        guard files.count > countBefore,
+              let added = files.last(where: { $0.url == fileURL }) else {
+            downloadStatus = nil
+            return
+        }
+        downloadedURLToFileID[sourceURL] = added.id
+        selectedFileIDs = [added.id]
+        downloadStatus = nil
+        downloadURLField = ""
+        isDownloadPopoverPresented = false
     }
 
     // MARK: - Processing
