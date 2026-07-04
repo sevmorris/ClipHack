@@ -12,6 +12,11 @@ struct EmptyStateView: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+
+                Text("You can also drop a web link here, or click the link button above, to download audio from a URL.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
 
             Text("See Help menu for details on settings and processing.")

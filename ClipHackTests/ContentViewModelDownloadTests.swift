@@ -38,7 +38,14 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertTrue(accepted)
         XCTAssertEqual(vm.downloadURLField, "https://example.com/watch?v=abc")
         XCTAssertTrue(vm.isDownloadPopoverPresented)
-        XCTAssertFalse(vm.isDownloading, "a drop must never start the download by itself")
+        XCTAssertEqual(vm.downloadState, .idle, "a drop must never start the download by itself")
+    }
+
+    func testDroppedURLClearsStaleFailure() {
+        let vm = makeViewModel()
+        vm.downloadState = .failed("previous error")
+        vm.acceptDroppedURL("https://example.com/next")
+        XCTAssertEqual(vm.downloadState, .idle)
     }
 
     func testDroppedURLReplacesExistingFieldContent() {
@@ -59,12 +66,12 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
     // MARK: - Start guard
 
-    func testStartDownloadWithInvalidFieldSetsErrorAndDoesNotRun() {
+    func testStartDownloadWithInvalidFieldFailsWithoutRunning() {
         let vm = makeViewModel()
         vm.downloadURLField = "not a url"
         vm.startDownload()
 
-        XCTAssertNotNil(vm.downloadError)
+        XCTAssertEqual(vm.downloadState, .failed("Enter a valid http(s) URL."))
         XCTAssertFalse(vm.isDownloading)
     }
 
@@ -141,7 +148,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         vm.isDownloadPopoverPresented = true
         vm.startDownload()
 
-        XCTAssertFalse(vm.isDownloading, "duplicate URL must not start a new download")
+        XCTAssertEqual(vm.downloadState, .idle, "duplicate URL must not start a new download")
         XCTAssertEqual(vm.selectedFileIDs, [existingID])
         XCTAssertFalse(vm.isDownloadPopoverPresented)
     }

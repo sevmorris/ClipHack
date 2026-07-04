@@ -35,8 +35,18 @@ struct ContentView: View {
         }
         .frame(minWidth: 780, minHeight: 500)
         .dropDestination(for: URL.self) { urls, _ in
-            viewModel.addFiles(urls)
-            return !urls.isEmpty
+            var handled = false
+            let localURLs = urls.filter { $0.isFileURL }
+            if !localURLs.isEmpty {
+                viewModel.addFiles(localURLs)
+                handled = true
+            }
+            // A web URL dragged from a browser prefills the download popover;
+            // the download itself only starts from its Download button.
+            if let webURL = urls.first(where: { !$0.isFileURL }) {
+                handled = viewModel.acceptDroppedURL(webURL.absoluteString) || handled
+            }
+            return handled
         }
         .alert(viewModel.alertTitle, isPresented: alertBinding) {
             Button("OK", role: .cancel) {}
@@ -51,6 +61,9 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             viewModel.cancelProcessing()
+            // Terminates the yt-dlp child (cancellation handlers run
+            // synchronously) so quitting mid-download leaves no orphan.
+            viewModel.cancelDownload()
         }
     }
 
@@ -59,6 +72,19 @@ struct ContentView: View {
             PresetPicker(viewModel: viewModel)
 
             Spacer()
+
+            Button {
+                viewModel.isDownloadPopoverPresented.toggle()
+            } label: {
+                Label("Add from URL", systemImage: "link")
+            }
+            .help("Download audio from a web URL")
+            .keyboardShortcut("l", modifiers: .command)
+            .popover(isPresented: $viewModel.isDownloadPopoverPresented, arrowEdge: .bottom) {
+                DownloadPopover(viewModel: viewModel)
+            }
+
+            Divider().frame(height: 20)
 
             if viewModel.isProcessing {
                 Button {

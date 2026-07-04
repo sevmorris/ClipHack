@@ -155,12 +155,23 @@ final class ContentViewModel {
 
     // MARK: - Download from URL
 
+    /// Single source of truth for the download UI — the popover's status line
+    /// and its Download/Cancel button switch on this directly.
+    enum DownloadState: Equatable {
+        case idle
+        case downloading(progress: String)
+        case failed(String)
+    }
+
     var downloadURLField: String = ""
     var isDownloadPopoverPresented = false
-    var isDownloading = false
-    /// Latest yt-dlp progress line while a download runs.
-    var downloadStatus: String?
-    var downloadError: String?
+    var downloadState: DownloadState = .idle
+
+    var isDownloading: Bool {
+        if case .downloading = downloadState { return true }
+        return false
+    }
+
     private var downloadTask: Task<Void, Never>?
     /// Source URL → file-browser row added for it, for session-scoped dedupe.
     private var downloadedURLToFileID: [String: UUID] = [:]
@@ -181,7 +192,9 @@ final class ContentViewModel {
     func acceptDroppedURL(_ raw: String) -> Bool {
         guard let url = Self.validatedWebURL(raw) else { return false }
         downloadURLField = url
-        downloadError = nil
+        if case .failed = downloadState {
+            downloadState = .idle
+        }
         isDownloadPopoverPresented = true
         return true
     }
@@ -205,38 +218,38 @@ final class ContentViewModel {
     func startDownload() {
         guard !isDownloading else { return }
         guard let url = Self.validatedWebURL(downloadURLField) else {
-            downloadError = "Enter a valid http(s) URL."
+            downloadState = .failed("Enter a valid http(s) URL.")
             return
         }
 
         if let existingID = existingDownloadRowID(for: url) {
             selectedFileIDs = [existingID]
             downloadURLField = ""
+            downloadState = .idle
             isDownloadPopoverPresented = false
             return
         }
 
-        isDownloading = true
-        downloadError = nil
-        downloadStatus = "Starting download…"
+        downloadState = .downloading(progress: "Starting download…")
 
         downloadTask = Task {
-            defer {
-                isDownloading = false
-                downloadTask = nil
-            }
+            defer { downloadTask = nil }
             do {
                 let path = try await YtDlpService.shared.downloadAudio(url: url) { [weak self] line in
-                    Task { @MainActor in self?.downloadStatus = line }
+                    Task { @MainActor in
+                        // Stale lines can trail a finished/failed download —
+                        // never let one overwrite a terminal state.
+                        guard let self, self.isDownloading else { return }
+                        self.downloadState = .downloading(progress: line)
+                    }
                 }
                 finishDownload(sourceURL: url, filePath: path)
             } catch is CancellationError {
-                downloadStatus = "Cancelled"
+                downloadState = .idle
             } catch YtDlpError.cancelled {
-                downloadStatus = "Cancelled"
+                downloadState = .idle
             } catch {
-                downloadError = error.localizedDescription
-                downloadStatus = nil
+                downloadState = .failed(error.localizedDescription)
             }
         }
     }
@@ -255,12 +268,12 @@ final class ContentViewModel {
         // reprocess warning — only record and select a row that landed.
         guard files.count > countBefore,
               let added = files.last(where: { $0.url == fileURL }) else {
-            downloadStatus = nil
+            downloadState = .idle
             return
         }
         downloadedURLToFileID[sourceURL] = added.id
         selectedFileIDs = [added.id]
-        downloadStatus = nil
+        downloadState = .idle
         downloadURLField = ""
         isDownloadPopoverPresented = false
     }
