@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    yt-dlp is a PyInstaller onefile binary: at launch it extracts its bundled,
+    ad-hoc-signed dylibs (CPython et al.) to a temp dir and loads them. Under
+    the hardened runtime, library validation would reject those dylibs (no
+    matching Team ID), so it must be disabled for this binary. CPython's
+    ctypes/cffi paths can also require unsigned executable memory. Both
+    entitlements are accepted by notarization.
+    -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>

@@ -82,6 +82,11 @@ chmod +x "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
 "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
 ok "FFmpeg present"
 
+step "Fetching yt-dlp binary"
+chmod +x "$PROJECT_DIR/scripts/fetch-ytdlp.sh"
+"$PROJECT_DIR/scripts/fetch-ytdlp.sh"
+ok "yt-dlp present"
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 step "Building (clean, Release)"
 rm -rf "$DERIVED_DATA"
@@ -100,9 +105,13 @@ ok "Build complete"
 step "Codesigning binaries and app"
 IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)"
 ENTITLEMENTS="$PROJECT_DIR/ClipHack/ClipHack.entitlements"
+YTDLP_ENTITLEMENTS="$PROJECT_DIR/Vendor/ytdlp.entitlements"
 
 codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffmpeg"
 codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffprobe"
+# yt-dlp (PyInstaller onefile) needs its own entitlements under the hardened
+# runtime — see Vendor/ytdlp.entitlements for why.
+codesign --force --options runtime --entitlements "$YTDLP_ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH/Contents/Resources/yt-dlp"
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 | tail -3
 ok "Codesigning complete"
