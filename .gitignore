@@ -17,3 +17,6 @@ ClipHack/ffprobe
 
 # Claude
 .claude/
+
+# Bundled yt-dlp binary (downloaded via scripts/fetch-ytdlp.sh)
+ClipHack/yt-dlp

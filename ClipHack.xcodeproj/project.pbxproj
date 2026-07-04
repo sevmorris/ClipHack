@@ -93,6 +93,7 @@
 			buildConfigurationList = C6DEF1432EC98B06003A77C7 /* Build configuration list for PBXNativeTarget "ClipHack" */;
 			buildPhases = (
 				E1F2CH012EC99001003A77D7 /* Fetch FFmpeg */,
+				E1F2CH022EC99001003A77D7 /* Fetch yt-dlp */,
 				C6DEF1342EC98B05003A77C7 /* Sources */,
 				C6DEF1352EC98B05003A77C7 /* Frameworks */,
 				C6DEF1362EC98B05003A77C7 /* Resources */,
@@ -209,6 +210,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/scripts/fetch-ffmpeg.sh\"\n";
+		};
+		E1F2CH022EC99001003A77D7 /* Fetch yt-dlp */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Vendor/ytdlp-manifest.env",
+				"$(SRCROOT)/scripts/fetch-ytdlp.sh",
+			);
+			name = "Fetch yt-dlp";
+			outputPaths = (
+				"$(SRCROOT)/ClipHack/yt-dlp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/scripts/fetch-ytdlp.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
