@@ -87,10 +87,10 @@ final class ClipHackPresetStore {
     private let userDefaultsKey = "ClipHackUserPresets"
 
     // Under SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor this deinit would be
-    // MainActor-isolated, and Swift's back-deployed isolated-deinit shim
-    // aborts (malloc double-free in task-local scope teardown) when it runs
-    // nested inside ContentViewModel's dealloc on macOS 15. Stored properties
-    // need no isolated teardown, so opt out.
+    // MainActor-isolated, and macOS 15's isolated-deinit runtime malloc-aborts
+    // in task-local scope teardown when the last release happens outside a
+    // task — e.g. ContentViewModel deallocating (see its deinit comment).
+    // Stored properties need no isolated teardown, so opt out.
     nonisolated deinit {}
 
     init() {

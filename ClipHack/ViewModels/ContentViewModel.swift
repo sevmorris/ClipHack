@@ -35,9 +35,10 @@ final class ContentViewModel {
 
     // nonisolated: with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor the implicit
     // deinit would be MainActor-isolated, and macOS 15's isolated-deinit runtime
-    // (swift_task_deinitOnExecutor) malloc-aborts when one isolated deinit nests
-    // inside another — here, this deinit releasing presetStore. Nothing in
-    // teardown needs the actor, so opt out. Covered by deallocation in
+    // (swift_task_deinitOnExecutor, reached via the back-deploy shim) malloc-aborts
+    // tearing down its task-local scope when the last release happens outside a
+    // task — e.g. a window's @State view model being discarded, or unit tests.
+    // Nothing in teardown needs the actor, so opt out. Covered by deallocation in
     // ContentViewModelDownloadTests.
     nonisolated deinit {}
 

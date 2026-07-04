@@ -211,7 +211,12 @@ private func forEachLine(in data: Data, _ body: (String) -> Void) {
     }
 }
 
-private final class FilepathCapture: @unchecked Sendable {
+// nonisolated: these boxes synchronize with their own lock and are touched from
+// pipe-handler threads, so the project's MainActor default isolation is wrong for
+// them — and the implicit MainActor deinit it would add malloc-aborts in macOS 15's
+// isolated-deinit runtime when the last release happens off-task (see
+// ContentViewModel.deinit).
+private nonisolated final class FilepathCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var path: String?
 
@@ -226,7 +231,7 @@ private final class FilepathCapture: @unchecked Sendable {
     }
 }
 
-private final class StderrTail: @unchecked Sendable {
+private nonisolated final class StderrTail: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()
     private let cap = 8 * 1024
