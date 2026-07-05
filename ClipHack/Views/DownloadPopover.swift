@@ -14,6 +14,23 @@ struct DownloadPopover: View {
                 .onSubmit { viewModel.startDownload() }
                 .disabled(viewModel.isDownloading)
 
+            TextField("Custom file name (optional — keeps source title)", text: $viewModel.downloadNameField)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 340)
+                .onSubmit { viewModel.startDownload() }
+                .disabled(viewModel.isDownloading)
+
+            TextField("Notes (optional, e.g. :30 to :12)", text: $viewModel.downloadNotesField, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1...3)
+                .frame(width: 340)
+                .disabled(viewModel.isDownloading)
+
+            Toggle("Save clip list", isOn: $viewModel.clipListEnabled)
+                .toggleStyle(.checkbox)
+                .disabled(viewModel.isDownloading)
+                .help("Appends file name, notes, and source URL to a daily clip-list file next to the download.")
+
             statusLine
 
             HStack {
