@@ -41,7 +41,8 @@ enum FileStatus: Equatable, Sendable {
 
 struct FileItem: Identifiable, Equatable {
     let id: UUID
-    let url: URL
+    /// Mutable to support rename-on-disk; row identity is `id`.
+    var url: URL
     var status: FileStatus
     var fileInfo: FileInfo?
     var waveform: WaveformData?
@@ -81,7 +82,8 @@ struct FileItem: Identifiable, Equatable {
     }
 
     static func == (lhs: FileItem, rhs: FileItem) -> Bool {
-        lhs.id == rhs.id && lhs.status == rhs.status && lhs.analysisStats == rhs.analysisStats
+        lhs.id == rhs.id && lhs.url == rhs.url && lhs.status == rhs.status
+            && lhs.analysisStats == rhs.analysisStats
             && lhs.waveform == rhs.waveform && lhs.outputWaveform == rhs.outputWaveform
             && lhs.fileInfo == rhs.fileInfo && lhs.outputStats == rhs.outputStats
             && lhs.outputFileInfo == rhs.outputFileInfo && lhs.notes == rhs.notes

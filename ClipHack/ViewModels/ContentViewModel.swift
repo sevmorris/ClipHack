@@ -154,6 +154,98 @@ final class ContentViewModel {
         files.move(fromOffsets: source, toOffset: destination)
     }
 
+    // MARK: - Rename
+
+    enum RenameOutcome: Equatable {
+        case renamed
+        case invalidName
+        case nameTaken
+        case notRenamable
+        case renameFailed(String)
+    }
+
+    /// Row currently being renamed; non-nil drives the rename alert.
+    var renameTargetID: UUID?
+    var renameField: String = ""
+
+    /// Analysis and processing capture the file path when they start, so a
+    /// rename mid-flight would pull the file out from under ffmpeg/ffprobe.
+    func isRenamable(_ file: FileItem) -> Bool {
+        switch file.status {
+        case .analyzing, .processing: return false
+        default: return true
+        }
+    }
+
+    func beginRename(_ id: UUID) {
+        guard let file = files.first(where: { $0.id == id }), isRenamable(file) else { return }
+        renameField = file.url.deletingPathExtension().lastPathComponent
+        renameTargetID = id
+    }
+
+    func cancelRename() {
+        renameTargetID = nil
+        renameField = ""
+    }
+
+    /// Confirms the pending rename; failures surface through the standard
+    /// notice alert (re-invoke rename to retry).
+    func confirmRename() {
+        guard let id = renameTargetID else { return }
+        let outcome = renameFile(id: id, to: renameField)
+        renameTargetID = nil
+        renameField = ""
+
+        let failure: String?
+        switch outcome {
+        case .renamed, .notRenamable:
+            failure = nil
+        case .invalidName:
+            failure = "Enter a usable file name."
+        case .nameTaken:
+            failure = "A file with that name already exists in the same folder."
+        case .renameFailed(let message):
+            failure = message
+        }
+        if let failure {
+            alertTitle = "Rename Failed"
+            alertMessage = failure
+        }
+    }
+
+    /// Renames the file on disk (stem only, extension preserved) and updates
+    /// the row's URL. Computed row state (waveform, stats, notes) is untouched.
+    func renameFile(id: UUID, to rawName: String) -> RenameOutcome {
+        guard let index = files.firstIndex(where: { $0.id == id }),
+              isRenamable(files[index]) else { return .notRenamable }
+        guard let stem = YtDlpService.sanitizedStem(rawName) else { return .invalidName }
+
+        let sourceURL = files[index].url
+        var destURL = sourceURL.deletingLastPathComponent().appendingPathComponent(stem)
+        let ext = sourceURL.pathExtension
+        if !ext.isEmpty {
+            destURL = destURL.appendingPathExtension(ext)
+        }
+
+        if destURL.path == sourceURL.path { return .renamed }
+
+        // APFS is case-insensitive by default, so an exists-check for a
+        // case-only change would match the source file itself — allow it.
+        let isCaseOnlyChange = destURL.path.lowercased() == sourceURL.path.lowercased()
+        if !isCaseOnlyChange, FileManager.default.fileExists(atPath: destURL.path) {
+            return .nameTaken
+        }
+
+        do {
+            try FileManager.default.moveItem(at: sourceURL, to: destURL)
+        } catch {
+            return .renameFailed(error.localizedDescription)
+        }
+
+        files[index].url = destURL
+        return .renamed
+    }
+
     // MARK: - Download from URL
 
     /// Single source of truth for the download UI — the popover's status line

@@ -9,6 +9,31 @@ struct FileListView: View {
             ForEach(viewModel.files) { file in
                 FileRowView(file: file, isProcessing: viewModel.isProcessing)
                     .tag(file.id)
+                    // simultaneousGesture so double-click doesn't swallow the
+                    // List's single-click selection.
+                    .simultaneousGesture(
+                        TapGesture(count: 2).onEnded {
+                            viewModel.beginRename(file.id)
+                        }
+                    )
+                    .contextMenu {
+                        Button {
+                            viewModel.beginRename(file.id)
+                        } label: {
+                            Label("Rename…", systemImage: "pencil")
+                        }
+                        .disabled(!viewModel.isRenamable(file))
+
+                        // Row menus cover clicks on rows; keep the list-level
+                        // action reachable here too.
+                        if viewModel.files.contains(where: { $0.isProcessed }) {
+                            Button {
+                                viewModel.removeProcessed()
+                            } label: {
+                                Label("Remove Processed Files", systemImage: "checkmark.circle")
+                            }
+                        }
+                    }
             }
             .onDelete { offsets in
                 viewModel.removeFiles(at: offsets)

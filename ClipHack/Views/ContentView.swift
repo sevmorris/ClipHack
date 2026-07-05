@@ -59,6 +59,13 @@ struct ContentView: View {
         } message: {
             Text("One or more files look like ClipHack outputs (*clipped*.wav). Re-processing will create another generation.")
         }
+        .alert("Rename File", isPresented: renameBinding) {
+            TextField("Name", text: $viewModel.renameField)
+            Button("Cancel", role: .cancel) { viewModel.cancelRename() }
+            Button("Rename") { viewModel.confirmRename() }
+        } message: {
+            Text("Renames the file on disk. The extension is kept.")
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             viewModel.cancelProcessing()
             // Terminates the yt-dlp child (cancellation handlers run
@@ -211,6 +218,13 @@ struct ContentView: View {
         Binding(
             get: { viewModel.alertMessage != nil },
             set: { if !$0 { viewModel.alertMessage = nil } }
+        )
+    }
+
+    private var renameBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.renameTargetID != nil },
+            set: { if !$0 { viewModel.cancelRename() } }
         )
     }
 }
