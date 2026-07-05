@@ -15,10 +15,11 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          # Match the release toolchain: the project uses Xcode 26-era Swift
-          # (nonisolated deinit, SWIFT_DEFAULT_ACTOR_ISOLATION) that Xcode 16.x
-          # either rejects or silently ignores.
-          xcode-version: '26.1.1'
+          # Latest Xcode on the macos-15 image (build 17C529), matching the
+          # local toolchain. The project needs Xcode 26-era Swift (nonisolated
+          # deinit, SWIFT_DEFAULT_ACTOR_ISOLATION) that 16.x rejects; 26.1.1
+          # hung launching the GUI test host on the runner, 26.3 does not.
+          xcode-version: '26.3'
 
       - name: Fetch FFmpeg
         run: ./scripts/fetch-ffmpeg.sh
@@ -27,6 +28,11 @@ jobs:
         run: ./scripts/fetch-ytdlp.sh
 
       - name: Build and test
+        # Hard cap so a wedged test-host launch fails in minutes instead of
+        # burning the full job budget. A healthy run finishes in ~3 min; no
+        # test starting means -test-timeout flags wouldn't fire, so bound the
+        # whole step instead.
+        timeout-minutes: 15
         run: |
           xcodebuild \
             -project ClipHack.xcodeproj \
