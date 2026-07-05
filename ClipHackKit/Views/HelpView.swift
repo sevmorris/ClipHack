@@ -1,7 +1,9 @@
 import SwiftUI
 
-struct HelpView: View {
-    var body: some View {
+public struct HelpView: View {
+    public init() {}
+
+    public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header

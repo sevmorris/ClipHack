@@ -1,5 +1,5 @@
 import XCTest
-@testable import ClipHack
+@testable import ClipHackKit
 
 /// FFmpeg integration tests — require bundled binaries (run `./scripts/fetch-ffmpeg.sh` first).
 final class AudioProcessorIntegrationTests: XCTestCase {

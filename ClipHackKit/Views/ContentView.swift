@@ -1,10 +1,12 @@
 import AppKit
 import SwiftUI
 
-struct ContentView: View {
+public struct ContentView: View {
     @State private var viewModel = ContentViewModel()
     @State private var fileListWidth: CGFloat = 250
     @State private var showSettings: Bool = true
+
+    public init() {}
 
     private var selectedFile: FileItem? {
         guard viewModel.selectedFileIDs.count == 1,
@@ -14,7 +16,7 @@ struct ContentView: View {
         return file
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             headerView
             HStack(spacing: 0) {

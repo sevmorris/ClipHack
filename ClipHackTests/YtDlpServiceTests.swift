@@ -1,5 +1,5 @@
 import XCTest
-@testable import ClipHack
+@testable import ClipHackKit
 
 final class YtDlpServiceTests: XCTestCase {
 

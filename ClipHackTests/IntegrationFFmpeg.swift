@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import ClipHack
+@testable import ClipHackKit
 
 enum IntegrationFFmpeg {
     static func locate() throws -> (ffmpeg: String, ffprobe: String) {
