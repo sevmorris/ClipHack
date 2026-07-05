@@ -30,6 +30,13 @@ struct HelpView: View {
                         "Output files are saved alongside the originals (or to your chosen output folder)."
                     ])
                 }
+                section("Download from URL") {
+                    text("Click the link button in the toolbar (⌘L), or drop a web link onto the window, to download a clip's audio into the file list. Video sources are saved as audio only (native codec, no re-encode) into ~/Music/ClipHack.")
+                    definition("Custom file name", "Optional. Names the download before it lands — stem only, the extension always matches the source audio. Leave blank to keep the source title.")
+                    definition("Notes", "Optional free text kept with the file row and written to the clip list.")
+                    definition("Save clip list", "Appends file name, notes, and source URL to a daily clip-list-YYYY-MM-DD.txt next to the download. Entries are a point-in-time log — renaming a file afterwards does not rewrite earlier entries.")
+                    text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by double-clicking it. The file is renamed on disk; the extension is kept.")
+                }
                 section("Output Naming") {
                     text("Output filenames reflect what processing was applied:")
                     code("{original-name}-{rate}{norm-}clipped-{limit}dB.wav")
@@ -57,6 +64,13 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
                     definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. Runs before the limiter.")
                     definition("Target", "Loudness normalization target in LUFS, from -35 to -14. -18 LUFS is a common podcast insertion target.")
                     definition("Output Directory", "Custom output folder for processed files. Defaults to the same directory as the source file.")
+                }
+                section("Acknowledgments") {
+                    text("ClipHack bundles two open-source command-line tools:")
+                    definition("yt-dlp", "Media downloader, released into the public domain (Unlicense). Bundled as the official standalone binary; the pinned version is updated with ClipHack releases.")
+                    Link("github.com/yt-dlp/yt-dlp", destination: URL(string: "https://github.com/yt-dlp/yt-dlp")!)
+                    definition("FFmpeg", "Audio engine for the entire processing chain.")
+                    Link("ffmpeg.org", destination: URL(string: "https://ffmpeg.org")!)
                 }
                 Spacer()
             }
