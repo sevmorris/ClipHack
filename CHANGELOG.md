@@ -2,6 +2,10 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.15.0] — 2026-07-05
+
+- X/Twitter post links dropped or pasted into the download popover auto-fill Notes with the post's text (best-effort; silently skipped if unavailable, and never overwrites text you've typed)
+
 ## [1.14.1] — 2026-07-04
 
 - Updated app icon (no functional changes)

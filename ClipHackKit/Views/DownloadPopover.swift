@@ -11,7 +11,10 @@ struct DownloadPopover: View {
             TextField("https://…", text: $viewModel.downloadURLField)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 340)
-                .onSubmit { viewModel.startDownload() }
+                .onSubmit {
+                    viewModel.prefillNotesFromURL(viewModel.downloadURLField)
+                    viewModel.startDownload()
+                }
                 .disabled(viewModel.isDownloading)
 
             TextField("Custom file name (optional — keeps source title)", text: $viewModel.downloadNameField)

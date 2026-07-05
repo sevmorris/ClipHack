@@ -35,7 +35,7 @@ public struct HelpView: View {
                 section("Download from URL") {
                     text("Click the link button in the toolbar (⌘L), or drop a web link onto the window, to download a clip's audio into the file list. Video sources are saved as audio only (native codec, no re-encode) into ~/Music/ClipHack.")
                     definition("Custom file name", "Optional. Names the download before it lands — stem only, the extension always matches the source audio. Leave blank to keep the source title.")
-                    definition("Notes", "Optional free text kept with the file row and written to the clip list.")
+                    definition("Notes", "Optional free text kept with the file row and written to the clip list. For X/Twitter post links, the post's text is fetched and pre-filled here automatically (best-effort) — edit or clear it as you like.")
                     definition("Save clip list", "Appends file name, notes, and source URL to a daily clip-list-YYYY-MM-DD.txt next to the download. Entries are a point-in-time log — renaming a file afterwards does not rewrite earlier entries.")
                     text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by double-clicking it. The file is renamed on disk; the extension is kept.")
                 }
