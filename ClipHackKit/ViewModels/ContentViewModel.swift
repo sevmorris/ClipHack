@@ -279,6 +279,11 @@ final class ContentViewModel {
     /// Source URL → file-browser row added for it, for session-scoped dedupe.
     private var downloadedURLToFileID: [String: UUID] = [:]
 
+    /// Injectable so the prefill guards are testable without network.
+    var postTextFetcher: @Sendable (String) async -> String? = { await XPostText.fetchPostText(for: $0) }
+    /// The in-flight X-post-text fetch, exposed so tests can await it.
+    private(set) var notesFetchTask: Task<Void, Never>?
+
     /// Trimmed http(s) URL, or nil if the string isn't a usable web URL.
     static func validatedWebURL(_ raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -299,6 +304,7 @@ final class ContentViewModel {
             downloadState = .idle
         }
         isDownloadPopoverPresented = true
+        prefillNotesFromURL(url)
         return true
     }
 
@@ -309,6 +315,35 @@ final class ContentViewModel {
               let pasted = NSPasteboard.general.string(forType: .string),
               let url = Self.validatedWebURL(pasted) else { return }
         downloadURLField = url
+        prefillNotesFromURL(url)
+    }
+
+    /// Best-effort: when `urlString` is an X/Twitter post, fetch its body text
+    /// and drop it into Notes — but only if Notes is still empty when the fetch
+    /// resolves and the URL field still holds this URL (never clobber typed
+    /// notes, never attach a stale post's text). Fire-and-forget: it runs
+    /// independently of the download and every failure is silent.
+    func prefillNotesFromURL(_ urlString: String) {
+        guard XPostText.statusID(from: urlString) != nil else { return }
+        notesFetchTask?.cancel()
+        let fetch = postTextFetcher
+        notesFetchTask = Task { [weak self] in
+            let text = await fetch(urlString)
+            self?.applyFetchedNotes(text, for: urlString)
+        }
+    }
+
+    /// Applies a fetched post body to Notes, honoring both guards: only fill if
+    /// Notes is still empty (never clobber typed text) and the URL field still
+    /// holds the URL this text was fetched for (never attach a stale post's
+    /// text). Split out from the fetch Task so the guards are testable
+    /// synchronously.
+    func applyFetchedNotes(_ text: String?, for urlString: String) {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
+              downloadURLField == urlString,
+              downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+        downloadNotesField = text
     }
 
     /// The row previously added for `sourceURL`, if it is still in the list.

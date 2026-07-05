@@ -267,4 +267,63 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(vm.selectedFileIDs, [existingID])
         XCTAssertFalse(vm.isDownloadPopoverPresented)
     }
+
+    // MARK: - X-post Notes prefill
+    //
+    // The fill/stale guards are tested synchronously through applyFetchedNotes;
+    // the trigger points are tested by whether a fetch task is spawned. Awaiting
+    // the fire-and-forget task from an async XCTest method corrupts the test
+    // harness's task allocator, so it's deliberately avoided here.
+
+    private let xURL = "https://x.com/atrupar/status/2073253157933666426"
+
+    func testApplyFillsEmptyNotesForMatchingURL() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.applyFetchedNotes("fetched post body", for: xURL)
+        XCTAssertEqual(vm.downloadNotesField, "fetched post body")
+    }
+
+    func testApplyDoesNotClobberTypedNotes() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadNotesField = "my own note"
+        vm.applyFetchedNotes("fetched post body", for: xURL)
+        XCTAssertEqual(vm.downloadNotesField, "my own note", "fill-if-empty must not overwrite typed notes")
+    }
+
+    func testApplySkipsWhenURLFieldChanged() {
+        let vm = makeViewModel()
+        vm.downloadURLField = "https://x.com/other/status/999"
+        vm.applyFetchedNotes("fetched post body", for: xURL)
+        XCTAssertEqual(vm.downloadNotesField, "", "stale-URL result must not be applied")
+    }
+
+    func testApplyIgnoresNilOrEmptyText() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.applyFetchedNotes(nil, for: xURL)
+        vm.applyFetchedNotes("   ", for: xURL)
+        XCTAssertEqual(vm.downloadNotesField, "")
+    }
+
+    func testPrefillSpawnsFetchTaskForXPostURL() {
+        let vm = makeViewModel()
+        vm.prefillNotesFromURL(xURL)
+        XCTAssertNotNil(vm.notesFetchTask, "an X post URL should spawn a fetch")
+        vm.notesFetchTask?.cancel()
+    }
+
+    func testPrefillSpawnsNoTaskForNonXURL() {
+        let vm = makeViewModel()
+        vm.prefillNotesFromURL("https://youtu.be/abc123")
+        XCTAssertNil(vm.notesFetchTask, "non-X URLs must not spawn a fetch")
+    }
+
+    func testAcceptDroppedXURLSpawnsNotesPrefill() {
+        let vm = makeViewModel()
+        vm.acceptDroppedURL(xURL)
+        XCTAssertNotNil(vm.notesFetchTask)
+        vm.notesFetchTask?.cancel()
+    }
 }
