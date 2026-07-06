@@ -26,7 +26,7 @@
 Click the link button in the toolbar (⌘L), or drop a web link onto the window, to download a clip's audio directly into the file list. Video sources are saved as **audio only** (native codec, no re-encode). Downloads land in `~/Music/ClipHack`.
 
 * **Custom name:** Optional — names the download before it lands. Stem only; the extension always matches the source audio. Leave blank to keep the source title.
-* **Notes:** Optional free text kept with the file row.
+* **Notes:** Optional free text kept with the file row. For X/Twitter post links, the post's text is fetched and pre-filled here automatically (best-effort; edit or clear it as you like).
 * **Save clip list:** Appends file name, notes, and source URL to a daily `clip-list-YYYY-MM-DD.txt` next to the download. Entries are a point-in-time log: renaming a file afterwards does **not** rewrite earlier entries (accepted behavior, not a bug).
 
 Any row in the file list — dropped or downloaded — can be renamed via right-click → **Rename…** or by double-clicking it. The file is renamed on disk; only the name stem is editable, the extension is fixed.
