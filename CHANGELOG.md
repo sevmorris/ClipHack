@@ -2,6 +2,10 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.16.0] — 2026-07-06
+
+- **Configurable download destination** — pick any folder for downloaded audio from the "Destination" row in the Add-from-URL popover; the choice is remembered for future downloads. Defaults to ~/Music/ClipHack, so nothing changes until you choose a folder. If a chosen folder is missing at download time (moved, deleted, drive unmounted), ClipHack asks for a new one rather than silently falling back
+
 ## [1.15.2] — 2026-07-06
 
 - X-post Notes auto-fill now triggers when you paste a link straight into the URL field (⌘V), not only when it arrives by drag-and-drop, clipboard prefill, or pressing Return
