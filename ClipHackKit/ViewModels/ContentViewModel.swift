@@ -334,6 +334,16 @@ final class ContentViewModel {
     /// or cleared) drops any Notes a previous auto-fill left behind. Gated to X
     /// post URLs and deduped by status ID, so hand-typing or tweaking a URL
     /// doesn't spawn a fetch on every keystroke.
+    ///
+    /// Deliberately NOT time-debounced (decision settled 2026-07-06 — don't
+    /// reopen without new evidence). The statusID gate + status-ID dedupe
+    /// already cover every realistic input: paste drops the whole URL at once
+    /// (one fetch), non-status/non-X text never fetches, and editing that keeps
+    /// the same status ID (trailing params, whitespace) is deduped. The only
+    /// case a debounce would add is hand-typing a 19-digit tweet ID digit by
+    /// digit — not a real workflow, and each keystroke's fetch cancels the prior
+    /// one anyway, so there's no real cost. A debounce would only add timer
+    /// state and untestable timing to the synchronous, unit-tested path here.
     func downloadURLFieldChanged() {
         if XPostText.statusID(from: downloadURLField) != nil {
             prefillNotesFromURL(downloadURLField)
