@@ -14,7 +14,7 @@
 ---
 
 ## Core Features
-* **High Pass Filter:** Configurable cutoff (20–90 Hz) paired with allpass phase rotation (always active).
+* **High Pass Filter:** Three fixed cutoffs — DC block (20 Hz), 40 Hz, or 80 Hz — paired with allpass phase rotation (always active).
 * **Dynamic Leveling:** Intelligent bidirectional leveling via `dynaudnorm` to tame inconsistent speakers or wildly dynamic clips. Includes mirror padding to prevent boundary artifacts.
 * **Loudness Normalization:** Two-pass EBU R128 normalization to a user-defined target (e.g., -18 LUFS).
 * **Peak Control:** 2× oversampled true peak brick-wall limiting with a configurable ceiling (-6 to -1 dB).
