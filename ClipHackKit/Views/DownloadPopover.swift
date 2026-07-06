@@ -51,6 +51,8 @@ struct DownloadPopover: View {
                 .disabled(viewModel.isDownloading)
                 .help("Appends file name, notes, and source URL to a daily clip-list file next to the download.")
 
+            destinationRow
+
             statusLine
 
             HStack {
@@ -62,11 +64,34 @@ struct DownloadPopover: View {
         .onAppear { viewModel.prefillDownloadFromPasteboard() }
     }
 
+    private var destinationRow: some View {
+        HStack(spacing: 6) {
+            Text("Destination:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(viewModel.downloadDirectoryDisplayName)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(viewModel.downloadDirectoryDisplayPath)
+            Spacer()
+            Button("Change…") { viewModel.chooseDownloadDirectory() }
+                .controlSize(.small)
+            if viewModel.settings.downloadDirectoryPath != nil {
+                Button("Reset") { viewModel.resetDownloadDirectory() }
+                    .controlSize(.small)
+            }
+        }
+        .frame(width: 340)
+        .disabled(viewModel.isDownloading)
+    }
+
     @ViewBuilder
     private var statusLine: some View {
         switch viewModel.downloadState {
         case .idle:
-            Text("Video sources are saved as audio only, into ~/Music/ClipHack.")
+            Text("Video sources are saved as audio only.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .downloading(let progress):

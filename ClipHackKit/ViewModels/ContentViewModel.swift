@@ -413,6 +413,38 @@ final class ContentViewModel {
         return id
     }
 
+    /// Folder name shown in the download popover's Destination row.
+    var downloadDirectoryDisplayName: String {
+        guard let path = settings.downloadDirectoryPath, !path.isEmpty else { return "Music/ClipHack" }
+        return URL(fileURLWithPath: path).lastPathComponent
+    }
+
+    /// Full destination path, for the Destination row's tooltip.
+    var downloadDirectoryDisplayPath: String {
+        YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath).path
+    }
+
+    /// Presents a folder picker for the download destination and persists the
+    /// choice. Returns true if the user picked a folder (also used by the
+    /// missing-folder re-prompt).
+    @discardableResult
+    func chooseDownloadDirectory() -> Bool {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.title = "Choose Download Destination"
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        settings.downloadDirectoryPath = url.path
+        return true
+    }
+
+    /// Reverts the download destination to the default (~/Music/ClipHack).
+    func resetDownloadDirectory() {
+        settings.downloadDirectoryPath = nil
+    }
+
     func startDownload() {
         guard !isDownloading else { return }
         guard let url = Self.validatedWebURL(downloadURLField) else {
