@@ -6,13 +6,13 @@ final class ContentViewModelRenameTests: XCTestCase {
 
     private var tempDir: URL!
 
-    override func setUp() async throws {
+    override func setUpWithError() throws {
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("rename-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 
-    override func tearDown() async throws {
+    override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tempDir)
     }
 
