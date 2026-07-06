@@ -5,8 +5,20 @@ struct DownloadPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Download Audio from URL")
-                .font(.headline)
+            HStack {
+                Text("Download Audio from URL")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    viewModel.isDownloadPopoverPresented = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+                .accessibilityLabel("Close")
+            }
 
             TextField("https://…", text: $viewModel.downloadURLField)
                 .textFieldStyle(.roundedBorder)

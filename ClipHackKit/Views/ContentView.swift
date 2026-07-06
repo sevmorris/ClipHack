@@ -91,6 +91,10 @@ public struct ContentView: View {
             .keyboardShortcut("l", modifiers: .command)
             .popover(isPresented: $viewModel.isDownloadPopoverPresented, arrowEdge: .bottom) {
                 DownloadPopover(viewModel: viewModel)
+                    // A click outside must not discard typed input or hide a
+                    // download error. The popover closes only on a successful
+                    // download (finishDownload) or via its explicit Close button.
+                    .interactiveDismissDisabled()
             }
 
             Divider().frame(height: 20)
