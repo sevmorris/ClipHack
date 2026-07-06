@@ -11,6 +11,7 @@
 		CA71E00B2EC99001003A770B /* ClipHackKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; };
 		CA71E00D2EC99001003A770D /* ClipHackKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CA71E0112EC99001003A7711 /* ClipHackKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; };
+		CA71E0132EC99001003A7713 /* ClipHackKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +39,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				CA71E00D2EC99001003A770D /* ClipHackKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA71E0122EC99001003A7712 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CA71E0132EC99001003A7713 /* ClipHackKit.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -195,6 +207,7 @@
 				E1F2CH112EC99001003A77D7 /* Sources */,
 				E1F2CH072EC99001003A77D7 /* Frameworks */,
 				E1F2CH0F2EC99001003A77D7 /* Resources */,
+				CA71E0122EC99001003A7712 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -613,7 +626,6 @@
 		E1F2CH0C2EC99001003A77D7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -630,14 +642,12 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipHack.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClipHack";
 			};
 			name = Debug;
 		};
 		E1F2CH0B2EC99001003A77D7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -654,7 +664,6 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipHack.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClipHack";
 			};
 			name = Release;
 		};
