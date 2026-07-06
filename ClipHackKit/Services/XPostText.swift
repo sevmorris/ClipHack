@@ -60,7 +60,7 @@ enum XPostText {
 
     // MARK: - Parsing
 
-    private struct TweetResult: Decodable {
+    private nonisolated struct TweetResult: Decodable {
         let text: String?
         let displayTextRange: [Int]?
 
