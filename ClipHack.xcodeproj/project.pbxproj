@@ -143,6 +143,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = CA71E0042EC99001003A7704 /* Build configuration list for PBXNativeTarget "ClipHackKit" */;
 			buildPhases = (
+				E1F2CH012EC99001003A77D7 /* Fetch FFmpeg */,
+				E1F2CH022EC99001003A77D7 /* Fetch yt-dlp */,
 				CA71E0072EC99001003A7707 /* Sources */,
 				CA71E0082EC99001003A7708 /* Frameworks */,
 				CA71E0092EC99001003A7709 /* Resources */,
@@ -166,8 +168,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C6DEF1432EC98B06003A77C7 /* Build configuration list for PBXNativeTarget "ClipHack" */;
 			buildPhases = (
-				E1F2CH012EC99001003A77D7 /* Fetch FFmpeg */,
-				E1F2CH022EC99001003A77D7 /* Fetch yt-dlp */,
 				C6DEF1342EC98B05003A77C7 /* Sources */,
 				C6DEF1352EC98B05003A77C7 /* Frameworks */,
 				C6DEF1362EC98B05003A77C7 /* Resources */,
@@ -291,8 +291,8 @@
 			);
 			name = "Fetch FFmpeg";
 			outputPaths = (
-				"$(SRCROOT)/ClipHack/ffmpeg",
-				"$(SRCROOT)/ClipHack/ffprobe",
+				"$(SRCROOT)/ClipHackKit/ffmpeg",
+				"$(SRCROOT)/ClipHackKit/ffprobe",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -310,7 +310,7 @@
 			);
 			name = "Fetch yt-dlp";
 			outputPaths = (
-				"$(SRCROOT)/ClipHack/yt-dlp",
+				"$(SRCROOT)/ClipHackKit/yt-dlp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

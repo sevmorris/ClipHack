@@ -9,8 +9,8 @@ final class AudioStreamProbeTests: XCTestCase {
     override func setUpWithError() throws {
         try super.setUpWithError()
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let ffmpeg = root.appendingPathComponent("ClipHack/ffmpeg")
-        let ffprobe = root.appendingPathComponent("ClipHack/ffprobe")
+        let ffmpeg = root.appendingPathComponent("ClipHackKit/ffmpeg")
+        let ffprobe = root.appendingPathComponent("ClipHackKit/ffprobe")
         let fm = FileManager.default
         guard fm.isExecutableFile(atPath: ffmpeg.path),
               fm.isExecutableFile(atPath: ffprobe.path) else {

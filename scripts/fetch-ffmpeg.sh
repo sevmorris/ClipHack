@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# fetch-ffmpeg.sh — Download pinned FFmpeg/ffprobe into ClipHack/ for bundling.
+# fetch-ffmpeg.sh — Download pinned FFmpeg/ffprobe into ClipHackKit/ for bundling.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 MANIFEST="$PROJECT_DIR/Vendor/ffmpeg-manifest.env"
-DEST_DIR="$PROJECT_DIR/ClipHack"
+DEST_DIR="$PROJECT_DIR/ClipHackKit"
 
 if [[ ! -f "$MANIFEST" ]]; then
     echo "Missing manifest: $MANIFEST" >&2

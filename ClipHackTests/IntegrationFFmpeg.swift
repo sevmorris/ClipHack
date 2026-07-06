@@ -5,8 +5,8 @@ import XCTest
 enum IntegrationFFmpeg {
     static func locate() throws -> (ffmpeg: String, ffprobe: String) {
         let root = projectRoot()
-        let ffmpeg = root.appendingPathComponent("ClipHack/ffmpeg")
-        let ffprobe = root.appendingPathComponent("ClipHack/ffprobe")
+        let ffmpeg = root.appendingPathComponent("ClipHackKit/ffmpeg")
+        let ffprobe = root.appendingPathComponent("ClipHackKit/ffprobe")
         let fm = FileManager.default
         guard fm.isExecutableFile(atPath: ffmpeg.path),
               fm.isExecutableFile(atPath: ffprobe.path) else {

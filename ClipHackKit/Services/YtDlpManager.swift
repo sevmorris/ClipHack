@@ -27,12 +27,12 @@ actor YtDlpManager {
     private func locateTool() throws -> String {
         let fm = FileManager.default
 
-        if let toolURL = Bundle.main.url(forResource: "yt-dlp", withExtension: nil),
+        if let toolURL = KitBundle.resources.url(forResource: "yt-dlp", withExtension: nil),
            fm.fileExists(atPath: toolURL.path) {
             return toolURL.path
         }
 
-        if let resourceURL = Bundle.main.resourceURL {
+        if let resourceURL = KitBundle.resources.resourceURL {
             let toolURL = resourceURL.appendingPathComponent("yt-dlp")
             if fm.fileExists(atPath: toolURL.path) {
                 return toolURL.path
@@ -67,8 +67,8 @@ actor YtDlpManager {
             try? fm.removeItem(at: destination)
         }
 
-        guard let sourceURL = Bundle.main.url(forResource: name, withExtension: nil) ??
-              Bundle.main.resourceURL?.appendingPathComponent(name),
+        guard let sourceURL = KitBundle.resources.url(forResource: name, withExtension: nil) ??
+              KitBundle.resources.resourceURL?.appendingPathComponent(name),
               fm.fileExists(atPath: sourceURL.path) else {
             throw YtDlpError.notFound
         }

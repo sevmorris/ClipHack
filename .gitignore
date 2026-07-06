@@ -12,11 +12,11 @@ xcuserdata/
 *.dmg
 
 # Bundled FFmpeg binaries (downloaded via scripts/fetch-ffmpeg.sh)
-ClipHack/ffmpeg
-ClipHack/ffprobe
+ClipHackKit/ffmpeg
+ClipHackKit/ffprobe
 
 # Claude
 .claude/
 
 # Bundled yt-dlp binary (downloaded via scripts/fetch-ytdlp.sh)
-ClipHack/yt-dlp
+ClipHackKit/yt-dlp

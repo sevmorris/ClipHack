@@ -25,14 +25,14 @@ actor FFmpegManager {
     private func locateTools() throws -> Paths {
         let fm = FileManager.default
 
-        if let ffmpegURL = Bundle.main.url(forResource: "ffmpeg", withExtension: nil),
-           let ffprobeURL = Bundle.main.url(forResource: "ffprobe", withExtension: nil),
+        if let ffmpegURL = KitBundle.resources.url(forResource: "ffmpeg", withExtension: nil),
+           let ffprobeURL = KitBundle.resources.url(forResource: "ffprobe", withExtension: nil),
            fm.fileExists(atPath: ffmpegURL.path),
            fm.fileExists(atPath: ffprobeURL.path) {
             return Paths(ffmpeg: ffmpegURL.path, ffprobe: ffprobeURL.path)
         }
 
-        if let resourceURL = Bundle.main.resourceURL {
+        if let resourceURL = KitBundle.resources.resourceURL {
             let ffmpegURL = resourceURL.appendingPathComponent("ffmpeg")
             let ffprobeURL = resourceURL.appendingPathComponent("ffprobe")
             if fm.fileExists(atPath: ffmpegURL.path),
@@ -74,8 +74,8 @@ actor FFmpegManager {
             try? fm.removeItem(at: destination)
         }
 
-        guard let sourceURL = Bundle.main.url(forResource: name, withExtension: nil) ??
-              Bundle.main.resourceURL?.appendingPathComponent(name),
+        guard let sourceURL = KitBundle.resources.url(forResource: name, withExtension: nil) ??
+              KitBundle.resources.resourceURL?.appendingPathComponent(name),
               fm.fileExists(atPath: sourceURL.path) else {
             throw ProcessingError.ffmpegNotFound
         }
