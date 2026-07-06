@@ -23,6 +23,11 @@ struct DownloadPopover: View {
             TextField("https://…", text: $viewModel.downloadURLField)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 340)
+                // Fires on paste (⌘V) and edits too, not just Return — this is
+                // the path that catches a URL pasted straight into the field.
+                .onChange(of: viewModel.downloadURLField) {
+                    viewModel.downloadURLFieldChanged()
+                }
                 .onSubmit {
                     viewModel.prefillNotesFromURL(viewModel.downloadURLField)
                     viewModel.startDownload()

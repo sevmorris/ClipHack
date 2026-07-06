@@ -326,4 +326,118 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNotNil(vm.notesFetchTask)
         vm.notesFetchTask?.cancel()
     }
+
+    // MARK: - URL-field change triggers the fetch (paste, not just Return)
+
+    private let otherXURL = "https://x.com/someone/status/1234567890123456789"
+
+    func testURLFieldChangeSpawnsFetchForPastedXURL() {
+        let vm = makeViewModel()
+        // Simulate a paste straight into the field (no Return): the binding
+        // mutates, then onChange calls downloadURLFieldChanged.
+        vm.downloadURLField = xURL
+        vm.downloadURLFieldChanged()
+        XCTAssertNotNil(vm.notesFetchTask, "pasting a valid X post URL must trigger the notes fetch")
+        vm.notesFetchTask?.cancel()
+    }
+
+    func testURLFieldChangeSpawnsNoFetchForNonXURL() {
+        let vm = makeViewModel()
+        vm.downloadURLField = "https://youtu.be/abc123"
+        vm.downloadURLFieldChanged()
+        XCTAssertNil(vm.notesFetchTask, "a non-X URL must not spawn a fetch")
+    }
+
+    func testURLFieldChangeDoesNotFetchWhileTypingProfileURL() {
+        let vm = makeViewModel()
+        // Mid-typing an X URL that isn't yet a /status/ link: no fetch.
+        vm.downloadURLField = "https://x.com/atrupar"
+        vm.downloadURLFieldChanged()
+        XCTAssertNil(vm.notesFetchTask, "a non-status X URL (still typing) must not fetch")
+    }
+
+    func testEditingSameStatusURLKeepsNotesAndDoesNotRefire() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadURLFieldChanged()
+        vm.applyFetchedNotes("post body", for: xURL)
+        XCTAssertEqual(vm.downloadNotesField, "post body")
+
+        // Tweak the URL but keep the same status ID (add a tracking param).
+        vm.downloadURLField = xURL + "?s=46"
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadNotesField, "post body",
+                       "same post: dedupe must keep the notes and not refetch")
+        vm.notesFetchTask?.cancel()
+    }
+
+    // MARK: - Stale auto-filled notes refresh; user-edited notes never do
+
+    func testChangingToNewPostClearsPreviousAutoFilledNotes() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadURLFieldChanged()
+        vm.applyFetchedNotes("first post body", for: xURL)
+        XCTAssertEqual(vm.downloadNotesField, "first post body")
+
+        // Paste a different X post URL — the stale auto-filled notes must go and
+        // a fresh fetch must start for the new post.
+        vm.downloadURLField = otherXURL
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadNotesField, "",
+                       "auto-filled notes from the previous post must clear for a new post")
+        XCTAssertNotNil(vm.notesFetchTask, "the new post should trigger its own fetch")
+
+        // And the new post's fetch fills the now-empty field.
+        vm.applyFetchedNotes("second post body", for: otherXURL)
+        XCTAssertEqual(vm.downloadNotesField, "second post body")
+        vm.notesFetchTask?.cancel()
+    }
+
+    func testChangingURLNeverClearsUserEditedNotes() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadURLFieldChanged()
+        vm.applyFetchedNotes("auto body", for: xURL)
+
+        // The user edits the auto-filled notes into their own text.
+        vm.downloadNotesField = "my own note"
+
+        // Switching to a different post must NOT touch the user's text …
+        vm.downloadURLField = otherXURL
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadNotesField, "my own note",
+                       "user-edited notes must never be cleared by a URL change")
+
+        // … and the new fetch must not clobber it either.
+        vm.applyFetchedNotes("second post body", for: otherXURL)
+        XCTAssertEqual(vm.downloadNotesField, "my own note",
+                       "the fill-if-empty guard must still protect user notes")
+        vm.notesFetchTask?.cancel()
+    }
+
+    func testClearingURLClearsStaleAutoFilledNotes() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadURLFieldChanged()
+        vm.applyFetchedNotes("post body", for: xURL)
+
+        vm.downloadURLField = ""
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadNotesField, "",
+                       "clearing the URL should drop notes a previous auto-fill left behind")
+    }
+
+    func testChangingToNonXURLKeepsUserEditedNotes() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadURLFieldChanged()
+        vm.applyFetchedNotes("auto body", for: xURL)
+        vm.downloadNotesField = "my own note"
+
+        vm.downloadURLField = "https://youtu.be/abc123"
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadNotesField, "my own note",
+                       "moving to a non-X URL must not clear the user's own notes")
+    }
 }

@@ -283,6 +283,16 @@ final class ContentViewModel {
     var postTextFetcher: @Sendable (String) async -> String? = { await XPostText.fetchPostText(for: $0) }
     /// The in-flight X-post-text fetch, exposed so tests can await it.
     private(set) var notesFetchTask: Task<Void, Never>?
+    /// The X status ID we last kicked off a Notes fetch for. Lets us dedupe so
+    /// editing or re-entering the same post's URL (trailing query params,
+    /// whitespace) doesn't refetch on every keystroke. nil when the field holds
+    /// no X post URL.
+    private var lastPrefilledStatusID: String?
+    /// The exact Notes text a fetch auto-filled, so we can tell machine-written
+    /// notes (safe to refresh when the URL moves to a new post) from notes the
+    /// user has typed or edited (never touched). nil once the user edits them or
+    /// we clear them.
+    private var autoFilledNotes: String?
 
     /// Trimmed http(s) URL, or nil if the string isn't a usable web URL.
     static func validatedWebURL(_ raw: String) -> String? {
@@ -318,13 +328,33 @@ final class ContentViewModel {
         prefillNotesFromURL(url)
     }
 
+    /// Called whenever the URL field's text changes — typing, pasting (⌘V), or
+    /// editing. Fetches Notes for a newly-entered X post, and when the field
+    /// moves off the post it was on (edited to a different post, a non-X link,
+    /// or cleared) drops any Notes a previous auto-fill left behind. Gated to X
+    /// post URLs and deduped by status ID, so hand-typing or tweaking a URL
+    /// doesn't spawn a fetch on every keystroke.
+    func downloadURLFieldChanged() {
+        if XPostText.statusID(from: downloadURLField) != nil {
+            prefillNotesFromURL(downloadURLField)
+        } else {
+            lastPrefilledStatusID = nil
+            notesFetchTask?.cancel()
+            discardStaleAutoFilledNotes()
+        }
+    }
+
     /// Best-effort: when `urlString` is an X/Twitter post, fetch its body text
     /// and drop it into Notes — but only if Notes is still empty when the fetch
     /// resolves and the URL field still holds this URL (never clobber typed
-    /// notes, never attach a stale post's text). Fire-and-forget: it runs
+    /// notes, never attach a stale post's text). Deduped by status ID so the
+    /// same post isn't refetched, and it first drops any Notes a *previous*
+    /// auto-fill left behind for a different post. Fire-and-forget: it runs
     /// independently of the download and every failure is silent.
     func prefillNotesFromURL(_ urlString: String) {
-        guard XPostText.statusID(from: urlString) != nil else { return }
+        guard let id = XPostText.statusID(from: urlString), id != lastPrefilledStatusID else { return }
+        lastPrefilledStatusID = id
+        discardStaleAutoFilledNotes()
         notesFetchTask?.cancel()
         let fetch = postTextFetcher
         notesFetchTask = Task { [weak self] in
@@ -336,14 +366,34 @@ final class ContentViewModel {
     /// Applies a fetched post body to Notes, honoring both guards: only fill if
     /// Notes is still empty (never clobber typed text) and the URL field still
     /// holds the URL this text was fetched for (never attach a stale post's
-    /// text). Split out from the fetch Task so the guards are testable
-    /// synchronously.
+    /// text). Records what it filled so a later URL change can tell this
+    /// machine-written text from notes the user goes on to edit. Split out from
+    /// the fetch Task so the guards are testable synchronously.
     func applyFetchedNotes(_ text: String?, for urlString: String) {
         guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
               downloadURLField == urlString,
               downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return }
         downloadNotesField = text
+        autoFilledNotes = text
+    }
+
+    /// Clears Notes only when they still hold exactly what a previous auto-fill
+    /// wrote — i.e. the user hasn't typed or edited them since. Protects
+    /// user-authored notes while letting stale machine-filled text refresh for
+    /// a new post.
+    private func discardStaleAutoFilledNotes() {
+        guard let auto = autoFilledNotes, downloadNotesField == auto else { return }
+        downloadNotesField = ""
+        autoFilledNotes = nil
+    }
+
+    /// Resets the X-post Notes auto-fill bookkeeping when the download form is
+    /// cleared, so the next URL entered isn't deduped against a finished one and
+    /// no stale sentinel lingers.
+    private func resetNotesAutoFillState() {
+        lastPrefilledStatusID = nil
+        autoFilledNotes = nil
     }
 
     /// The row previously added for `sourceURL`, if it is still in the list.
@@ -365,6 +415,7 @@ final class ContentViewModel {
             downloadURLField = ""
             downloadNameField = ""
             downloadNotesField = ""
+            resetNotesAutoFillState()
             downloadState = .idle
             isDownloadPopoverPresented = false
             return
@@ -442,6 +493,7 @@ final class ContentViewModel {
         downloadURLField = ""
         downloadNameField = ""
         downloadNotesField = ""
+        resetNotesAutoFillState()
         isDownloadPopoverPresented = false
     }
 
