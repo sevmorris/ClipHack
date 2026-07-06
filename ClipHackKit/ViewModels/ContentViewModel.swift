@@ -424,19 +424,25 @@ final class ContentViewModel {
         YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath).path
     }
 
-    /// Presents a folder picker for the download destination and persists the
-    /// choice. Returns true if the user picked a folder (also used by the
-    /// missing-folder re-prompt).
-    @discardableResult
-    func chooseDownloadDirectory() -> Bool {
+    /// The folder-picker itself, injectable so the re-prompt flow is testable
+    /// without a modal panel. Returns the chosen folder path, or nil on cancel.
+    var downloadDirectoryPicker: () -> String? = {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
         panel.title = "Choose Download Destination"
-        guard panel.runModal() == .OK, let url = panel.url else { return false }
-        settings.downloadDirectoryPath = url.path
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return url.path
+    }
+
+    /// Presents the folder picker and persists the choice. Returns true if the
+    /// user picked a folder (also used by the missing-folder re-prompt).
+    @discardableResult
+    func chooseDownloadDirectory() -> Bool {
+        guard let path = downloadDirectoryPicker() else { return false }
+        settings.downloadDirectoryPath = path
         return true
     }
 
@@ -463,8 +469,27 @@ final class ContentViewModel {
             return
         }
 
-        let stem = YtDlpService.sanitizedStem(downloadNameField)
+        // A custom download folder can vanish (moved, deleted, drive unmounted).
+        // Re-prompt for one rather than failing or silently using the default;
+        // if the user cancels, don't proceed.
+        if YtDlpService.customDownloadDirectoryMissing(settings.downloadDirectoryPath) {
+            guard chooseDownloadDirectory() else {
+                downloadState = .failed("Choose a destination folder to download.")
+                return
+            }
+        }
+
         let destination = YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
+        // For a custom folder, prepare it in-app (correct permission attribution)
+        // and surface a clear message if it isn't writable, before yt-dlp runs.
+        // The default (~/Music/ClipHack) is created on demand inside downloadAudio.
+        if settings.downloadDirectoryPath != nil,
+           !YtDlpService.prepareWritableDirectory(destination) {
+            downloadState = .failed("ClipHack can't write to \"\(destination.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders, or choose another folder.")
+            return
+        }
+
+        let stem = YtDlpService.sanitizedStem(downloadNameField)
         downloadState = .downloading(progress: "Starting download…")
 
         downloadTask = Task {

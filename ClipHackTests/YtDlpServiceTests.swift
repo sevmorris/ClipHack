@@ -39,6 +39,49 @@ final class YtDlpServiceTests: XCTestCase {
         XCTAssertNotEqual(resolved, YtDlpService.downloadDirectory)
     }
 
+    // MARK: - Missing / writable download directory
+
+    func testCustomDownloadDirectoryMissingIsFalseForNilOrEmpty() {
+        XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(nil))
+        XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(""))
+    }
+
+    func testCustomDownloadDirectoryMissingIsFalseForExistingDir() {
+        XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(FileManager.default.temporaryDirectory.path))
+    }
+
+    func testCustomDownloadDirectoryMissingIsTrueForAbsentPath() {
+        let absent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-absent-\(UUID().uuidString)")
+        XCTAssertTrue(YtDlpService.customDownloadDirectoryMissing(absent.path))
+    }
+
+    func testCustomDownloadDirectoryMissingIsTrueForFilePath() throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-file-\(UUID().uuidString)")
+        try Data().write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        XCTAssertTrue(YtDlpService.customDownloadDirectoryMissing(file.path),
+                      "a regular file is not a usable directory")
+    }
+
+    func testPrepareWritableDirectoryCreatesAndSucceeds() {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-prep-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        XCTAssertTrue(YtDlpService.prepareWritableDirectory(dir))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+    }
+
+    func testPrepareWritableDirectoryFailsWhenParentIsAFile() throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-parent-\(UUID().uuidString)")
+        try Data().write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        // A subdirectory can't be created under a regular file.
+        XCTAssertFalse(YtDlpService.prepareWritableDirectory(file.appendingPathComponent("sub")))
+    }
+
     // MARK: - Argument building
 
     func testArgumentsPreferNativeAudioOnlyStream() {

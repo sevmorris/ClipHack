@@ -440,4 +440,41 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(vm.downloadNotesField, "my own note",
                        "moving to a non-X URL must not clear the user's own notes")
     }
+
+    // MARK: - Missing custom download folder re-prompt
+
+    func testStartDownloadCancelledRePromptFailsWithoutFallback() {
+        let vm = makeViewModel()
+        let absent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-missing-\(UUID().uuidString)").path
+        vm.settings.downloadDirectoryPath = absent
+        vm.downloadDirectoryPicker = { nil }   // user cancels the re-prompt
+        vm.downloadURLField = "https://example.com/watch?v=abc"
+
+        vm.startDownload()
+
+        XCTAssertEqual(vm.downloadState, .failed("Choose a destination folder to download."))
+        XCTAssertFalse(vm.isDownloading, "a cancelled re-prompt must not start a download")
+        XCTAssertEqual(vm.settings.downloadDirectoryPath, absent,
+                       "cancelling must not silently fall back to the default")
+    }
+
+    func testStartDownloadRePromptPicksNewFolderAndClearsStaleFailure() {
+        let vm = makeViewModel()
+        let absent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-missing-\(UUID().uuidString)").path
+        let picked = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-picked-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: picked, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: picked) }
+        vm.settings.downloadDirectoryPath = absent
+        // User picks a new, valid (existing) folder at the re-prompt.
+        vm.downloadDirectoryPicker = { picked.path }
+
+        XCTAssertTrue(vm.chooseDownloadDirectory())
+        XCTAssertEqual(vm.settings.downloadDirectoryPath, picked.path,
+                       "picking a new folder persists it as the destination")
+        XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(vm.settings.downloadDirectoryPath),
+                       "the newly-picked folder must resolve as present")
+    }
 }

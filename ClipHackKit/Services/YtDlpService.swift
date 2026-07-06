@@ -39,6 +39,32 @@ final class YtDlpService {
         return URL(fileURLWithPath: customPath, isDirectory: true)
     }
 
+    /// True when a custom download folder is configured but no longer exists as
+    /// a directory (moved, deleted, drive unmounted) — the caller re-prompts.
+    /// The default (nil/empty) never reports missing; ~/Music/ClipHack is
+    /// created on demand.
+    nonisolated static func customDownloadDirectoryMissing(_ customPath: String?) -> Bool {
+        guard let customPath, !customPath.isEmpty else { return false }
+        var isDir: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: customPath, isDirectory: &isDir)
+        return !(exists && isDir.boolValue)
+    }
+
+    /// Creates `url` if needed and confirms it's writable by writing and
+    /// removing a probe file — run in the app process so any macOS
+    /// Files-and-Folders prompt is attributed to ClipHack, not the yt-dlp child.
+    /// Returns false if the folder can't be created or written.
+    nonisolated static func prepareWritableDirectory(_ url: URL) -> Bool {
+        let fm = FileManager.default
+        guard (try? fm.createDirectory(at: url, withIntermediateDirectories: true)) != nil else {
+            return false
+        }
+        let probe = url.appendingPathComponent(".cliphack-write-\(UUID().uuidString)")
+        guard (try? Data().write(to: probe)) != nil else { return false }
+        try? fm.removeItem(at: probe)
+        return true
+    }
+
     /// Marker prefix used with yt-dlp's `--print` so we can pluck the resolved
     /// filepath out of stdout without exposing it to the progress callback.
     static let filepathMarker = "CLIPHACK_OUT|"
