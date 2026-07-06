@@ -107,11 +107,16 @@ IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)"
 ENTITLEMENTS="$PROJECT_DIR/ClipHack/ClipHack.entitlements"
 YTDLP_ENTITLEMENTS="$PROJECT_DIR/Vendor/ytdlp.entitlements"
 
-codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffmpeg"
-codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffprobe"
+# The vendored binaries now live in the embedded ClipHackKit framework's
+# Resources (not the app's). Sign inside-out: resource binaries, then the
+# framework, then the app.
+KIT_RES="$APP_PATH/Contents/Frameworks/ClipHackKit.framework/Versions/A/Resources"
+codesign --force --options runtime --sign "$IDENTITY" "$KIT_RES/ffmpeg"
+codesign --force --options runtime --sign "$IDENTITY" "$KIT_RES/ffprobe"
 # yt-dlp (PyInstaller onefile) needs its own entitlements under the hardened
 # runtime — see Vendor/ytdlp.entitlements for why.
-codesign --force --options runtime --entitlements "$YTDLP_ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH/Contents/Resources/yt-dlp"
+codesign --force --options runtime --entitlements "$YTDLP_ENTITLEMENTS" --sign "$IDENTITY" "$KIT_RES/yt-dlp"
+codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Frameworks/ClipHackKit.framework"
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 | tail -3
 ok "Codesigning complete"
