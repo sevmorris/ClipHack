@@ -32,6 +32,13 @@ final class YtDlpService {
             .appendingPathComponent("Music/ClipHack", isDirectory: true)
     }
 
+    /// Where a download lands: the user's chosen folder, or the default
+    /// ~/Music/ClipHack when no custom folder is set (nil or empty).
+    nonisolated static func resolveDownloadDirectory(_ customPath: String?) -> URL {
+        guard let customPath, !customPath.isEmpty else { return downloadDirectory }
+        return URL(fileURLWithPath: customPath, isDirectory: true)
+    }
+
     /// Marker prefix used with yt-dlp's `--print` so we can pluck the resolved
     /// filepath out of stdout without exposing it to the progress callback.
     static let filepathMarker = "CLIPHACK_OUT|"
@@ -170,13 +177,13 @@ final class YtDlpService {
     /// Returns the absolute path of the downloaded (or already-present) file.
     func downloadAudio(
         url: String,
+        destination: URL,
         customStem: String? = nil,
         onProgress: @escaping @Sendable (String) -> Void
     ) async throws -> String {
         let binary = try await YtDlpManager.shared.ensureTool()
         let ffmpegDir = try await YtDlpManager.shared.ffmpegDirectory()
 
-        let destination = Self.downloadDirectory
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
         let uniqueCustomStem = customStem.map { stem in

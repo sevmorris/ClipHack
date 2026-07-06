@@ -432,12 +432,13 @@ final class ContentViewModel {
         }
 
         let stem = YtDlpService.sanitizedStem(downloadNameField)
+        let destination = YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
         downloadState = .downloading(progress: "Starting download…")
 
         downloadTask = Task {
             defer { downloadTask = nil }
             do {
-                let path = try await YtDlpService.shared.downloadAudio(url: url, customStem: stem) { [weak self] line in
+                let path = try await YtDlpService.shared.downloadAudio(url: url, destination: destination, customStem: stem) { [weak self] line in
                     guard let self else { return }
                     Task { @MainActor in
                         // Stale lines can trail a finished/failed download —

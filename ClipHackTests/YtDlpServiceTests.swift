@@ -23,6 +23,22 @@ final class YtDlpServiceTests: XCTestCase {
         return arguments[index + 1]
     }
 
+    // MARK: - Download directory resolution
+
+    func testResolveDownloadDirectoryNilFallsBackToDefault() {
+        XCTAssertEqual(YtDlpService.resolveDownloadDirectory(nil), YtDlpService.downloadDirectory)
+    }
+
+    func testResolveDownloadDirectoryEmptyFallsBackToDefault() {
+        XCTAssertEqual(YtDlpService.resolveDownloadDirectory(""), YtDlpService.downloadDirectory)
+    }
+
+    func testResolveDownloadDirectoryUsesCustomPath() {
+        let resolved = YtDlpService.resolveDownloadDirectory("/tmp/cliphack-dest")
+        XCTAssertEqual(resolved.path, "/tmp/cliphack-dest")
+        XCTAssertNotEqual(resolved, YtDlpService.downloadDirectory)
+    }
+
     // MARK: - Argument building
 
     func testArgumentsPreferNativeAudioOnlyStream() {

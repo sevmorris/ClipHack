@@ -27,6 +27,8 @@ struct ClipHackSettings: Codable, Equatable, Sendable {
     var stereoOutput: Bool = false
     var channel: MonoChannel = .left
     var outputDirectoryPath: String? = nil
+    /// User-chosen folder for downloaded source audio; nil ⇒ ~/Music/ClipHack.
+    var downloadDirectoryPath: String? = nil
 
     private static let storageKey = "ClipHackSettings"
 
@@ -62,7 +64,8 @@ extension ClipHackSettings {
             loudnormTarget:         try c.decodeIfPresent(Double.self,      forKey: .loudnormTarget)         ?? d.loudnormTarget,
             stereoOutput:           try c.decodeIfPresent(Bool.self,        forKey: .stereoOutput)           ?? d.stereoOutput,
             channel:                try c.decodeIfPresent(MonoChannel.self, forKey: .channel)                ?? d.channel,
-            outputDirectoryPath:    try c.decodeIfPresent(String.self,      forKey: .outputDirectoryPath)    ?? d.outputDirectoryPath
+            outputDirectoryPath:    try c.decodeIfPresent(String.self,      forKey: .outputDirectoryPath)    ?? d.outputDirectoryPath,
+            downloadDirectoryPath:  try c.decodeIfPresent(String.self,      forKey: .downloadDirectoryPath)  ?? d.downloadDirectoryPath
         )
     }
 }
