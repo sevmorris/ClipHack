@@ -377,10 +377,11 @@ final class ContentViewModel {
             defer { downloadTask = nil }
             do {
                 let path = try await YtDlpService.shared.downloadAudio(url: url, customStem: stem) { [weak self] line in
+                    guard let self else { return }
                     Task { @MainActor in
                         // Stale lines can trail a finished/failed download —
                         // never let one overwrite a terminal state.
-                        guard let self, self.isDownloading else { return }
+                        guard self.isDownloading else { return }
                         self.downloadState = .downloading(progress: line)
                     }
                 }
