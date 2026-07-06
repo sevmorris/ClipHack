@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.15.2] — 2026-07-06
+
+- X-post Notes auto-fill now triggers when you paste a link straight into the URL field (⌘V), not only when it arrives by drag-and-drop, clipboard prefill, or pressing Return
+- Changing the URL to a different X post now refreshes Notes with the new post's text instead of leaving the previous post's text behind — while notes you've typed or edited yourself are still never touched
+
 ## [1.15.1] — 2026-07-05
 
 - The **Add from URL** download popover no longer closes when you click outside it. It stays open through typing, a failed download (so the error stays visible for a retry), and idle/prefilled states — closing only on a successful download or its new Close (✕) button
