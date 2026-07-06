@@ -39,4 +39,5 @@ jobs:
             -scheme ClipHack \
             -configuration Debug \
             -destination 'platform=macOS,arch=arm64' \
+            -parallel-testing-enabled NO \
             test
