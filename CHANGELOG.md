@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.16.1] — 2026-07-20
+
+- Fixed file-browser rows sometimes needing repeated clicks to select (a double-click gesture on each row was intermittently swallowing single clicks)
+- Rename is now right-click → Rename… or select + press Return (Finder-style); double-click no longer renames
+
 ## [1.16.0] — 2026-07-06
 
 - **Configurable download destination** — pick any folder for downloaded audio from the "Destination" row in the Add-from-URL popover; the choice is remembered for future downloads. Defaults to ~/Music/ClipHack, so nothing changes until you choose a folder. If a chosen folder is missing at download time (moved, deleted, drive unmounted), ClipHack asks for a new one rather than silently falling back
