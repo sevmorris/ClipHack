@@ -38,7 +38,7 @@ public struct HelpView: View {
                     definition("Notes", "Optional free text kept with the file row and written to the clip list. For X/Twitter post links, the post's text is fetched and pre-filled here automatically (best-effort) — edit or clear it as you like.")
                     definition("Save clip list", "Appends file name, notes, and source URL to a daily clip-list-YYYY-MM-DD.txt next to the download. Entries are a point-in-time log — renaming a file afterwards does not rewrite earlier entries.")
                     definition("Destination", "Where downloads (and the clip list) are saved. Defaults to ~/Music/ClipHack; use Change… to pick any folder — it's remembered for future downloads. If that folder is missing when you download, ClipHack asks for a new one.")
-                    text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by double-clicking it. The file is renamed on disk; the extension is kept.")
+                    text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by selecting it and pressing Return. The file is renamed on disk; the extension is kept.")
                 }
                 section("Output Naming") {
                     text("Output filenames reflect what processing was applied:")

@@ -29,7 +29,7 @@ Click the link button in the toolbar (⌘L), or drop a web link onto the window,
 * **Notes:** Optional free text kept with the file row. For X/Twitter post links, the post's text is fetched and pre-filled here automatically (best-effort; edit or clear it as you like).
 * **Save clip list:** Appends file name, notes, and source URL to a daily `clip-list-YYYY-MM-DD.txt` next to the download. Entries are a point-in-time log: renaming a file afterwards does **not** rewrite earlier entries (accepted behavior, not a bug).
 
-Any row in the file list — dropped or downloaded — can be renamed via right-click → **Rename…** or by double-clicking it. The file is renamed on disk; only the name stem is editable, the extension is fixed.
+Any row in the file list — dropped or downloaded — can be renamed via right-click → **Rename…** or by selecting it and pressing **Return** (Finder-style). The file is renamed on disk; only the name stem is editable, the extension is fixed.
 
 yt-dlp is bundled and pinned per release, the same way FFmpeg is — no Homebrew or other external installation is required.
 

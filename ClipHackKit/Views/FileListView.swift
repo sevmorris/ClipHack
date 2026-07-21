@@ -9,13 +9,10 @@ struct FileListView: View {
             ForEach(viewModel.files) { file in
                 FileRowView(file: file, isProcessing: viewModel.isProcessing)
                     .tag(file.id)
-                    // simultaneousGesture so double-click doesn't swallow the
-                    // List's single-click selection.
-                    .simultaneousGesture(
-                        TapGesture(count: 2).onEnded {
-                            viewModel.beginRename(file.id)
-                        }
-                    )
+                    // No tap gesture here: a TapGesture(count: 2) on row content
+                    // (even simultaneous) contends with the List's AppKit-backed
+                    // single-click selection and drops clicks intermittently.
+                    // Rename is Return (Finder-style) or the context menu.
                     .contextMenu {
                         Button {
                             viewModel.beginRename(file.id)
@@ -55,6 +52,14 @@ struct FileListView: View {
                     viewModel.selectedFileIDs = Set(viewModel.files.map { $0.id })
                 }
                 .keyboardShortcut("a", modifiers: .command)
+                .hidden()
+
+                Button("") {
+                    guard viewModel.selectedFileIDs.count == 1,
+                          let id = viewModel.selectedFileIDs.first else { return }
+                    viewModel.beginRename(id)
+                }
+                .keyboardShortcut(.return, modifiers: [])
                 .hidden()
             }
         )
