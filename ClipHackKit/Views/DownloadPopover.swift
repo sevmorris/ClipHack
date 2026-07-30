@@ -42,7 +42,7 @@ struct DownloadPopover: View {
 
             TextField("Notes (optional, e.g. :30 to :12)", text: $viewModel.downloadNotesField, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
-                .lineLimit(1...3)
+                .lineLimit(4...12)
                 .frame(width: 340)
                 .disabled(viewModel.isDownloading)
 
