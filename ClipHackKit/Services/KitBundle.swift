@@ -7,5 +7,5 @@ import Foundation
 /// where `Bundle.main` would otherwise be the xctest runner.
 enum KitBundle {
     private final class Token {}
-    static let resources = Bundle(for: Token.self)
+    nonisolated static var resources: Bundle { Bundle(for: Token.self) }
 }

@@ -163,7 +163,7 @@ final class YtDlpService {
     /// Parses yt-dlp's "[download] <path> has already been downloaded" notice —
     /// emitted instead of the after_move print when the target file already
     /// exists on disk and the download is skipped.
-    static func alreadyDownloadedPath(fromLine line: String) -> String? {
+    nonisolated static func alreadyDownloadedPath(fromLine line: String) -> String? {
         let prefix = "[download] "
         let suffix = " has already been downloaded"
         guard line.hasPrefix(prefix), line.hasSuffix(suffix),
@@ -305,7 +305,7 @@ final class YtDlpService {
     }
 }
 
-private func forEachLine(in data: Data, _ body: (String) -> Void) {
+nonisolated private func forEachLine(in data: Data, _ body: (String) -> Void) {
     guard let chunk = String(data: data, encoding: .utf8) else { return }
     // yt-dlp progress can use either \n (with --newline) or \r. Split on both.
     for raw in chunk.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
