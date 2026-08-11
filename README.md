@@ -87,7 +87,7 @@ cd ClipHack
 open ClipHack.xcodeproj
 ```
 
-The scripts download the FFmpeg files (arm64 only) from the [ClipHack dependencies release](https://github.com/sevmorris/ClipHack-releases/releases/tag/ffmpeg-deps-8.0-audio-arm64). They download the yt-dlp file from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases). The tool records the correct versions and checksums in the `Vendor/ffmpeg-manifest.env` and `Vendor/ytdlp-manifest.env` files. Xcode operates both fetch scripts before it builds the software.
+The scripts download the FFmpeg files (arm64 only) from the [ClipHack dependencies release](https://github.com/sevmorris/ClipHack-releases/releases/tag/ffmpeg-deps-8.0-audio-arm64-r2). They download the yt-dlp file from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases). The tool records the correct versions and checksums in the `Vendor/ffmpeg-manifest.env` and `Vendor/ytdlp-manifest.env` files. Xcode operates both fetch scripts before it builds the software.
 
 To read the release history, look at the [CHANGELOG.md](CHANGELOG.md) file.
 
