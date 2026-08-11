@@ -112,13 +112,61 @@ final class YtDlpService {
         return "\(stem)-\(counter)"
     }
 
-    /// A stem is taken when any file in `directory` starts with "<stem>." —
-    /// catches every extension and yt-dlp's in-flight ".part" files.
-    /// Case-insensitive to match APFS's default.
+    /// A stem is taken when any entry in `directory` starts with "<stem>." —
+    /// catching every extension and yt-dlp's in-flight ".part" files — or *is*
+    /// the stem, which is the clip folder an earlier download of that name was
+    /// filed into. Case-insensitive to match APFS's default.
     private static func stemIsTaken(_ stem: String, in directory: URL) -> Bool {
         let filenames = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        let prefix = stem.lowercased() + "."
-        return filenames.contains { $0.lowercased().hasPrefix(prefix) }
+        let lowered = stem.lowercased()
+        let prefix = lowered + "."
+        return filenames.contains { $0.lowercased() == lowered || $0.lowercased().hasPrefix(prefix) }
+    }
+
+    /// Name for a clip folder holding `stem`'s download, uniquified with -2,
+    /// -3, … against anything already on disk at that name (a folder from an
+    /// earlier download of the same title, or a stray file).
+    static func clipFolderName(for stem: String, in directory: URL) -> String {
+        uniqueStem(stem) { candidate in
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent(candidate).path
+            )
+        }
+    }
+
+    /// Files a finished download into its own folder — `Title.m4a` becomes
+    /// `Title/Title.m4a` — so the clip's audio, its notes sidecar, and whatever
+    /// ClipHack later renders from it stay together. Returns the new path.
+    ///
+    /// Best-effort by design: if the folder can't be created or the move fails,
+    /// the original path comes back unchanged and the download is still usable.
+    /// A tidy folder is a nicety; a lost download is not.
+    static func fileIntoClipFolder(_ path: String) -> String {
+        let fm = FileManager.default
+        let source = URL(fileURLWithPath: path)
+        let parent = source.deletingLastPathComponent()
+        let stem = source.deletingPathExtension().lastPathComponent
+        guard !stem.isEmpty else { return path }
+        // Already filed — e.g. yt-dlp resolved a file sitting in its own folder.
+        guard parent.lastPathComponent != stem else { return path }
+
+        let folder = parent.appendingPathComponent(
+            clipFolderName(for: stem, in: parent),
+            isDirectory: true
+        )
+        do {
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+            let target = folder.appendingPathComponent(source.lastPathComponent)
+            try fm.moveItem(at: source, to: target)
+            return target.path
+        } catch {
+            // Only ever the empty folder this call just made: clipFolderName
+            // picked a name nothing was using.
+            if let contents = try? fm.contentsOfDirectory(atPath: folder.path), contents.isEmpty {
+                try? fm.removeItem(at: folder)
+            }
+            return path
+        }
     }
 
     /// Builds the yt-dlp argument list. Kept separate so flags stay easy to audit.
@@ -200,7 +248,8 @@ final class YtDlpService {
     /// `customStem` (already sanitized) names the output file; it is uniquified
     /// against the download directory so a colliding name can never make yt-dlp
     /// skip the download and resolve someone else's file.
-    /// Returns the absolute path of the downloaded (or already-present) file.
+    /// Returns the absolute path of the downloaded (or already-present) file,
+    /// after filing it into its own clip folder.
     func downloadAudio(
         url: String,
         destination: URL,
@@ -301,7 +350,7 @@ final class YtDlpService {
         ) else {
             throw YtDlpError.noOutputFile
         }
-        return filepath
+        return Self.fileIntoClipFolder(filepath)
     }
 }
 

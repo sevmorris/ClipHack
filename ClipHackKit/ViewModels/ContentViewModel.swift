@@ -31,7 +31,12 @@ final class ContentViewModel {
 
     init() {
         self.settings = ClipHackSettings.load()
-        self.clipListEnabled = UserDefaults.standard.bool(forKey: Self.clipListKey)
+        self.clipNotesEnabled = UserDefaults.standard.bool(forKey: Self.clipNotesKey)
+        let storedHeight = UserDefaults.standard.double(forKey: Self.notesFieldHeightKey)
+        // 0 means "never set" — UserDefaults has no distinct absent value for Double.
+        self.notesFieldHeight = storedHeight == 0
+            ? Self.defaultNotesFieldHeight
+            : Self.clampedNotesFieldHeight(storedHeight)
     }
 
     // nonisolated: with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor the implicit
@@ -75,15 +80,54 @@ final class ContentViewModel {
 
     // MARK: - File management
 
+    /// Stable identity for a file on disk. The same file arrives spelled
+    /// differently depending on how it got here — a drag gives /var/…, a
+    /// directory scan gives /private/var/… — and rows must not double up over
+    /// spelling. Compare with this, never with URL ==.
+    private nonisolated static func fileIdentity(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    /// Audio inside a dropped folder, name-ordered, at any depth. Downloads are
+    /// filed one clip per folder, so dropping a folder — one clip's, or a whole
+    /// show's worth of them — has to mean "everything in here".
+    private static func audioFiles(inFolder folder: URL) -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: folder,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return [] }
+
+        let found = enumerator.compactMap { $0 as? URL }
+            .filter { validExtensions.contains($0.pathExtension.lowercased()) }
+        return found.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+    }
+
     func addFiles(_ urls: [URL]) {
-        let fileURLs = urls.filter { $0.isFileURL && !$0.hasDirectoryPath }
-        let valid = fileURLs.filter { Self.validExtensions.contains($0.pathExtension.lowercased()) }
-        let folders = urls.filter { $0.hasDirectoryPath }.count
-        let badFormat = fileURLs.count - valid.count
+        let fileURLs = urls.filter(\.isFileURL)
+        let loose = fileURLs.filter { !$0.hasDirectoryPath }
+        let folders = fileURLs.filter(\.hasDirectoryPath)
+
+        let fromLoose = loose.filter { Self.validExtensions.contains($0.pathExtension.lowercased()) }
+        var fromFolders: [URL] = []
+        var emptyFolders = 0
+        for folder in folders {
+            let audio = Self.audioFiles(inFolder: folder)
+            if audio.isEmpty { emptyFolders += 1 } else { fromFolders.append(contentsOf: audio) }
+        }
+
+        // Dropping a folder and then one of its clips shouldn't double the row.
+        let alreadyListed = Set(files.map { Self.fileIdentity($0.url) })
+        var seen = Set<String>()
+        let valid = (fromLoose + fromFolders).filter {
+            let identity = Self.fileIdentity($0)
+            return !alreadyListed.contains(identity) && seen.insert(identity).inserted
+        }
+        let badFormat = loose.count - fromLoose.count
 
         var notices: [String] = []
-        if folders > 0 {
-            notices.append("\(folders) folder\(folders == 1 ? "" : "s") skipped — folders are not supported.")
+        if emptyFolders > 0 {
+            notices.append("\(emptyFolders) folder\(emptyFolders == 1 ? "" : "s") skipped — no audio inside.")
         }
         if badFormat > 0 {
             notices.append("\(badFormat) file\(badFormat == 1 ? "" : "s") skipped — unsupported format. Supported: wav, aif, aiff, mp3, flac, m4a, ogg, opus, caf, wma, aac, mp4, mov.")
@@ -115,7 +159,16 @@ final class ContentViewModel {
     }
 
     private func commitFiles(_ urls: [URL]) {
-        let newFiles = urls.map { FileItem(url: $0) }
+        // Notes live on disk beside the audio, so a clip re-added days later —
+        // in a new session, by drag or by folder drop — still arrives with the
+        // text that says what it is.
+        let newFiles = urls.map { url -> FileItem in
+            var item = FileItem(url: url)
+            if let notes = ClipNotesFile.read(forAudioFile: url)?.notes, !notes.isEmpty {
+                item.notes = notes
+            }
+            return item
+        }
         files.append(contentsOf: newFiles)
 
         for file in newFiles {
@@ -259,14 +312,38 @@ final class ContentViewModel {
     var downloadURLField: String = ""
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
-    /// Optional free-text carried onto the added row and into the clip list.
+    /// Optional free-text carried onto the added row and into the notes file.
     var downloadNotesField: String = ""
-    /// "Save clip list": append an entry to the daily clip-list file next to
-    /// each successful download. Persisted across launches.
-    var clipListEnabled: Bool {
-        didSet { UserDefaults.standard.set(clipListEnabled, forKey: Self.clipListKey) }
+    /// "Save clip notes": write a notes sidecar into each download's own clip
+    /// folder. Persisted across launches.
+    var clipNotesEnabled: Bool {
+        didSet { UserDefaults.standard.set(clipNotesEnabled, forKey: Self.clipNotesKey) }
     }
-    private static let clipListKey = "clipListEnabled"
+    /// Key predates the per-clip notes file (it gated the daily clip list this
+    /// replaced) — kept as-is so the preference survives the upgrade.
+    private static let clipNotesKey = "clipListEnabled"
+
+    static let minNotesFieldHeight: Double = 56
+    static let maxNotesFieldHeight: Double = 360
+    static let defaultNotesFieldHeight: Double = 96
+    private static let notesFieldHeightKey = "downloadNotesFieldHeight"
+
+    static func clampedNotesFieldHeight(_ raw: Double) -> Double {
+        guard raw.isFinite else { return defaultNotesFieldHeight }
+        return min(max(raw, minNotesFieldHeight), maxNotesFieldHeight)
+    }
+
+    /// Height of the popover's Notes box in points — the user drags the grip in
+    /// its bottom-right corner to resize. Clamped on write (a drag can run past
+    /// either end) and persisted across launches.
+    var notesFieldHeight: Double {
+        didSet {
+            let clamped = Self.clampedNotesFieldHeight(notesFieldHeight)
+            // Assigning inside didSet doesn't re-enter it, so this settles here.
+            if clamped != notesFieldHeight { notesFieldHeight = clamped }
+            UserDefaults.standard.set(notesFieldHeight, forKey: Self.notesFieldHeightKey)
+        }
+    }
     var isDownloadPopoverPresented = false
     var downloadState: DownloadState = .idle
 
@@ -451,6 +528,45 @@ final class ContentViewModel {
         settings.downloadDirectoryPath = nil
     }
 
+    /// Resets the popover after a download starts, finishes, or turns out to be
+    /// one we already have.
+    private func clearDownloadForm() {
+        downloadURLField = ""
+        downloadNameField = ""
+        downloadNotesField = ""
+        resetNotesAutoFillState()
+        downloadState = .idle
+        isDownloadPopoverPresented = false
+    }
+
+    /// A clip downloaded from `url` in an earlier session is still on disk:
+    /// put that file in the list and select it instead of fetching a second
+    /// copy under a `-2` name. Returns true when it took over the download.
+    ///
+    /// Internal for unit tests.
+    func adoptAlreadyDownloadedClip(for url: String, in destination: URL) -> Bool {
+        guard let existing = ClipNotesFile.existingClip(forSourceURL: url, in: destination) else {
+            return false
+        }
+
+        let identity = Self.fileIdentity(existing)
+        if let row = files.first(where: { Self.fileIdentity($0.url) == identity }) {
+            selectedFileIDs = [row.id]
+        } else {
+            addFiles([existing])
+            guard let row = files.last(where: { Self.fileIdentity($0.url) == identity }) else {
+                return false
+            }
+            selectedFileIDs = [row.id]
+        }
+
+        downloadedURLToFileID[url] = selectedFileIDs.first
+        alertTitle = "Already Downloaded"
+        alertMessage = "\"\(existing.lastPathComponent)\" came from this link, so it's been added to the list instead of downloaded again."
+        clearDownloadForm()
+        return true
+    }
+
     func startDownload() {
         guard !isDownloading else { return }
         guard let url = Self.validatedWebURL(downloadURLField) else {
@@ -460,12 +576,7 @@ final class ContentViewModel {
 
         if let existingID = existingDownloadRowID(for: url) {
             selectedFileIDs = [existingID]
-            downloadURLField = ""
-            downloadNameField = ""
-            downloadNotesField = ""
-            resetNotesAutoFillState()
-            downloadState = .idle
-            isDownloadPopoverPresented = false
+            clearDownloadForm()
             return
         }
 
@@ -480,6 +591,11 @@ final class ContentViewModel {
         }
 
         let destination = YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
+
+        // The row-level dedupe above only knows about this session. Clip prep
+        // runs over days, so also ask the destination itself — the notes files
+        // record what each clip came from.
+        if adoptAlreadyDownloadedClip(for: url, in: destination) { return }
         // For a custom folder, prepare it in-app (correct permission attribution)
         // and surface a clear message if it isn't writable, before yt-dlp runs.
         // The default (~/Music/ClipHack) is created on demand inside downloadAudio.
@@ -520,16 +636,15 @@ final class ContentViewModel {
     }
 
     /// Feeds a completed download through the existing add-files path, then
-    /// records and selects the row that landed, attaches notes, and appends
-    /// to the clip list when enabled. Internal for unit tests.
+    /// records and selects the row that landed, attaches notes, and writes the
+    /// clip's notes file when enabled. Internal for unit tests.
     func finishDownload(sourceURL: String, filePath: String) {
         let fileURL = URL(fileURLWithPath: filePath)
-        let countBefore = files.count
         addFiles([fileURL])
         // addFiles can reject (unsupported extension) or defer to the
         // reprocess warning — only record and select a row that landed.
-        guard files.count > countBefore,
-              let index = files.lastIndex(where: { $0.url == fileURL }) else {
+        let identity = Self.fileIdentity(fileURL)
+        guard let index = files.lastIndex(where: { Self.fileIdentity($0.url) == identity }) else {
             downloadState = .idle
             return
         }
@@ -539,30 +654,20 @@ final class ContentViewModel {
             files[index].notes = notes
         }
 
-        if clipListEnabled {
+        // The download already landed in its own clip folder, so this writes the
+        // sidecar right beside it.
+        if clipNotesEnabled {
             do {
-                try ClipListManifest.append(
-                    entry: ClipListManifest.entry(
-                        filename: fileURL.lastPathComponent,
-                        notes: notes,
-                        sourceURL: sourceURL
-                    ),
-                    in: fileURL.deletingLastPathComponent()
-                )
+                try ClipNotesFile.write(notes: notes, sourceURL: sourceURL, forAudioFile: fileURL)
             } catch {
                 alertTitle = "Notice"
-                alertMessage = "Downloaded, but the clip list could not be written: \(error.localizedDescription)"
+                alertMessage = "Downloaded, but the clip notes could not be written: \(error.localizedDescription)"
             }
         }
 
         downloadedURLToFileID[sourceURL] = files[index].id
         selectedFileIDs = [files[index].id]
-        downloadState = .idle
-        downloadURLField = ""
-        downloadNameField = ""
-        downloadNotesField = ""
-        resetNotesAutoFillState()
-        isDownloadPopoverPresented = false
+        clearDownloadForm()
     }
 
     // MARK: - Processing

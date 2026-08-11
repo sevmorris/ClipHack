@@ -115,6 +115,22 @@ struct FileRowView: View {
                 }
             }
 
+            // What the clip actually is, not just what it's called — restored
+            // from the notes file on disk, so it survives across sessions.
+            if let notes = file.notes, !notes.isEmpty {
+                HStack(alignment: .top, spacing: 4) {
+                    Image(systemName: "text.quote")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text(notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                }
+                .help(notes)
+            }
+
             statusText
 
             if case .processing = file.status {

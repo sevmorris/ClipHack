@@ -27,17 +27,20 @@ public struct HelpView: View {
                 section("Getting Started") {
                     steps([
                         "Set your sample rate, ceiling, and any processing options.",
-                        "Drag and drop audio or video files onto the window.",
+                        "Drag and drop audio or video files onto the window — or drop a folder, and ClipHack adds every audio file inside it.",
                         "Click Process.",
                         "Output files are saved alongside the originals (or to your chosen output folder)."
                     ])
+                    text("A clip added back later — dropped, or picked up from a folder — arrives with the notes saved beside it, shown under its name in the list. Point at them to read the full text.")
                 }
                 section("Download from URL") {
                     text("Click the link button in the toolbar (⌘L), or drop a web link onto the window, to download a clip's audio into the file list. Video sources are saved as audio only (native codec, no re-encode) into your chosen download folder (~/Music/ClipHack by default).")
-                    definition("Custom file name", "Optional. Names the download before it lands — stem only, the extension always matches the source audio. Leave blank to keep the source title.")
-                    definition("Notes", "Optional free text kept with the file row and written to the clip list. For X/Twitter post links, the post's text is fetched and pre-filled here automatically (best-effort) — edit or clear it as you like.")
-                    definition("Save clip list", "Appends file name, notes, and source URL to a daily clip-list-YYYY-MM-DD.txt next to the download. Entries are a point-in-time log — renaming a file afterwards does not rewrite earlier entries.")
-                    definition("Destination", "Where downloads (and the clip list) are saved. Defaults to ~/Music/ClipHack; use Change… to pick any folder — it's remembered for future downloads. If that folder is missing when you download, ClipHack asks for a new one.")
+                    text("Each download gets its own folder, named after the file — Some Title/Some Title.m4a. Processed output lands in that folder too, so everything for one clip stays together. A repeated title gets its own folder (-2, -3, …) rather than overwriting the earlier one.")
+                    definition("Custom file name", "Optional. Names the download — and its folder — before it lands; stem only, the extension always matches the source audio. Leave blank to keep the source title.")
+                    definition("Notes", "Optional free text kept with the file row and written to the clip's notes file. Drag the grip in the box's bottom-right corner to make it taller; the size is remembered. For X/Twitter post links, the post's text is fetched and pre-filled here automatically (best-effort) — edit or clear it as you like.")
+                    definition("Save clip notes", "Writes file name, notes, and source URL to a text file beside the audio in its folder — Some Title/Some Title.txt. It records the download as it happened: renaming the file afterwards does not rewrite it.")
+                    definition("Destination", "Where clip folders are created. Defaults to ~/Music/ClipHack; use Change… to pick any folder — it's remembered for future downloads. If that folder is missing when you download, ClipHack asks for a new one.")
+                    definition("Already downloaded", "Downloading a link you already used adds the clip you have instead of fetching a second copy. ClipHack checks the notes files in the destination, so this works days later in a new session too. Delete a clip's audio and the link downloads again as normal.")
                     text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by selecting it and pressing Return. The file is renamed on disk; the extension is kept.")
                 }
                 section("Output Naming") {

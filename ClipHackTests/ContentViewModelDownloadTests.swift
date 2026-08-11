@@ -104,7 +104,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(vm.downloadNameField, "")
     }
 
-    // MARK: - Notes and clip list
+    // MARK: - Notes and the clip notes file
 
     func testFinishDownloadAttachesTrimmedNotesToRow() {
         let vm = makeViewModel()
@@ -128,70 +128,220 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNil(vm.files[0].notes)
     }
 
-    func testClipListWrittenNextToDownloadWhenEnabled() throws {
+    /// A stand-in for the clip folder a download now lands in.
+    private func makeClipFolder() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cliphack-vm-manifest-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("cliphack-vm-notes-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return dir
+    }
+
+    func testClipNotesWrittenIntoTheClipFolderWhenEnabled() throws {
+        let dir = try makeClipFolder()
 
         let vm = makeViewModel()
-        let wasEnabled = vm.clipListEnabled
-        defer { vm.clipListEnabled = wasEnabled }
-        vm.clipListEnabled = true
+        let wasEnabled = vm.clipNotesEnabled
+        defer { vm.clipNotesEnabled = wasEnabled }
+        vm.clipNotesEnabled = true
         vm.downloadNotesField = "the good part"
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
         )
 
-        let manifestURL = dir.appendingPathComponent(ClipListManifest.manifestFilename())
-        let content = try String(contentsOf: manifestURL, encoding: .utf8)
+        let notesURL = dir.appendingPathComponent("Title.txt")
+        let content = try String(contentsOf: notesURL, encoding: .utf8)
         XCTAssertEqual(content, "Title.m4a\nthe good part\nhttps://example.com/watch?v=abc\n\n")
     }
 
-    func testClipListSkippedWhenDisabled() throws {
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cliphack-vm-manifest-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
+    func testClipNotesSkippedWhenDisabled() throws {
+        let dir = try makeClipFolder()
 
         let vm = makeViewModel()
-        let wasEnabled = vm.clipListEnabled
-        defer { vm.clipListEnabled = wasEnabled }
-        vm.clipListEnabled = false
+        let wasEnabled = vm.clipNotesEnabled
+        defer { vm.clipNotesEnabled = wasEnabled }
+        vm.clipNotesEnabled = false
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
         )
 
-        let manifestURL = dir.appendingPathComponent(ClipListManifest.manifestFilename())
-        XCTAssertFalse(FileManager.default.fileExists(atPath: manifestURL.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: dir.appendingPathComponent("Title.txt").path)
+        )
     }
 
-    func testDuplicateURLWritesNoClipListEntry() throws {
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cliphack-vm-manifest-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
+    func testDuplicateURLWritesNoClipNotes() throws {
+        let dir = try makeClipFolder()
 
         let vm = makeViewModel()
-        let wasEnabled = vm.clipListEnabled
-        defer { vm.clipListEnabled = wasEnabled }
-        vm.clipListEnabled = true
+        let wasEnabled = vm.clipNotesEnabled
+        defer { vm.clipNotesEnabled = wasEnabled }
+        vm.clipNotesEnabled = true
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
         )
-        let manifestURL = dir.appendingPathComponent(ClipListManifest.manifestFilename())
-        let afterFirst = try String(contentsOf: manifestURL, encoding: .utf8)
+        let notesURL = dir.appendingPathComponent("Title.txt")
+        let afterFirst = try String(contentsOf: notesURL, encoding: .utf8)
 
         vm.downloadURLField = "https://example.com/watch?v=abc"
         vm.downloadNotesField = "should not be logged"
         vm.startDownload()
 
-        XCTAssertEqual(try String(contentsOf: manifestURL, encoding: .utf8), afterFirst,
+        XCTAssertEqual(try String(contentsOf: notesURL, encoding: .utf8), afterFirst,
                        "a duplicate-URL selection downloads nothing and logs nothing")
         XCTAssertEqual(vm.downloadNotesField, "", "duplicate path clears the notes field")
+    }
+
+    // MARK: - Notes survive the session (restored from disk on add)
+
+    func testAddingAClipRestoresItsNotesFromDisk() throws {
+        let dir = try makeClipFolder()
+        let audio = dir.appendingPathComponent("Title.m4a")
+        try Data("audio".utf8).write(to: audio)
+        try ClipNotesFile.write(notes: "Vance on tariffs", sourceURL: "https://a", forAudioFile: audio)
+
+        // A fresh session, days later: the row still knows what the clip is.
+        let vm = makeViewModel()
+        vm.addFiles([audio])
+
+        XCTAssertEqual(vm.files.first?.notes, "Vance on tariffs")
+    }
+
+    func testAddingAClipWithNoSidecarLeavesNotesNil() throws {
+        let dir = try makeClipFolder()
+        let audio = dir.appendingPathComponent("Plain.m4a")
+        try Data("audio".utf8).write(to: audio)
+
+        let vm = makeViewModel()
+        vm.addFiles([audio])
+
+        XCTAssertNil(vm.files.first?.notes)
+    }
+
+    // MARK: - Folder drops
+
+    func testDroppingAFolderAddsTheAudioInside() throws {
+        let root = try makeClipFolder()
+        for stem in ["B Clip", "A Clip"] {
+            let folder = root.appendingPathComponent(stem, isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try Data("audio".utf8).write(to: folder.appendingPathComponent("\(stem).m4a"))
+            try ClipNotesFile.write(
+                notes: "note for \(stem)",
+                sourceURL: "https://\(stem)",
+                forAudioFile: folder.appendingPathComponent("\(stem).m4a")
+            )
+        }
+
+        // Dropping a whole show's worth of clip folders finds them all.
+        let vm = makeViewModel()
+        vm.addFiles([root])
+
+        XCTAssertEqual(vm.files.map { $0.url.lastPathComponent }, ["A Clip.m4a", "B Clip.m4a"],
+                       "folder contents arrive in name order")
+        XCTAssertEqual(vm.files.map { $0.notes }, ["note for A Clip", "note for B Clip"])
+        XCTAssertNil(vm.alertMessage, "a folder of audio is not a notice")
+    }
+
+    func testDroppingAFolderTwiceDoesNotDoubleTheRows() throws {
+        let root = try makeClipFolder()
+        try Data("audio".utf8).write(to: root.appendingPathComponent("One.m4a"))
+
+        let vm = makeViewModel()
+        vm.addFiles([root])
+        vm.addFiles([root])
+
+        XCTAssertEqual(vm.files.count, 1)
+    }
+
+    func testDroppingAFolderWithNoAudioReportsIt() throws {
+        let root = try makeClipFolder()
+        let empty = root.appendingPathComponent("Empty", isDirectory: true)
+        try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+
+        let vm = makeViewModel()
+        vm.addFiles([empty])
+
+        XCTAssertTrue(vm.files.isEmpty)
+        XCTAssertEqual(vm.alertMessage, "1 folder skipped — no audio inside.")
+    }
+
+    // MARK: - Cross-session duplicate downloads
+
+    func testDownloadingALinkAlreadyOnDiskAdoptsTheExistingClip() throws {
+        let dir = try makeClipFolder()
+        let folder = dir.appendingPathComponent("Title", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let audio = folder.appendingPathComponent("Title.m4a")
+        try Data("audio".utf8).write(to: audio)
+        try ClipNotesFile.write(notes: "day one note", sourceURL: "https://a/clip", forAudioFile: audio)
+
+        let vm = makeViewModel()
+        XCTAssertTrue(vm.adoptAlreadyDownloadedClip(for: "https://a/clip", in: dir))
+
+        XCTAssertEqual(vm.files.count, 1)
+        XCTAssertEqual(
+            vm.files[0].url.resolvingSymlinksInPath().path,
+            audio.resolvingSymlinksInPath().path
+        )
+        XCTAssertEqual(vm.files[0].notes, "day one note")
+        XCTAssertEqual(vm.selectedFileIDs, [vm.files[0].id])
+        XCTAssertEqual(vm.alertTitle, "Already Downloaded")
+        XCTAssertFalse(vm.isDownloadPopoverPresented)
+        XCTAssertEqual(vm.existingDownloadRowID(for: "https://a/clip"), vm.files[0].id,
+                       "adopting should also seed the session dedupe")
+    }
+
+    func testAdoptingSelectsARowThatIsAlreadyListedInsteadOfAddingIt() throws {
+        let dir = try makeClipFolder()
+        let audio = dir.appendingPathComponent("Title.m4a")
+        try Data("audio".utf8).write(to: audio)
+        try ClipNotesFile.write(notes: "", sourceURL: "https://a/clip", forAudioFile: audio)
+
+        let vm = makeViewModel()
+        vm.addFiles([audio])
+        XCTAssertTrue(vm.adoptAlreadyDownloadedClip(for: "https://a/clip", in: dir))
+        XCTAssertEqual(vm.files.count, 1, "the clip was already in the list")
+    }
+
+    func testAnUnseenLinkIsNotAdopted() throws {
+        let dir = try makeClipFolder()
+        let vm = makeViewModel()
+        XCTAssertFalse(vm.adoptAlreadyDownloadedClip(for: "https://a/never-seen", in: dir))
+        XCTAssertTrue(vm.files.isEmpty)
+    }
+
+    // MARK: - Resizable notes field
+
+    func testNotesFieldHeightClampsToItsBounds() {
+        XCTAssertEqual(
+            ContentViewModel.clampedNotesFieldHeight(5),
+            ContentViewModel.minNotesFieldHeight
+        )
+        XCTAssertEqual(
+            ContentViewModel.clampedNotesFieldHeight(9_000),
+            ContentViewModel.maxNotesFieldHeight
+        )
+        XCTAssertEqual(ContentViewModel.clampedNotesFieldHeight(200), 200)
+        XCTAssertEqual(
+            ContentViewModel.clampedNotesFieldHeight(.nan),
+            ContentViewModel.defaultNotesFieldHeight
+        )
+    }
+
+    func testDraggingPastTheEndsSettlesAtTheBound() {
+        let vm = makeViewModel()
+        let restore = vm.notesFieldHeight
+        defer { vm.notesFieldHeight = restore }
+
+        // A drag runs well past either end; the stored height stays usable.
+        vm.notesFieldHeight = -400
+        XCTAssertEqual(vm.notesFieldHeight, ContentViewModel.minNotesFieldHeight)
+        vm.notesFieldHeight = 4_000
+        XCTAssertEqual(vm.notesFieldHeight, ContentViewModel.maxNotesFieldHeight)
     }
 
     func testDuplicateURLClearsNameFieldWithoutDownloading() {

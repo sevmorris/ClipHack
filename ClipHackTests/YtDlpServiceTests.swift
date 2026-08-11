@@ -194,6 +194,75 @@ final class YtDlpServiceTests: XCTestCase {
         XCTAssertEqual(YtDlpService.uniqueStem("clip") { taken.contains($0) }, "clip-4")
     }
 
+    // MARK: - Per-clip folders
+
+    private func makeTempDir() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-folder-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return dir
+    }
+
+    func testDownloadIsMovedIntoAFolderNamedAfterIt() throws {
+        let dir = try makeTempDir()
+        let file = dir.appendingPathComponent("Some_Title.m4a")
+        try Data("audio".utf8).write(to: file)
+
+        let moved = YtDlpService.fileIntoClipFolder(file.path)
+
+        XCTAssertEqual(moved, dir.appendingPathComponent("Some_Title/Some_Title.m4a").path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: moved))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path),
+                       "the download should not be left at the top level too")
+    }
+
+    func testSecondDownloadOfTheSameTitleGetsItsOwnFolder() throws {
+        let dir = try makeTempDir()
+        let first = dir.appendingPathComponent("Title.m4a")
+        try Data("one".utf8).write(to: first)
+        _ = YtDlpService.fileIntoClipFolder(first.path)
+
+        // yt-dlp writes the same name again — it can't see inside the folder.
+        try Data("two".utf8).write(to: first)
+        let moved = YtDlpService.fileIntoClipFolder(first.path)
+
+        XCTAssertEqual(moved, dir.appendingPathComponent("Title-2/Title.m4a").path)
+        XCTAssertEqual(try String(contentsOfFile: moved, encoding: .utf8), "two")
+        XCTAssertEqual(
+            try String(contentsOf: dir.appendingPathComponent("Title/Title.m4a"), encoding: .utf8),
+            "one",
+            "the earlier download must not be overwritten"
+        )
+    }
+
+    func testAlreadyFiledDownloadIsLeftWhereItIs() throws {
+        let dir = try makeTempDir()
+        let folder = dir.appendingPathComponent("Title", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent("Title.m4a")
+        try Data("audio".utf8).write(to: file)
+
+        XCTAssertEqual(YtDlpService.fileIntoClipFolder(file.path), file.path,
+                       "a file already in its own clip folder must not be nested again")
+    }
+
+    func testUnmovableFileKeepsItsOriginalPath() {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cliphack-absent-\(UUID().uuidString)/Title.m4a").path
+        XCTAssertEqual(YtDlpService.fileIntoClipFolder(missing), missing,
+                       "filing is best-effort — a failure must never lose the download")
+    }
+
+    func testClipFolderNameAvoidsAnyExistingEntry() throws {
+        let dir = try makeTempDir()
+        // A plain file sitting at the folder name, not a folder.
+        try Data().write(to: dir.appendingPathComponent("Title"))
+
+        XCTAssertEqual(YtDlpService.clipFolderName(for: "Title", in: dir), "Title-2")
+        XCTAssertEqual(YtDlpService.clipFolderName(for: "Other", in: dir), "Other")
+    }
+
     // MARK: - Already-downloaded notice parsing
 
     func testAlreadyDownloadedNoticeParsesPath() {
