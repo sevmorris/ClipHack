@@ -31,9 +31,28 @@ To download audio from a web link directly into the file list, do one of these s
 
 The tool saves video sources as audio only. It uses the native codec without re-encoding. The tool saves downloads in the `~/Music/ClipHack` directory.
 
-* **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
-* **Notes (optional):** Type text to keep with the file row. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
-* **Save clip list:** This adds the file name, notes, and source URL to a daily text file (`clip-list-YYYY-MM-DD.txt`). This file is in the same directory as the download. The entries are a permanent record. If you rename a file later, the tool does not change the old record. This is the correct function.
+Each download gets its own folder. The tool gives the folder the same name as the file:
+
+```
+~/Music/ClipHack/
+└── Some Title/
+    ├── Some Title.m4a
+    └── Some Title.txt
+```
+
+Processed output goes into the same folder. Thus, all the parts of one clip stay together. If a second download has the same name, the tool makes a different folder (`Some Title-2`). The tool does not write over the first download.
+
+* **Custom name (optional):** Type a name for the download. The tool changes the file name and the folder name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
+* **Notes (optional):** Type text to keep with the file row. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
+* **Save clip notes:** This writes the file name, notes, and source URL to a text file in the clip folder. The record shows the download at the time it occurred. If you rename a file later, the tool does not change the record. This is the correct function.
+
+If you use a link a second time, the tool does not download the clip again. The tool reads the notes files in the destination directory. If it finds the clip, it adds the file to the list and tells you. This is also correct if you downloaded the clip on a different day. If you deleted the audio file, the tool downloads the clip again.
+
+## Notes in the File List
+
+The file list shows the notes below the file name. The tool reads the notes from the text file in the clip folder. Thus, the notes stay with the clip after you close the application. Point at the notes to see the full text.
+
+You can drop a folder onto the window. The tool finds all the audio files in the folder and in the directories below it. Thus, you can drop one clip folder, or all the clip folders for a show. If you drop the same file two times, the tool does not add it two times.
 
 To rename a file in the list, do one of these steps:
 * Right-click the row and select **Rename…**.
@@ -63,12 +82,12 @@ To build the software from source code, run these commands in your terminal:
 ```bash
 git clone https://github.com/sevmorris/ClipHack.git
 cd ClipHack
-./scripts/fetch-ffmpeg.sh   # This downloads the correct ffmpeg and ffprobe files (approximately 100 MB).
+./scripts/fetch-ffmpeg.sh   # This downloads the correct ffmpeg and ffprobe files (approximately 42 MB).
 ./scripts/fetch-ytdlp.sh    # This downloads the correct yt-dlp file (approximately 35 MB).
 open ClipHack.xcodeproj
 ```
 
-The scripts download the FFmpeg files (arm64 only) from the [WaxOnWaxOff dependencies release](https://github.com/sevmorris/WaxOnWaxOff/releases/tag/ffmpeg-deps-8.0-arm64). They download the yt-dlp file from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases). The tool records the correct yt-dlp version in the `Vendor/ytdlp-manifest.env` file. Xcode operates both fetch scripts before it builds the software.
+The scripts download the FFmpeg files (arm64 only) from the [ClipHack dependencies release](https://github.com/sevmorris/ClipHack-releases/releases/tag/ffmpeg-deps-8.0-audio-arm64). They download the yt-dlp file from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases). The tool records the correct versions and checksums in the `Vendor/ffmpeg-manifest.env` and `Vendor/ytdlp-manifest.env` files. Xcode operates both fetch scripts before it builds the software.
 
 To read the release history, look at the [CHANGELOG.md](CHANGELOG.md) file.
 
@@ -89,6 +108,18 @@ ClipHack operates this sequence in 24-bit WAV format:
 ClipHack is a signal chain that uses FFmpeg. I designed the digital signal processing (DSP) logic and parameters for professional podcasting standards. I used AI assistance to write the Swift user interface and the process orchestration.
 
 This software is a personal tool. It is supplied "as-is". It is not a commercial product.
+
+---
+
+### Included Software
+
+ClipHack includes these programs. It does not change them.
+
+* **FFmpeg 8.0 (arm64):** ClipHack uses FFmpeg for all audio processing. This is an audio-only build. It does not use the `--enable-gpl`, `--enable-nonfree`, or `--enable-version3` options, and it includes no video or image libraries. The only external library is libmp3lame (LAME 3.100). The FFmpeg core is supplied under the GNU Lesser General Public License v2.1 or later. LAME is supplied under the LGPL v2.0 or later. The `arnndn` filter is supplied under the BSD 2-Clause License. No GPL components are included.
+  * FFmpeg source code: [ffmpeg-8.0.tar.xz](https://ffmpeg.org/releases/ffmpeg-8.0.tar.xz) ([signature](https://ffmpeg.org/releases/ffmpeg-8.0.tar.xz.asc))
+  * LAME source code: [lame-3.100.tar.gz](https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz)
+  * Build recipe: `scripts/build-ffmpeg.sh` in the [WaxOnWaxOff repository](https://github.com/sevmorris/WaxOnWaxOff). To see the build configuration of the included binary, run `ffmpeg -version`.
+* **yt-dlp 2026.06.09 (universal2):** ClipHack uses yt-dlp to download audio from web links. It is public domain software (the Unlicense). Get the yt-dlp source code from [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ---
 

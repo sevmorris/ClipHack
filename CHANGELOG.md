@@ -2,6 +2,18 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+- **Switched to an audio-only LGPL FFmpeg build.** The previous pin was a third-party GPL build (OSXExperts.NET, linking x264/x265/libvidstab). Its assets were withdrawn from distribution because the exact Corresponding Source for that build could not be obtained, so the GPL obligations that come with distributing it could not be met — which also left `fetch-ffmpeg.sh` returning 404, making the project unbuildable from a clean checkout. The replacement is built from pinned, SHA-256-verified upstream source with no `--enable-gpl`, no `--enable-nonfree`, no `--enable-version3`, and no video or image libraries; libmp3lame is the only external library, and full Corresponding Source is available. Output is **bit-identical** to the old build across ClipHack's processing chain, with matching loudnorm measurements. Bundled binaries drop from 51.5 MB to 21.9 MB each
+- The pinned FFmpeg binaries are now mirrored in ClipHack's own releases repo, so building no longer depends on another project's release lifecycle
+
+- **One folder per download** — each clip now lands in its own folder named after the file (`Some Title/Some Title.m4a`) inside the download destination, so its audio, notes, and processed output stay together. A repeated title gets `-2`, `-3`, … rather than overwriting the earlier download
+- **Save clip list** is now **Save clip notes** — instead of appending to a daily `clip-list-YYYY-MM-DD.txt`, each clip gets its own `Some Title.txt` beside the audio. The file body is unchanged (file name / notes / source URL), so concatenating the sidecars reproduces the old clip-list format. Existing clip lists are left alone; the preference carries over
+- The download popover's **Notes** box is now resizable — drag the grip in its bottom-right corner, and the height is remembered across launches
+- **Notes survive the session** — they're read back from the clip's notes file whenever it is added, so a clip re-added days later still knows what it is, and they're shown under the file name in the list (point at them for the full text)
+- **Folder drops** — dropping a folder adds every audio file inside it, at any depth, so one clip folder or a whole show's worth can be added at once. Dropping the same file twice no longer doubles the row
+- **Cross-session duplicate downloads** — downloading a link you already used adds the clip you have instead of fetching a second copy under a `-2` name. ClipHack reads the notes files in the destination, so it works in a new session days later; deleting a clip's audio lets the link download again
+
 ## [1.16.1] — 2026-07-20
 
 - Fixed file-browser rows sometimes needing repeated clicks to select (a double-click gesture on each row was intermittently swallowing single clicks)
