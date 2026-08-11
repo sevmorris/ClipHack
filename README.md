@@ -91,6 +91,30 @@ The scripts download the FFmpeg files (arm64 only) from the [ClipHack dependenci
 
 To read the release history, look at the [CHANGELOG.md](CHANGELOG.md) file.
 
+### Build the FFmpeg Binaries
+
+The release binaries are pre-built. To build them again from source, use this command:
+
+```bash
+./scripts/build-ffmpeg.sh
+```
+
+The script downloads FFmpeg 8.0 and LAME 3.100. It verifies the SHA-256 checksum of each file. Then it builds the audio-only binaries. The script stops with an error if the result uses a GPL option, links a library that is not part of the system, or does not agree with the deployment target. This script is the Corresponding Source recipe for the included binaries.
+
+### Check DSP Parity
+
+Before you change the FFmpeg binaries, make sure the audio output does not change:
+
+```bash
+export CLIPHACK_PARITY_CORPUS=/path/outside/the/repo
+export CLIPHACK_OLD_FFMPEG=./ClipHackKit/ffmpeg
+./scripts/parity-corpus-gen.sh              # Makes the test files one time.
+export CLIPHACK_NEW_FFMPEG=./build/ffmpeg-audio/ffmpeg
+./scripts/parity-check.sh
+```
+
+The check operates the full processing sequence of the application through both binaries. It compares the null residual, the loudness, the true peak, the format, and the number of samples. A result is PASS, FAIL, or INCOMPLETE. An INCOMPLETE result is never a PASS. The check operates on all the test files and stops with an error if there is one FAIL or one INCOMPLETE.
+
 ## Processing Pipeline
 
 ClipHack operates this sequence in 24-bit WAV format:

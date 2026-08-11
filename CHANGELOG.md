@@ -4,6 +4,11 @@ All notable changes to ClipHack are documented here. Version numbers match GitHu
 
 ## [Unreleased]
 
+- **`scripts/build-ffmpeg.sh`** — builds the pinned audio-only ffmpeg/ffprobe from SHA-256-verified upstream source (FFmpeg 8.0 + LAME 3.100), with fail-closed gates asserting the binaries execute, carry no `--enable-gpl` / `--enable-nonfree` / `--enable-version3`, link libmp3lame, have no non-system dynamic dependencies, and target the project's deployment target. ClipHack can now produce its own Corresponding Source rather than relying on a third-party build
+- **`scripts/parity-check.sh`** and **`scripts/parity-corpus-gen.sh`** — old-binary vs new-binary parity over a generated corpus, running the app's real multi-pass pipeline (mono extract → high-pass/all-pass → mirror-padded dynaudnorm → two-pass loudnorm → 2× oversampled limiter → dithered downsample) as separate stages, exactly as `AudioProcessor` runs it. Gates on null residual, LUFS, true peak, format, and sample count with frozen thresholds and PASS/FAIL/INCOMPLETE states, where INCOMPLETE never counts as a pass. Verified against an independently built binary: 340 gates, all PASS, every null `-inf`
+
+## [1.17.0] — 2026-08-10
+
 - **Switched to an audio-only LGPL FFmpeg build.** The previous pin was a third-party GPL build (OSXExperts.NET, linking x264/x265/libvidstab). Its assets were withdrawn from distribution because the exact Corresponding Source for that build could not be obtained, so the GPL obligations that come with distributing it could not be met — which also left `fetch-ffmpeg.sh` returning 404, making the project unbuildable from a clean checkout. The replacement is built from pinned, SHA-256-verified upstream source with no `--enable-gpl`, no `--enable-nonfree`, no `--enable-version3`, and no video or image libraries; libmp3lame is the only external library, and full Corresponding Source is available. Output is **bit-identical** to the old build across ClipHack's processing chain, with matching loudnorm measurements. Bundled binaries drop from 51.5 MB to 21.9 MB each
 - The pinned FFmpeg binaries are now mirrored in ClipHack's own releases repo, so building no longer depends on another project's release lifecycle
 
