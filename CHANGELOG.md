@@ -2,7 +2,12 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.18.0] — 2026-08-13
+
+- **Trash Originals** — a new setting, on by default: once a file's processed output is written, its source file moves to the Trash. Trash rather than delete, so a result you don't like stays recoverable from the Finder. The output is confirmed on disk and non-empty before anything is moved, and a file that fails to process always keeps its original. Sources are left alone — with a notice on the run summary — when the volume has no Trash. The setting is not part of presets, so switching preset never changes what happens to your files. Note that reusing a download link whose clip has been trashed fetches it again, since "already downloaded" detection looks for the clip's audio
+- Fixed the Help window showing literal `**asterisks**` around **Save Current Settings…** and **Delete Preset** instead of rendering them in bold
+
+## [1.17.1] — 2026-08-10
 
 - **`scripts/build-ffmpeg.sh`** — builds the pinned audio-only ffmpeg/ffprobe from SHA-256-verified upstream source (FFmpeg 8.0 + LAME 3.100), with fail-closed gates asserting the binaries execute, carry no `--enable-gpl` / `--enable-nonfree` / `--enable-version3`, link libmp3lame, have no non-system dynamic dependencies, and target the project's deployment target. ClipHack can now produce its own Corresponding Source rather than relying on a third-party build
 - **The bundled FFmpeg is now built by this project.** The pin moves from mirrored WaxOnWaxOff artifacts to binaries produced by ClipHack's own `scripts/build-ffmpeg.sh`, so the Corresponding Source recipe covers exactly what ships. The build is **reproducible** — two runs on the same toolchain produce byte-identical binaries, so the pinned SHA-256 can be verified independently rather than taken on trust. Verified equivalent to the previous pin by `parity-check.sh`: 340 gates, all PASS, every null residual `-inf`
