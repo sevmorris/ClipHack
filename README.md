@@ -4,9 +4,9 @@
 <p align="center">
   <strong>Broadcast and Clip Normalization Tool</strong>
   <br />
-  <strong>Version:</strong> 1.17.1
+  <strong>Version:</strong> 1.18.0
   <br />
-  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.17.1.dmg"><strong>Download</strong></a>
+  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.18.0.dmg"><strong>Download</strong></a>
 </p>
 
 ClipHack is an internal tool. It prepares third-party audio clips (for example: news, promos, and broadcast assets) to mix with other audio. It normalizes loudness and enforces peak ceilings. This makes sure that different audio sources have the same audio level in a podcast or a show.
