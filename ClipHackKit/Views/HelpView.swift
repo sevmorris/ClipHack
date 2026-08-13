@@ -105,11 +105,25 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
         }
     }
 
+    /// Parses inline markdown in help copy.
+    ///
+    /// `Text` only parses markdown for string *literals*; a `String` parameter picks the
+    /// `StringProtocol` overload, which renders `**bold**` verbatim. Inline-only parsing
+    /// keeps prose intact — full markdown swallows a leading "- " or "1. " and collapses newlines.
+    private func markdown(_ string: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        return (try? AttributedString(markdown: string, options: options))
+            ?? AttributedString(string)
+    }
+
     private func text(_ string: String) -> some View {
-        Text(string)
+        Text(markdown(string))
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// Deliberately not markdown-parsed — code samples render literally.
     private func code(_ string: String) -> some View {
         Text(string)
             .font(.system(.body, design: .monospaced))
@@ -125,7 +139,7 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
                     Text("\(index + 1).")
                         .font(.body.bold())
                         .frame(width: 20, alignment: .trailing)
-                    Text(item)
+                    Text(markdown(item))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -138,7 +152,7 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
 
     private func definitionView(_ term: String, @ViewBuilder detail: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(term).font(.body.bold())
+            Text(markdown(term)).font(.body.bold())
             detail()
         }
         .padding(.bottom, 4)
@@ -146,9 +160,9 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
 
     private func definition(_ term: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(term)
+            Text(markdown(term))
                 .font(.body.bold())
-            Text(detail)
+            Text(markdown(detail))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
