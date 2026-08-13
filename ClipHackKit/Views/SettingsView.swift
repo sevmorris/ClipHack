@@ -96,6 +96,14 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
+                row("Trash Originals", caption: "Move each source file to the Trash once its output is written.") {
+                    Toggle("", isOn: $viewModel.trashOriginalsEnabled)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+
+                Divider().padding(.vertical, 6)
+
                 VStack(alignment: .leading, spacing: 5) {
                     Text("OUTPUT DIR")
                         .font(.system(size: 9, weight: .semibold))

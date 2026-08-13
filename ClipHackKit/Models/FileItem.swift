@@ -52,6 +52,9 @@ struct FileItem: Identifiable, Equatable {
     var outputFileInfo: FileInfo?
     /// Free-text from the download popover; nil for dropped files.
     var notes: String?
+    /// Set once the source file has been moved to the Trash after processing.
+    /// `url` still names where it used to be, so the row keeps its identity.
+    var originalTrashed: Bool = false
 
     init(url: URL) {
         self.id = UUID()
@@ -87,5 +90,6 @@ struct FileItem: Identifiable, Equatable {
             && lhs.waveform == rhs.waveform && lhs.outputWaveform == rhs.outputWaveform
             && lhs.fileInfo == rhs.fileInfo && lhs.outputStats == rhs.outputStats
             && lhs.outputFileInfo == rhs.outputFileInfo && lhs.notes == rhs.notes
+            && lhs.originalTrashed == rhs.originalTrashed
     }
 }

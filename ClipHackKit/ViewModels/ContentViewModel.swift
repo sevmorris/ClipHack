@@ -32,6 +32,9 @@ final class ContentViewModel {
     init() {
         self.settings = ClipHackSettings.load()
         self.clipNotesEnabled = UserDefaults.standard.bool(forKey: Self.clipNotesKey)
+        // Defaults to on, so `bool(forKey:)`'s false-when-absent is wrong here.
+        self.trashOriginalsEnabled =
+            UserDefaults.standard.object(forKey: Self.trashOriginalsKey) as? Bool ?? true
         let storedHeight = UserDefaults.standard.double(forKey: Self.notesFieldHeightKey)
         // 0 means "never set" — UserDefaults has no distinct absent value for Double.
         self.notesFieldHeight = storedHeight == 0
@@ -223,7 +226,9 @@ final class ContentViewModel {
 
     /// Analysis and processing capture the file path when they start, so a
     /// rename mid-flight would pull the file out from under ffmpeg/ffprobe.
+    /// A trashed original has nothing left at `url` to rename.
     func isRenamable(_ file: FileItem) -> Bool {
+        if file.originalTrashed { return false }
         switch file.status {
         case .analyzing, .processing: return false
         default: return true
@@ -322,6 +327,15 @@ final class ContentViewModel {
     /// Key predates the per-clip notes file (it gated the daily clip list this
     /// replaced) — kept as-is so the preference survives the upgrade.
     private static let clipNotesKey = "clipListEnabled"
+
+    /// "Trash Originals": move each source file to the Trash once its output is
+    /// written. Deliberately NOT part of `ClipHackSettings` — that struct is what
+    /// presets store and reapply, and switching preset must never quietly start
+    /// deleting files. Persisted across launches.
+    var trashOriginalsEnabled: Bool {
+        didSet { UserDefaults.standard.set(trashOriginalsEnabled, forKey: Self.trashOriginalsKey) }
+    }
+    private static let trashOriginalsKey = "trashOriginalsAfterProcessing"
 
     static let minNotesFieldHeight: Double = 56
     static let maxNotesFieldHeight: Double = 360
@@ -752,6 +766,10 @@ final class ContentViewModel {
 
                 resetStuckProcessingRows()
 
+                let trashRefusals = trashOriginalsEnabled
+                    ? trashOriginals(for: batch.successes)
+                    : []
+
                 for result in batch.successes {
                     generateOutputWaveform(id: result.id, url: result.output)
                     analyzeOutputFile(id: result.id, url: result.output)
@@ -767,6 +785,19 @@ final class ContentViewModel {
                     alertMessage = "\(batch.successes.count) file\(batch.successes.count == 1 ? "" : "s") processed, \(batch.failures.count) failed."
                     await NotificationService.showCompletionNotification(fileCount: batch.successes.count)
                 }
+
+                // The audio came out fine in every one of these cases, so they ride
+                // along with whatever the run already had to say.
+                if !trashRefusals.isEmpty {
+                    let notice = "Processed, but these originals stayed put:\n"
+                        + trashRefusals.joined(separator: "\n")
+                    if let existing = alertMessage {
+                        alertMessage = existing + "\n\n" + notice
+                    } else {
+                        alertTitle = "Notice"
+                        alertMessage = notice
+                    }
+                }
             } catch is CancellationError {
                 resetStuckProcessingRows()
             } catch {
@@ -778,6 +809,32 @@ final class ContentViewModel {
             isProcessing = false
             processingTask = nil
         }
+    }
+
+    /// Moves each successfully processed source file to the Trash and marks its row.
+    ///
+    /// Returns one line per source it declined to trash. Those are notices, not
+    /// failures: the output is already written, so the run succeeded either way.
+    func trashOriginals(
+        for successes: [JobResult],
+        trash: (URL, URL) -> OriginalFileTrash.Refusal? = {
+            OriginalFileTrash.trash(original: $0, output: $1)
+        }
+    ) -> [String] {
+        var refusals: [String] = []
+        for result in successes {
+            guard let index = files.firstIndex(where: { $0.id == result.id }) else { continue }
+            switch trash(result.input, result.output) {
+            case nil, .originalMissing:
+                // Missing counts as trashed — either way it is no longer there.
+                files[index].originalTrashed = true
+            case .outputIsOriginal, .outputNotUsable:
+                refusals.append("\(result.input.lastPathComponent) — could not confirm the processed file on disk.")
+            case .trashFailed(let message):
+                refusals.append("\(result.input.lastPathComponent) — \(message)")
+            }
+        }
+        return refusals
     }
 
     func cancelProcessing() {

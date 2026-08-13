@@ -69,6 +69,7 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
                     definition("Dynamic Leveling", "Enables bidirectional dynamic normalization (dynaudnorm). Lifts quiet voices and tames loud ones. Best for panel recordings, live Q&As, or multi-guest interviews where voices are at inconsistent levels — not for regular solo voice use. Aggressiveness controls how quickly and strongly the leveling responds.")
                     definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. Runs before the limiter.")
                     definition("Target", "Loudness normalization target in LUFS, from -35 to -14. -18 LUFS is a common podcast insertion target.")
+                    definition("Trash Originals", "On by default. Moves each source file to the Trash once its processed output is written — the output is checked on disk first, and a file that fails to process is always kept. Recover anything you want back from the Trash. Note that a downloaded clip whose audio has been trashed will download again if you reuse the same link.")
                     definition("Output Directory", "Custom output folder for processed files. Defaults to the same directory as the source file.")
                 }
                 section("Acknowledgments") {
