@@ -64,7 +64,7 @@ public struct HelpView: View {
                 }
                 section("Settings") {
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
-definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
+                    definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff — three options. DC Block (20 Hz): removes DC offset only, passes all audible content including bass fundamentals. 40 Hz: removes subsonic rumble while preserving music bass. 80 Hz: standard voice HPF, removes proximity effect and handling noise.")
                     definition("Dynamic Leveling", "Enables bidirectional dynamic normalization (dynaudnorm). Lifts quiet voices and tames loud ones. Best for panel recordings, live Q&As, or multi-guest interviews where voices are at inconsistent levels — not for regular solo voice use. Aggressiveness controls how quickly and strongly the leveling responds.")
                     definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. Runs before the limiter.")
@@ -149,14 +149,6 @@ definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the
 
     private func numberedList(_ items: [String]) -> some View {
         steps(items)
-    }
-
-    private func definitionView(_ term: String, @ViewBuilder detail: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(markdown(term)).font(.body.bold())
-            detail()
-        }
-        .padding(.bottom, 4)
     }
 
     private func definition(_ term: String, _ detail: String) -> some View {
