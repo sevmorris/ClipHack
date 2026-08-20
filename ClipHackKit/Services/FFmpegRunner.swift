@@ -84,6 +84,11 @@ enum FFmpegRunner {
 
     private enum CaptureTarget { case stderr, stdout }
 
+    /// Watchdog ceiling for one ffmpeg invocation. ClipHack handles short clips,
+    /// so a flat ceiling is adequate; a per-file proportional timeout would only
+    /// matter for long-form input.
+    nonisolated static let processTimeoutSeconds: Int = 900
+
     private static func launch(
         exe: String,
         args: [String],
@@ -98,6 +103,17 @@ enum FFmpegRunner {
         process.arguments = args
         process.standardInput = FileHandle.nullDevice
 
+        // Set before any terminate() we issue ourselves, so the termination
+        // handler can tell a deliberate cancel from an ffmpeg crash: FFmpeg
+        // catches SIGTERM and exits normally with code 255, so terminationReason
+        // alone cannot distinguish them.
+        let cancelFlag = TimeoutFlag()
+
+        // Set only once process.run() has returned without throwing. Guards every
+        // terminate() call site — terminating a Process that was never launched
+        // raises NSInvalidArgumentException, which Swift cannot catch.
+        let launchFlag = TimeoutFlag()
+
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Int32, String), Error>) in
                 let pipe = Pipe()
@@ -110,7 +126,11 @@ enum FFmpegRunner {
                     process.standardError = FileHandle.nullDevice
                 }
 
-                final class DataBox: @unchecked Sendable { var value = Data() }
+                // nonisolated: the box is captured by the pipe-reader closure on a
+                // utility queue and by the termination handler, so its last release
+                // lands off-task — where an implicit MainActor deinit malloc-aborts
+                // in macOS 15's isolated-deinit runtime.
+                nonisolated final class DataBox: @unchecked Sendable { var value = Data() }
                 let box = DataBox()
                 let readGroup = DispatchGroup()
                 readGroup.enter()
@@ -119,14 +139,38 @@ enum FFmpegRunner {
                     readGroup.leave()
                 }
 
-                let timeoutItem = DispatchWorkItem { process.terminate() }
-                DispatchQueue.global().asyncAfter(deadline: .now() + 900, execute: timeoutItem)
+                let timeoutFlag = TimeoutFlag()
+                let timeoutItem = DispatchWorkItem {
+                    timeoutFlag.set()
+                    if launchFlag.didFire { process.terminate() }
+                }
+                DispatchQueue.global().asyncAfter(
+                    deadline: .now() + .seconds(processTimeoutSeconds),
+                    execute: timeoutItem
+                )
 
                 process.terminationHandler = { proc in
                     timeoutItem.cancel()
                     readGroup.wait()
-                    if proc.terminationReason == .uncaughtSignal {
+                    if timeoutFlag.didFire {
+                        continuation.resume(throwing: ProcessingError.ffmpegFailed(
+                            code: -1,
+                            message: "ffmpeg timed out after \(processTimeoutSeconds) seconds"
+                        ))
+                        return
+                    }
+                    if cancelFlag.didFire {
                         continuation.resume(throwing: CancellationError())
+                        return
+                    }
+                    // Not cancelled by us, so an unexpected signal is an ffmpeg
+                    // crash (SIGSEGV, SIGABRT, OOM SIGKILL). Reporting those as
+                    // CancellationError silently aborted the batch with no error.
+                    if proc.terminationReason == .uncaughtSignal {
+                        continuation.resume(throwing: ProcessingError.ffmpegFailed(
+                            code: proc.terminationStatus,
+                            message: "ffmpeg crashed (signal \(proc.terminationStatus))"
+                        ))
                         return
                     }
                     let msg = String(data: box.value, encoding: .utf8) ?? ""
@@ -135,7 +179,15 @@ enum FFmpegRunner {
 
                 do {
                     try process.run()
+                    launchFlag.set()
+                    // Closes the race where onCancel ran between its launchFlag
+                    // check and this set(): it saw the flag unset and skipped the
+                    // terminate, so we issue it here instead.
+                    if cancelFlag.didFire { process.terminate() }
                 } catch {
+                    // Without this the watchdog stays armed and fires terminate()
+                    // on a process that never launched.
+                    timeoutItem.cancel()
                     continuation.resume(throwing: ProcessingError.ffmpegFailed(
                         code: -1,
                         message: "Failed to launch: \(error.localizedDescription)"
@@ -143,7 +195,29 @@ enum FFmpegRunner {
                 }
             }
         } onCancel: {
-            process.terminate()
+            cancelFlag.set()
+            if launchFlag.didFire { process.terminate() }
         }
+    }
+}
+
+/// Lock-guarded one-way flag, safe to set and read across the dispatch queues
+/// that run the watchdog and the termination handler. `nonisolated` because
+/// those queues sit outside the MainActor default isolation, and because an
+/// implicit isolated deinit would abort when the last release happens off-task.
+private nonisolated final class TimeoutFlag: @unchecked Sendable {
+    nonisolated private let lock = NSLock()
+    nonisolated(unsafe) private var fired = false
+
+    nonisolated func set() {
+        lock.lock()
+        fired = true
+        lock.unlock()
+    }
+
+    nonisolated var didFire: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return fired
     }
 }
