@@ -2,6 +2,20 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.19.2] — 2026-08-20
+
+**Fixed**
+- **Two latent crashes in the FFmpeg runner.** Terminating a process that never launched raises an Objective-C exception Swift cannot catch, and two paths could do exactly that. The watchdog was armed before the process started and was never disarmed when a launch failed, so a missing or unlaunchable ffmpeg left a timer that fired at a dead handle fifteen minutes later. Cancelling a job before its process started did the same thing immediately. Both call sites are now guarded by a flag set only once the process is genuinely running.
+- **An ffmpeg crash no longer reports itself as a cancellation.** Every signal-terminated child was surfaced as `CancellationError`, so a real crash — a segfault, an out-of-memory kill — silently aborted the batch with no error shown anywhere. Crashes, timeouts and genuine user cancellations are now told apart. The distinction needs an explicit flag because FFmpeg catches SIGTERM and exits normally with code 255, so the termination reason alone cannot identify who killed the process.
+
+**Documentation**
+- **The limiter is described accurately.** 1.19.0 removed the 2× oversampling, which leaves `alimiter` running at the native sample rate — where it constrains *sample* peaks, not true peaks. Six places still promised true-peak limiting, and the theory document contradicted itself inside one section: "prevents any sample from exceeding the configured ceiling" in one paragraph, "uses `alimiter` for true peak control" two paragraphs later, directly under a heading explaining why those differ. Measured with the bundled ffmpeg on a quarter-sample-rate test tone: in at +0.41 dBTP, out at −0.14 dBTP against a −1.0 ceiling, because the limiter never engaged. No processing changed — ClipHack is a prep tool rather than a delivery step, and a fraction of a dB of overshoot on a clip headed into a mix costs nothing. Corrected in the README, the manual, the theory document, and the app's own Ceiling caption, tooltip and Help text.
+
+## [1.19.1] — 2026-08-19
+
+**Documentation**
+- Concurrency documentation updated to describe the `cores - 1` scaling introduced in 1.19.0. No code changed.
+
 ## [1.19.0] — 2026-08-19
 
 **Performance & Core Processing**
