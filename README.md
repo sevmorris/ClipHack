@@ -18,7 +18,7 @@ ClipHack is an internal tool. It prepares third-party audio clips (for example: 
 * **High pass filter:** The filter has three fixed cutoffs: 20 Hz (DC block), 40 Hz, or 80 Hz. The filter operates with all-pass phase rotation. This is always active.
 * **Dynamic leveling:** The tool uses `dynaudnorm` for bidirectional leveling. This makes the audio level of different speakers consistent. It uses mirror padding to stop boundary artifacts.
 * **Loudness normalization:** The tool does a two-pass EBU R128 normalization. You set the target level (for example, -18 LUFS).
-* **Peak control:** The tool does a true peak brick-wall limit. You set the maximum limit (from -6 dB to -1 dB).
+* **Peak control:** The tool applies a brick-wall limiter at the native sample rate, holding sample peaks at the ceiling you set (from -6 dB to -1 dB).
 * **Download from URL:** You can paste or drop a web link into the application. The tool downloads the audio into the file list. It uses the included yt-dlp software.
 
 ---
@@ -123,7 +123,7 @@ ClipHack operates this sequence in 24-bit WAV format:
 3. **High-pass filter and phase rotation:** It always applies these functions.
 4. **Dynamic leveling:** It can apply bidirectional compression (this is optional).
 5. **Loudness normalization:** It can apply linear gain (this is optional).
-6. **True peak limiting:** It always applies this function.
+6. **Peak limiting:** It always applies this function.
 
 ---
 

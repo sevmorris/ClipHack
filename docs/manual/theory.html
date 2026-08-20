@@ -445,10 +445,11 @@
 
       <h3>True peak vs. sample peak</h3>
       <p>Digital audio is stored as discrete samples. When you convert samples back to a continuous signal (D/A conversion), the reconstructed waveform can exceed the highest sample value — this is called an inter-sample peak or true peak. A sample peak limiter will show 0 dBFS on a meter, but the analog signal may clip.</p>
-      <p>ClipHack uses <code>alimiter</code> for true peak control. It operates at the native sample rate to constrain the signal before the final output.</p>
+      <p>ClipHack runs <code>alimiter</code> at the native sample rate, which constrains <em>sample</em> peaks — not true peaks. Catching inter-sample peaks means oversampling the signal first so they become real samples the limiter can see, and ClipHack does not do that. Material with strong inter-sample content can therefore leave the limiter slightly above the configured ceiling: a pathological test tone at a quarter of the sample rate measured −0.14 dBTP out of a −1.0 ceiling, because its sample peaks sat 3 dB below the threshold while its true peak was above zero.</p>
+      <p>That is a deliberate trade for a prep tool. The clip is going into a mix, not to air, and the delivery stage that follows enforces the strict true-peak ceiling. Choose the ceiling with that small overshoot in mind — it is a fraction of a dB on ordinary material, and nothing at all on anything without significant inter-sample content.</p>
 
       <h3>Ceiling selection</h3>
-      <p>−1 dBTP is the most common setting. Podcast platforms typically require true peak at −1 or −2 dBTP. For clips being dropped into a broadcast chain that will do its own normalization, −3 dBTP gives more headroom. Lower settings (−6 dBTP) are rarely needed and will begin to reduce average loudness noticeably.</p>
+      <p>−1 is the most common setting. Podcast platforms typically require true peak at −1 or −2 dBTP. For clips being dropped into a broadcast chain that will do its own normalization, −3 dBTP gives more headroom. Lower settings (−6 dBTP) are rarely needed and will begin to reduce average loudness noticeably.</p>
     </section>
 
     <!-- LUFS MEASUREMENT -->

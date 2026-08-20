@@ -477,14 +477,14 @@
         <li>
           <div>
             <strong>Brick-Wall Limiter</strong>
-            <span>True peak limiting at the configured ceiling. Always applied as the final stage. Output format: 24-bit WAV.</span>
+            <span>Holds sample peaks at the configured ceiling. Always applied as the final stage. Output format: 24-bit WAV.</span>
           </div>
         </li>
       </ol>
 
       <div class="callout">
         <strong>Why this order?</strong>
-        Channel extraction runs first so all subsequent stages operate on the final channel count. High-pass runs next so loudness measurement isn't influenced by sub-audible rumble or DC offset. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional true peak overshoot.
+        Channel extraction runs first so all subsequent stages operate on the final channel count. High-pass runs next so loudness measurement isn't influenced by sub-audible rumble or DC offset. Loudness normalization runs before the limiter so the limiter only needs to catch the occasional overshoot.
       </div>
     </section>
 
@@ -516,7 +516,7 @@
           <tr>
             <td>Ceiling</td>
             <td>−6 to −1 dB</td>
-            <td>Brick-wall limiter true-peak ceiling. Sets the maximum output level. −1 dBTP is standard for podcast insertion.</td>
+            <td>Brick-wall limiter ceiling, applied to sample peaks. Sets the maximum output level. −1 is the usual choice for clips headed into a podcast mix.</td>
           </tr>
           <tr>
             <td>High Pass</td>

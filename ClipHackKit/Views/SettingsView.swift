@@ -36,7 +36,7 @@ struct SettingsView: View {
 
                 Divider().padding(.vertical, 6)
 
-                row("Ceiling", caption: "True-peak ceiling for the brick-wall limiter") {
+                row("Ceiling", caption: "Sample-peak ceiling for the brick-wall limiter") {
                     HStack(spacing: 6) {
                         Slider(value: $viewModel.settings.limitDb, in: -6 ... -1, step: 1)
                         Text(String(format: "%.0f dB", viewModel.settings.limitDb))
@@ -44,7 +44,7 @@ struct SettingsView: View {
                             .frame(width: 42, alignment: .trailing)
                     }
                 }
-                .help("Brick-wall limiter true-peak ceiling. Sets the maximum output level.")
+                .help("Brick-wall limiter ceiling, applied to sample peaks. Sets the maximum output level.")
 
                 row("High Pass", caption: "DC Block removes offset only · 40 Hz subsonic rumble · 80 Hz voice standard.") {
                     Picker("", selection: $viewModel.settings.hpfCutoff) {
