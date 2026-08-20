@@ -18,6 +18,31 @@ up cold. Mirrors the same file in WaxOnWaxOff.
   completely unbuildable test suite. CI caught it and went red, and the release
   went out anyway.
 
+- **`release.sh` was considered for the shared-file treatment and declined.**
+  The three scripts look heavily duplicated, and pairwise they are — roughly 140
+  lines match between any two of DoublEnder, WaxOnWaxOff and ClipHack. Matched
+  in order across all three, though, only 37 lines agree, in seven fragments of
+  three to eight lines, several of which are section-header comments.
+
+  What looked shared turns out to be app-specific where it counts. Signing
+  differs in all three because the bundles differ: DoublEnder signs an app,
+  WaxOnWaxOff signs two binaries in Resources, ClipHack signs an embedded
+  framework plus yt-dlp under its own entitlements. Publication differs too —
+  one repo, a separate releases repo, a GCS permalink. What genuinely is common
+  amounts to three one-line echo helpers, the nine-line DMG version check, and
+  the dmgbuild invocation: about twenty lines of real logic.
+
+  Extracting that would put a cross-repo sourcing dependency into three
+  release-critical scripts to remove twenty lines, and a bug in the shared file
+  would break every release at once. The drift it would guard against is also
+  the mild kind: nobody expects these scripts to match, so divergence is
+  visible rather than silent. That is the opposite of the FFmpeg runner case,
+  where the copies were meant to be identical, quietly were not, and two latent
+  crashes lived in ClipHack for months.
+
+  Revisit if the scripts converge on their own — if signing ever becomes
+  uniform, or a fourth app arrives with the same shape.
+
 ## Performance
 
 - **Two-pass loudnorm may be replaceable with a single `ebur128` measurement.**
