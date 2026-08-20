@@ -93,7 +93,7 @@ gate_null() {  # label oldfile newfile
 # --- The app's pipeline, stage for stage (AudioProcessor.swift) ------------------
 # run_chain <bin> <input> <output> <leveling:0|1> <loudnorm:0|1>
 # Mirrors: mono extract -> highpass+allpass -> [dynaudnorm, mirror-padded]
-#          -> [loudnorm two-pass] -> 2x-oversampled limiter -> dithered downsample.
+#          -> [loudnorm two-pass] -> limiter.
 run_chain() {
     local bin="$1" in="$2" out="$3" lev="$4" ln="$5"
     local w="$TMP/w"; rm -rf "$w"; mkdir -p "$w"
@@ -145,7 +145,7 @@ run_chain() {
         esac
     fi
 
-    # 2x-oversampled true-peak limiter, then dithered downsample to target rate.
+    # true-peak limiter.
     "$bin" -y -nostdin -hide_banner -loglevel error -i "$cur" -af \
 "aresample=${OVERSR}:filter_size=512:cutoff=0.97:phase_shift=10,alimiter=limit=${LIMIT}:attack=5:release=50:level=disabled,aresample=${SR}:filter_size=512:cutoff=0.97:phase_shift=10:dither_method=triangular_hp" \
         -map_metadata 0 -c:a pcm_s24le -ar "$SR" -ac 1 -f wav "$out" || return 1

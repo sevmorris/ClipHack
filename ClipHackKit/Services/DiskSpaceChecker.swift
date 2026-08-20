@@ -3,7 +3,7 @@ import Foundation
 enum DiskSpaceChecker {
     private static let tempHeadroomBytes: Int64 = 200 * 1024 * 1024
     private static let outputHeadroomBytes: Int64 = 100 * 1024 * 1024
-    private static let tempMultiplier: Int64 = 5
+    private static let tempMultiplier: Int64 = 3
 
     static func clipHackBatchBlockedReason(
         inputURLs: [URL],

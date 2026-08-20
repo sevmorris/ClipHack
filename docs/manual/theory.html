@@ -333,7 +333,7 @@
           <div class="chain-arrow">→</div>
           <div class="chain-node optional">Loudnorm<br><span style="font-size:0.75rem;font-weight:400;">two-pass EBU R128</span></div>
           <div class="chain-arrow">→</div>
-          <div class="chain-node">Limiter<br><span style="font-size:0.75rem;font-weight:400;">2× oversample</span></div>
+          <div class="chain-node">Limiter</div>
         </div>
       </div>
       <p style="font-size:0.85rem;color:var(--muted);">Dashed border = optional stage. Resample and the brick-wall limiter always run. Each optional stage writes an intermediate 24-bit PCM WAV; the next stage reads that file fresh. Output: 24-bit WAV at the configured sample rate.</p>
@@ -445,7 +445,7 @@
 
       <h3>True peak vs. sample peak</h3>
       <p>Digital audio is stored as discrete samples. When you convert samples back to a continuous signal (D/A conversion), the reconstructed waveform can exceed the highest sample value — this is called an inter-sample peak or true peak. A sample peak limiter will show 0 dBFS on a meter, but the analog signal may clip.</p>
-      <p>ClipHack uses <code>alimiter</code> with 2× oversampling. Upsampling to 2× the sample rate reveals inter-sample peaks that aren't visible at the original rate. The limiter constrains the signal at the oversampled rate before downsampling back — so the output's true peak (not just sample peak) is bounded by the ceiling. Note that ITU-R BS.1770-4 requires 4× oversampling at 44.1/48 kHz to keep true peak measurement error below ±0.1 dB; 2× is a practical engineering compromise that catches the majority of inter-sample peaks and is sufficient for Zoom delivery, where the downstream Opus encoder is lossy regardless.</p>
+      <p>ClipHack uses <code>alimiter</code> for true peak control. It operates at the native sample rate to constrain the signal before the final output.</p>
 
       <h3>Ceiling selection</h3>
       <p>−1 dBTP is the most common setting. Podcast platforms typically require true peak at −1 or −2 dBTP. For clips being dropped into a broadcast chain that will do its own normalization, −3 dBTP gives more headroom. Lower settings (−6 dBTP) are rarely needed and will begin to reduce average loudness noticeably.</p>

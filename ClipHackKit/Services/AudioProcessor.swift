@@ -34,7 +34,7 @@ actor AudioProcessor {
 
         let tools = try await FFmpegManager.shared.ensureTools()
         let cores = ProcessInfo.processInfo.activeProcessorCount
-        let maxConcurrent = max(1, min(cores, 8))
+        let maxConcurrent = max(2, cores - 1)
 
         return try await withThrowingTaskGroup(of: JobOutcome.self) { group in
             var successes: [JobResult] = []
@@ -174,6 +174,7 @@ actor AudioProcessor {
             try Task.checkCancellation()
         }
 
+        var loudnormFilter: String? = nil
         if settings.loudnormEnabled {
             let target = settings.loudnormTarget
             let tp = settings.limitDb
@@ -187,32 +188,20 @@ actor AudioProcessor {
                 throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
             }
 
-            // Silent / near-silent inputs emit non-finite loudnorm measurements; skip pass 2.
             if FFmpegRunner.loudnormMeasurementsAreFinite(lnDict),
                let inputI = lnDict["input_i"],
                let inputTP = lnDict["input_tp"],
                let inputLRA = lnDict["input_lra"],
                let inputThresh = lnDict["input_thresh"],
                let targetOffset = lnDict["target_offset"] {
-                let normAf = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(inputI):measured_TP=\(inputTP):measured_LRA=\(inputLRA):measured_thresh=\(inputThresh):offset=\(targetOffset):linear=true"
-                let normURL = work.appendingPathComponent("\(stem)_norm.wav")
-                try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
-                    "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                    "-i", currentURL.path, "-af", normAf,
-                    "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", normURL.path
-                ])
-                currentURL = normURL
+                loudnormFilter = "loudnorm=I=\(target):TP=\(tp):LRA=20:measured_I=\(inputI):measured_TP=\(inputTP):measured_LRA=\(inputLRA):measured_thresh=\(inputThresh):offset=\(targetOffset):linear=true"
             }
         }
 
         try Task.checkCancellation()
 
-        let oversampleSr = sr * 2
-        let limiterAf = [
-            FFmpegFilters.aresample(to: oversampleSr),
-            "alimiter=limit=\(limitAmp):attack=5:release=50:level=disabled",
-            FFmpegFilters.aresampleWithDither(to: sr)
-        ].joined(separator: ",")
+        let limiterAf = "alimiter=limit=\(limitAmp):attack=5:release=50:level=disabled"
+        let step2Af = loudnormFilter.map { "\($0),\(limiterAf)" } ?? limiterAf
 
         if fm.fileExists(atPath: tmpURL.path) {
             try? fm.removeItem(at: tmpURL)
@@ -220,11 +209,10 @@ actor AudioProcessor {
 
         try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-            "-i", currentURL.path, "-af", limiterAf,
+            "-i", currentURL.path, "-af", step2Af,
             "-map_metadata", "0",
             "-c:a", "pcm_s24le", "-ar", "\(sr)", "-ac", "\(outputChannels)", "-f", "wav", tmpURL.path
         ])
-
         guard let attrs = try? fm.attributesOfItem(atPath: tmpURL.path),
               let size = attrs[.size] as? NSNumber,
               size.intValue > 0 else {

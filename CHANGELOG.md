@@ -2,6 +2,14 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.19.0] — 2026-08-19
+
+**Performance & Core Processing**
+- **Concurrency Scaling:** Batch jobs now scale up to `cores - 1` parallel jobs. The previous 8-core hard cap artificially limited throughput on larger Apple Silicon machines.
+- **Filter Graph Fusion:** When loudness normalization is enabled, the second pass (linear gain) and the true peak limiter are now combined into a single, fused FFmpeg filter graph. This eliminates an intermediate WAV file write and read, significantly speeding up the pipeline.
+- **Limiter Simplification:** ClipHack now uses a standard sample-rate peak limiter instead of a 2x oversampled limiter. Since ClipHack is an edit-prep tool and does not require delivery-grade true-peak compliance, dropping the oversampling saves significant processing time.
+- **Disk Space Preflight:** Reduced the temporary disk space requirements from 5x to 3x the input size to reflect the leaner processing pipeline.
+
 ## [1.18.0] — 2026-08-13
 
 - **Trash Originals** — a new setting, on by default: once a file's processed output is written, its source file moves to the Trash. Trash rather than delete, so a result you don't like stays recoverable from the Finder. The output is confirmed on disk and non-empty before anything is moved, and a file that fails to process always keeps its original. Sources are left alone — with a notice on the run summary — when the volume has no Trash. The setting is not part of presets, so switching preset never changes what happens to your files. Note that reusing a download link whose clip has been trashed fetches it again, since "already downloaded" detection looks for the clip's audio

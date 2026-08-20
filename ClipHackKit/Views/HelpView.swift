@@ -58,7 +58,7 @@ public struct HelpView: View {
                         "Channel extraction — pan stereo to mono (left or right channel).",
                         "High-pass filter + phase rotation — removes low-frequency rumble and DC offset; allpass filter corrects phase shift. Always applied.",
                         "Loudness Norm — two-pass EBU R128 loudness normalization to a target LUFS.",
-                        "Brick-wall limiting with 2× oversampled true peak control."
+                        "Brick-wall limiting with true peak control."
                     ])
                     text("Output format: 24-bit WAV")
                 }
