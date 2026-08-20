@@ -482,7 +482,7 @@
       <p>Intermediate files are written to a temporary directory that's cleaned up after processing. If processing fails, ClipHack attempts to clean up temp files but may leave them in <code>/tmp</code> if the process is interrupted.</p>
 
       <h3>Concurrency</h3>
-      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files scales with the system's CPU core count, up to a maximum of 8 files at a time.</p>
+      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files scales with the system's CPU core count (using all available cores minus one).</p>
     </section>
 
   </main>
