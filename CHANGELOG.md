@@ -2,6 +2,15 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.19.3] — 2026-08-20
+
+**Interface**
+- **A styled installer window.** The disk image now opens to a laid-out window with the app, an arrow, and the Applications folder, instead of a bare list of two icons.
+
+**Developer**
+- The ffmpeg process machinery — watchdog, capture, cancellation, and telling a crash from a cancel — is now one file shared verbatim with the sibling app repos rather than a copy in each. That is the code whose drift produced the two crashes fixed in 1.19.2: the hardening had existed in WaxOnWaxOff for months and never reached here. No behavior change; what a timeout should be and what the output means stay in ClipHack's own runner.
+- The DMG tooling is likewise byte-identical across repos, and `release.sh` now refuses to publish when a shared file has diverged from its siblings.
+
 ## [1.19.2] — 2026-08-20
 
 **Fixed**
