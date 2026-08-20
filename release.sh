@@ -191,22 +191,29 @@ hdiutil detach "$MOUNT" -quiet
 ok "DMG contains $DMG_VERSION"
 
 # ── Update README download link ──────────────────────────────────────────────
-step "Updating README to ${TAG}"
-sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$PROJECT_DIR/README.md"
+step "Updating docs to ${TAG}"
+# The manual is included deliberately. It was left out until 1.19.4 and drifted
+# to v1.12.0 — seven minor versions — with a download button pointing at
+# sevmorris/ClipHack, which has never hosted the DMGs, so it 404'd. Anything
+# that names a version or a download URL belongs in this list.
+MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
+sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$PROJECT_DIR/README.md" "$MANUAL_IDX"
+sed -i '' "s|>Download v[0-9][0-9.]*<|>Download ${TAG}<|g" "$MANUAL_IDX"
+sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
 sed -i '' "s|<strong>Version:</strong> [0-9][0-9.]*|<strong>Version:</strong> ${VERSION}|g" "$PROJECT_DIR/README.md"
 sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" "$PROJECT_DIR/README.md"
 
-if grep -E "ClipHack-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$PROJECT_DIR/README.md" \
+if grep -E "ClipHack-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$PROJECT_DIR/README.md" "$MANUAL_IDX" \
         | grep -v "${TAG}\.dmg" >/dev/null; then
-    fail "Stale version references remain in README after rewrite — check sed patterns"
+    fail "Stale version references remain in README or manual after rewrite — check sed patterns"
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
     # Pick up the build-number bump from the pbxproj so it actually lands in the
     # repo (otherwise the build bump stays uncommitted across runs).
-    git add "$PROJECT/project.pbxproj" "$PROJECT_DIR/README.md"
+    git add "$PROJECT/project.pbxproj" "$PROJECT_DIR/README.md" "$MANUAL_IDX"
     git commit -m "docs: update download link to ${TAG}"
-    ok "README points to ${TAG}"
+    ok "README and manual point to ${TAG}"
 else
     ok "README already up to date"
 fi

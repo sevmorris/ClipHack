@@ -56,6 +56,17 @@ All notable changes to ClipHack are documented here. Version numbers match GitHu
 - **Folder drops** — dropping a folder adds every audio file inside it, at any depth, so one clip folder or a whole show's worth can be added at once. Dropping the same file twice no longer doubles the row
 - **Cross-session duplicate downloads** — downloading a link you already used adds the clip you have instead of fetching a second copy under a `-2` name. ClipHack reads the notes files in the destination, so it works in a new session days later; deleting a clip's audio lets the link download again
 
+## [1.16.3] — 2026-08-04
+
+**Developer**
+- Swift 6 concurrency warnings cleared in `KitBundle` and `YtDlpService`. The project still builds in Swift 5 language mode; these were the diagnostics that become hard errors under Swift 6.
+- The README was rewritten to the ASD-STE100 simplified-English standard.
+
+## [1.16.2] — 2026-07-29
+
+**Interface**
+- The Notes field in the download popover grows with its content, from four lines up to twelve, instead of staying fixed at four.
+
 ## [1.16.1] — 2026-07-20
 
 - Fixed file-browser rows sometimes needing repeated clicks to select (a double-click gesture on each row was intermittently swallowing single clicks)
@@ -91,6 +102,12 @@ All notable changes to ClipHack are documented here. Version numbers match GitHu
 - **Rename** any file-list row (right-click → Rename…, or double-click) — renames on disk; stem only, extension fixed. Busy rows (analyzing/processing) refuse rename; name collisions are rejected, not auto-suffixed
 - Duplicate-URL downloads select the already-added row instead of re-downloading
 - Fixed a macOS 15 abort when view models deallocate (back-deployed isolated-deinit runtime bug; opted affected deinits out of MainActor isolation)
+
+## [1.13.0] — 2026-06-11
+
+**Structural**
+- **Releases moved to a separate public repository.** `release.sh` now distinguishes a private source repo, which holds the tags and the code, from a public `ClipHack-releases` repo, which holds the DMG artifacts. `UpdateChecker` queries the public repo, so the in-app updater keeps working once the source repo is private.
+- The Pages publication step was dropped along with the hosted manual site.
 
 ## [1.12.0] — 2026-05-31
 

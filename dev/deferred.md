@@ -67,12 +67,29 @@ up cold. Mirrors the same file in WaxOnWaxOff.
   duration through every call site, so it was left alone — but a long input would
   be killed mid-render with a timeout rather than finishing.
 
-- **`FFmpegRunner`, `release.sh` and `tools/dmg/` are copied between repos, not
-  shared.** DoublEnder, WaxOnWaxOff and ClipHack each carry their own copy, and
-  they drift. This is not theoretical: WaxOnWaxOff's `FFmpegRunner` was hardened
-  by several audits that never propagated here, leaving ClipHack with two latent
-  crashes — terminating a never-launched process from an un-disarmed watchdog and
-  from an unguarded cancel path — plus every ffmpeg crash being reported as a
-  user cancellation. Fixed here in 1.19.2, but nothing prevents the next
-  divergence. A shared package would be the real fix; failing that, a periodic
-  three-way diff of the shared files is the cheap version.
+- **`FFmpegRunner`, `release.sh` and `tools/dmg/` were copied between repos, not
+  shared** — mostly resolved. DoublEnder, WaxOnWaxOff and ClipHack each carried
+  their own copy, and they drifted. That was not theoretical: WaxOnWaxOff's
+  `FFmpegRunner` was hardened by several audits that never propagated here,
+  leaving ClipHack with two latent crashes — terminating a never-launched process
+  from an un-disarmed watchdog and from an unguarded cancel path — plus every
+  ffmpeg crash being reported as a user cancellation. Fixed in 1.19.2.
+
+  What changed since: the launch machinery is now `FFmpegProcess.swift`,
+  byte-identical here and in WaxOnWaxOff, and `tools/dmg/` is byte-identical
+  across all four app repos (FilmStrip joined). `scripts/check-shared.sh`
+  compares every file carrying the shared marker against the sibling checkouts
+  and fails this repo's release preflight on a mismatch, so the next divergence
+  stops a release instead of going unnoticed. Registration is by marker rather
+  than manifest, so adding a file to the set is a header comment.
+
+  A shared package was considered and rejected: these repos are deliberately
+  independent, there is no in-tree home for one, and an SPM dependency would put
+  a version bump in three places behind every fix. `release.sh` was measured and
+  deliberately left duplicated — see the entry under *Release process*.
+
+  Still open: policy and parsing stay per-repo by design, so `FFmpegRunner`
+  itself is not shared, only the process machinery underneath it. And
+  `scripts/build-ffmpeg.sh` cannot join the set — each copy bakes its own build
+  directory into the binary it produces, which is what makes those builds
+  reproducible.
