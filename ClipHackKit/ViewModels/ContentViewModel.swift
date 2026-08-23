@@ -872,6 +872,30 @@ final class ContentViewModel {
     /// Window title: the session, or the app name before one is chosen.
     var sessionTitle: String { currentSession?.title ?? "ClipHack" }
 
+    /// Shown under the window title — which show the open session belongs to.
+    /// Empty when no session is open, which hides the subtitle entirely.
+    var sessionSubtitle: String {
+        guard currentSession != nil, let root = sessionRoot else { return "" }
+        return root.lastPathComponent
+    }
+
+    /// Picks up a setup that predates sessions: downloads still going to the
+    /// default folder while the *output* folder already points at an episode's
+    /// clips folder. That was the shape before a session set both, and without
+    /// this an upgrade shows no session — and so an empty clip list and a bare
+    /// title bar — until one is chosen by hand, even though the folder was
+    /// chosen long ago.
+    ///
+    /// Deliberately narrow: only a folder actually named `clips` is treated as
+    /// an episode, so an unrelated output folder is never adopted.
+    func adoptSessionFromOutputFolderIfNeeded() {
+        guard settings.downloadDirectoryPath?.isEmpty ?? true,
+              let output = settings.outputDirectoryPath, !output.isEmpty else { return }
+        let url = URL(fileURLWithPath: output, isDirectory: true)
+        guard url.lastPathComponent == ClipSessionStore.clipsSubfolder else { return }
+        openSession(ClipSessionStore.session(forClipsFolder: url))
+    }
+
     var sessionRoot: URL? {
         guard let path = settings.sessionRootPath, !path.isEmpty else { return nil }
         return URL(fileURLWithPath: path, isDirectory: true)
@@ -940,9 +964,21 @@ final class ContentViewModel {
     @discardableResult
     func chooseSessionRoot() -> Bool {
         guard let path = sessionRootPicker() else { return false }
-        settings.sessionRootPath = path
+        // Absorb the easy mistake of picking the episode instead of the show.
+        settings.sessionRootPath = ClipSessionStore.normalizedRoot(
+            URL(fileURLWithPath: path, isDirectory: true)
+        ).path
         loadSessions()
         return true
+    }
+
+    /// Repairs a stored show root that is really an episode folder, so a wrong
+    /// pick made once does not keep listing `ads` and `recordings` as sessions.
+    func normalizeSessionRootIfNeeded() {
+        guard let root = sessionRoot else { return }
+        let normalized = ClipSessionStore.normalizedRoot(root)
+        guard normalized.path != root.path else { return }
+        settings.sessionRootPath = normalized.path
     }
 
     /// Adopts a show root the first time a session folder is chosen, so the

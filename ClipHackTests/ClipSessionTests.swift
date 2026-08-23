@@ -155,4 +155,68 @@ final class ClipSessionTests: XCTestCase {
         try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
         XCTAssertEqual(ClipSessionStore.sessions(inRoot: root).map(\.title), ["HT_0380 2026-08-24"])
     }
+    // Production builds these URLs with isDirectory: true, which appends a
+    // trailing slash. The earlier tests used the no-flag form, so this shape
+    // was never exercised.
+    func testSessionIsReadBackFromADirectoryURL() {
+        let clips = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24/clips",
+                        isDirectory: true)
+        let session = ClipSessionStore.session(forClipsFolder: clips)
+        XCTAssertEqual(session.title, "HT_0379 2026-08-24")
+    }
+
+    func testShowRootIsInferredFromADirectoryURL() {
+        let clips = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24/clips",
+                        isDirectory: true)
+        XCTAssertEqual(
+            ClipSessionStore.inferredRoot(forClipsFolder: clips).path,
+            "/Users/sev/Desktop/Hacks on Tap"
+        )
+    }
+    // MARK: - Repairing a mis-picked show root
+
+    func testAnEpisodeFolderPickedAsTheRootResolvesToTheShow() throws {
+        let episode = try makeEpisode("HT_0379 2026-08-24")
+        XCTAssertEqual(
+            ClipSessionStore.normalizedRoot(episode).path,
+            root.path,
+            "picking the episode should resolve to the show above it"
+        )
+    }
+
+    func testAClipsFolderPickedAsTheRootGoesUpTwo() throws {
+        let episode = try makeEpisode("HT_0379 2026-08-24")
+        let clips = episode.appendingPathComponent("clips", isDirectory: true)
+        XCTAssertEqual(ClipSessionStore.normalizedRoot(clips).path, root.path)
+    }
+
+    func testAFolderHoldingClipsIsTreatedAsAnEpisodeEvenWithoutTheNaming() throws {
+        let odd = root.appendingPathComponent("Untitled Episode", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: odd.appendingPathComponent("clips", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        XCTAssertEqual(ClipSessionStore.normalizedRoot(odd).path, root.path)
+    }
+
+    func testARealShowRootIsLeftAlone() throws {
+        try makeEpisode("HT_0378 2026-08-10")
+        try makeEpisode("HT_0379 2026-08-24")
+        XCTAssertEqual(ClipSessionStore.normalizedRoot(root).path, root.path)
+    }
+    func testEpisodesSortAboveTheShowFoldersOtherContents() throws {
+        // A real show folder holds templates and shared assets alongside
+        // episodes; a plain name sort buried the episodes under them.
+        try makeEpisode("TEMPLATES")
+        try makeEpisode("Audio assets")
+        try makeEpisode("HT_0378 2026-08-18")
+        try makeEpisode("HT_0379 2026-08-24")
+        try makeEpisode("Incoming Audio 1")
+
+        XCTAssertEqual(
+            ClipSessionStore.sessions(inRoot: root).map(\.title),
+            ["HT_0379 2026-08-24", "HT_0378 2026-08-18",
+             "Audio assets", "Incoming Audio 1", "TEMPLATES"]
+        )
+    }
 }

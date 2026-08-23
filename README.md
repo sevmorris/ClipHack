@@ -72,7 +72,9 @@ The session menu in the toolbar lists every episode in the show folder, newest f
 
 * **Switch session:** Pick an episode from the menu. The tool points the download folder, the output folder, and the clip list at that episode's `clips` folder in one step.
 * **New Session:** The tool reads the highest episode number in the show folder and suggests the next one with today's date, for example `HT_0380 2026-08-31`. You can change the name. The tool then makes `<episode>/clips` and switches to it.
-* **Choose Show Folder:** Sets the folder that holds your episode folders. The tool sets this automatically the first time you pick a session folder. It uses the folder above the episode.
+* **Choose Show Folder:** Sets the folder that holds your episode folders. The tool sets this automatically the first time you pick a session folder. It uses the folder above the episode. If you pick an episode folder by mistake, the tool uses the folder above it.
+
+The show folder usually holds other folders too, for example templates and shared audio. The tool puts the episodes first in the menu, with the highest number at the top. The other folders follow.
 
 The tool does not save a session record. It reads the session from the folder path. Thus you can rename or move a folder in the Finder and nothing goes out of date. An episode folder that you make by hand appears in the menu on its own.
 

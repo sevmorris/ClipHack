@@ -141,4 +141,74 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(vm.sessionTitle, "HT_0380 2026-08-24",
                        "switching preset must not drop you out of your session")
     }
+    // MARK: - Picking up a pre-session setup
+
+    func testASessionShapedOutputFolderIsAdoptedOnLaunch() throws {
+        let session = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
+        let vm = makeViewModel()
+        // The shape before sessions existed: output pointed at the episode,
+        // downloads still went to the default folder.
+        vm.settings.downloadDirectoryPath = nil
+        vm.settings.outputDirectoryPath = session.clipsFolder.path
+
+        vm.adoptSessionFromOutputFolderIfNeeded()
+
+        XCTAssertEqual(vm.sessionTitle, "HT_0379 2026-08-24")
+        XCTAssertEqual(vm.settings.downloadDirectoryPath, session.clipsFolder.path)
+    }
+
+    func testAnAlreadyChosenDownloadFolderIsNotOverridden() throws {
+        let a = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
+        let b = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
+        let vm = makeViewModel()
+        vm.settings.downloadDirectoryPath = b.clipsFolder.path
+        vm.settings.outputDirectoryPath = a.clipsFolder.path
+
+        vm.adoptSessionFromOutputFolderIfNeeded()
+
+        XCTAssertEqual(vm.settings.downloadDirectoryPath, b.clipsFolder.path,
+                       "an explicit download folder wins over the guess")
+    }
+
+    func testAnUnrelatedOutputFolderIsNotAdopted() {
+        let vm = makeViewModel()
+        vm.settings.downloadDirectoryPath = nil
+        vm.settings.outputDirectoryPath = root.appendingPathComponent("Renders").path
+
+        vm.adoptSessionFromOutputFolderIfNeeded()
+
+        XCTAssertNil(vm.settings.downloadDirectoryPath)
+        XCTAssertEqual(vm.sessionTitle, "ClipHack", "only a folder named clips counts as an episode")
+    }
+
+    func testSubtitleNamesTheShowAndIsEmptyWithoutASession() throws {
+        let vm = makeViewModel()
+        XCTAssertEqual(vm.sessionSubtitle, "", "no session, no subtitle")
+
+        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
+        vm.openSession(session)
+        XCTAssertEqual(vm.sessionSubtitle, root.lastPathComponent)
+    }
+    func testAMisPickedShowRootIsRepairedOnLaunch() throws {
+        let session = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
+        let vm = makeViewModel()
+        // What "Choose Show Folder…" produces when the episode is picked.
+        vm.settings.sessionRootPath = session.folder.path
+
+        vm.normalizeSessionRootIfNeeded()
+
+        XCTAssertEqual(vm.settings.sessionRootPath, root.path)
+        vm.loadSessions()
+        XCTAssertEqual(vm.savedSessions.map(\.title), ["HT_0379 2026-08-24"],
+                       "and the menu lists episodes again, not ads/clips/recordings")
+    }
+
+    func testChoosingAnEpisodeAsTheShowFolderResolvesUpward() throws {
+        let session = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
+        let vm = makeViewModel()
+        vm.sessionRootPicker = { session.folder.path }
+
+        XCTAssertTrue(vm.chooseSessionRoot())
+        XCTAssertEqual(vm.settings.sessionRootPath, root.path)
+    }
 }

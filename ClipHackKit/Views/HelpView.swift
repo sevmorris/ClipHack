@@ -48,7 +48,8 @@ public struct HelpView: View {
                     text("One episode is one folder, and the folder's name is the session title — HT_0380 2026-08-24. The session menu in the toolbar lists every episode in your show folder, newest first, and the current one is also the window title.")
                     definition("Switching session", "Points the download folder, the output folder and the clip list at that episode's clips folder in one step — so an episode's source audio, its notes files and its finished WAVs all stay together.")
                     definition("New Session", "Reads the highest episode number already in the show folder and suggests the next one with today's date. Edit the name if you like; ClipHack then creates <episode>/clips and switches to it.")
-                    definition("Choose Show Folder", "The folder your episode folders live in. Set automatically the first time you pick a session folder — it is simply the folder above the episode — so there is normally nothing to configure.")
+                    definition("Choose Show Folder", "The folder your episode folders live in. Set automatically the first time you pick a session folder — it is simply the folder above the episode — so there is normally nothing to configure. Pick an episode folder by mistake and ClipHack uses the folder above it instead.")
+                    text("A show folder usually holds more than episodes — templates, shared assets, incoming audio. Numbered episodes come first in the menu, highest number at the top, and everything else follows below them.")
                     text("Nothing about a session is stored: it is read back from the folder path. Rename or move a folder in the Finder and nothing goes stale, and an episode folder you create by hand shows up in the menu on its own.")
                 }
                 section("Clip List") {

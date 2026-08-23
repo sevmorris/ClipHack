@@ -33,15 +33,29 @@ enum ClipSessionStore {
 
     // MARK: - Reading
 
-    /// Every episode folder under `root`, newest first.
+    /// Every folder under `root` as a session, episodes first and newest first.
     ///
-    /// Sorted by name descending with a natural-order compare, which puts
-    /// `HT_0380` above `HT_0379` whether or not the numbers are zero-padded.
+    /// A show folder holds more than episodes — templates, shared assets,
+    /// incoming audio — and a plain name sort buries the episodes under them.
+    /// Numbered episodes are ordered by their number, highest first, and
+    /// everything else follows in reading order so it stays reachable without
+    /// being in the way.
     static func sessions(inRoot root: URL) -> [ClipSession] {
         directories(in: root)
             .map { ClipSession(folder: $0, clipsFolder: clipsFolder(for: $0)) }
-            .sorted {
-                $0.title.localizedStandardCompare($1.title) == .orderedDescending
+            .sorted { lhs, rhs in
+                let left = episodeDigits(lhs.title).flatMap(Int.init)
+                let right = episodeDigits(rhs.title).flatMap(Int.init)
+                switch (left, right) {
+                case let (l?, r?):
+                    return l > r
+                case (.some, nil):
+                    return true
+                case (nil, .some):
+                    return false
+                case (nil, nil):
+                    return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+                }
             }
     }
 
@@ -72,6 +86,27 @@ enum ClipSessionStore {
     /// Used to adopt a root the first time without asking for one.
     static func inferredRoot(forClipsFolder folder: URL) -> URL {
         session(forClipsFolder: folder).folder.deletingLastPathComponent()
+    }
+
+    /// Normalizes a folder chosen as the show root.
+    ///
+    /// Picking the *episode* instead of the show above it is an easy mistake —
+    /// the session menu then lists `ads`, `clips` and `recordings` as if each
+    /// were an episode. A chosen folder is treated as an episode when it is
+    /// named like one, or when it holds a `clips` folder; the show is then its
+    /// parent. Picking the `clips` folder itself goes up two.
+    static func normalizedRoot(_ chosen: URL) -> URL {
+        let name = chosen.lastPathComponent
+        if name == clipsSubfolder {
+            return chosen.deletingLastPathComponent().deletingLastPathComponent()
+        }
+        if episodeDigits(name) != nil {
+            return chosen.deletingLastPathComponent()
+        }
+        if isDirectory(chosen.appendingPathComponent(clipsSubfolder, isDirectory: true)) {
+            return chosen.deletingLastPathComponent()
+        }
+        return chosen
     }
 
     // MARK: - Naming

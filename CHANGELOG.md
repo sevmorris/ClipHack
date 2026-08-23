@@ -2,6 +2,16 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.21.1] — 2026-08-22
+
+**Added**
+- **The window title carries the session**, with the show folder as its subtitle — so which episode you are in is readable without opening a menu.
+- **An existing setup is picked up on launch.** Before sessions, only the *output* folder pointed at an episode while downloads went to the shared default. That shape is now recognised and adopted, so upgrading lands you in the right session instead of showing a bare title bar and an empty clip list until one is chosen by hand. Deliberately narrow: only a folder actually named `clips` counts, so an unrelated output folder is never adopted.
+
+**Fixed**
+- **Choosing the episode as the show folder now resolves upward.** "Choose Show Folder…" took whatever was picked, so selecting `HT_0379 2026-08-24` rather than the show above it made the session menu list `ads`, `clips` and `recordings` as if each were an episode. A folder named like an episode, or holding a `clips` folder, is now understood as one and its parent becomes the show; a root already stored wrong is repaired on launch.
+- **Episodes sort above everything else in the session menu.** A show folder also holds templates, shared assets and incoming audio, and sorting purely by name buried the episodes beneath them — `TEMPLATES` sat above `HT_0379`. Numbered episodes now come first, highest number first, with the rest following in reading order.
+
 ## [1.21.0] — 2026-08-22
 
 **Added**

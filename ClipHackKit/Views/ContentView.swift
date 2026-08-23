@@ -58,7 +58,12 @@ public struct ContentView: View {
             Text(viewModel.alertMessage ?? "")
         }
         .navigationTitle(viewModel.sessionTitle)
-        .onAppear { viewModel.loadSessions() }
+        .navigationSubtitle(viewModel.sessionSubtitle)
+        .onAppear {
+            viewModel.adoptSessionFromOutputFolderIfNeeded()
+            viewModel.normalizeSessionRootIfNeeded()
+            viewModel.loadSessions()
+        }
         .alert("New Session", isPresented: $showNewSession) {
             TextField("Session name", text: $newSessionTitle)
             Button("Create") { viewModel.createSession(title: newSessionTitle) }
