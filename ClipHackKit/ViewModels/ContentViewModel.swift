@@ -31,11 +31,11 @@ final class ContentViewModel {
 
     init() {
         self.settings = ClipHackSettings.load()
-        self.clipNotesEnabled = UserDefaults.standard.bool(forKey: Self.clipNotesKey)
+        self.clipNotesEnabled = ClipHackSettings.store.bool(forKey: Self.clipNotesKey)
         // Defaults to on, so `bool(forKey:)`'s false-when-absent is wrong here.
         self.trashOriginalsEnabled =
-            UserDefaults.standard.object(forKey: Self.trashOriginalsKey) as? Bool ?? true
-        let storedHeight = UserDefaults.standard.double(forKey: Self.notesFieldHeightKey)
+            ClipHackSettings.store.object(forKey: Self.trashOriginalsKey) as? Bool ?? true
+        let storedHeight = ClipHackSettings.store.double(forKey: Self.notesFieldHeightKey)
         // 0 means "never set" — UserDefaults has no distinct absent value for Double.
         self.notesFieldHeight = storedHeight == 0
             ? Self.defaultNotesFieldHeight
@@ -71,9 +71,16 @@ final class ContentViewModel {
     // MARK: - Presets
 
     func applyPreset(_ preset: ClipHackPreset) {
+        // A preset carries a whole ClipHackSettings, so applying one would
+        // otherwise move every folder the user has chosen. Where files live is
+        // not part of what a preset means — only how audio is processed is.
         let savedOutputDir = settings.outputDirectoryPath
+        let savedDownloadDir = settings.downloadDirectoryPath
+        let savedSessionRoot = settings.sessionRootPath
         settings = preset.settings
         settings.outputDirectoryPath = savedOutputDir
+        settings.downloadDirectoryPath = savedDownloadDir
+        settings.sessionRootPath = savedSessionRoot
         presetStore.selectedPresetID = preset.id
     }
 
@@ -328,7 +335,7 @@ final class ContentViewModel {
     /// "Save clip notes": write a notes sidecar into each download's own clip
     /// folder. Persisted across launches.
     var clipNotesEnabled: Bool {
-        didSet { UserDefaults.standard.set(clipNotesEnabled, forKey: Self.clipNotesKey) }
+        didSet { ClipHackSettings.store.set(clipNotesEnabled, forKey: Self.clipNotesKey) }
     }
     /// Key predates the per-clip notes file (it gated the daily clip list this
     /// replaced) — kept as-is so the preference survives the upgrade.
@@ -339,7 +346,7 @@ final class ContentViewModel {
     /// presets store and reapply, and switching preset must never quietly start
     /// deleting files. Persisted across launches.
     var trashOriginalsEnabled: Bool {
-        didSet { UserDefaults.standard.set(trashOriginalsEnabled, forKey: Self.trashOriginalsKey) }
+        didSet { ClipHackSettings.store.set(trashOriginalsEnabled, forKey: Self.trashOriginalsKey) }
     }
     private static let trashOriginalsKey = "trashOriginalsAfterProcessing"
 
@@ -361,7 +368,7 @@ final class ContentViewModel {
             let clamped = Self.clampedNotesFieldHeight(notesFieldHeight)
             // Assigning inside didSet doesn't re-enter it, so this settles here.
             if clamped != notesFieldHeight { notesFieldHeight = clamped }
-            UserDefaults.standard.set(notesFieldHeight, forKey: Self.notesFieldHeightKey)
+            ClipHackSettings.store.set(notesFieldHeight, forKey: Self.notesFieldHeightKey)
         }
     }
     var isDownloadPopoverPresented = false
@@ -533,7 +540,13 @@ final class ContentViewModel {
     /// Folder name shown in the download popover's Destination row.
     var downloadDirectoryDisplayName: String {
         guard let path = settings.downloadDirectoryPath, !path.isEmpty else { return "Music/ClipHack" }
-        return URL(fileURLWithPath: path).lastPathComponent
+        let url = URL(fileURLWithPath: path)
+        // Inside a session the leaf is always "clips", which names nothing —
+        // show the episode that folder belongs to instead.
+        if url.lastPathComponent == ClipSessionStore.clipsSubfolder {
+            return url.deletingLastPathComponent().lastPathComponent
+        }
+        return url.lastPathComponent
     }
 
     /// Full destination path, for the Destination row's tooltip.
@@ -560,6 +573,8 @@ final class ContentViewModel {
     func chooseDownloadDirectory() -> Bool {
         guard let path = downloadDirectoryPicker() else { return false }
         settings.downloadDirectoryPath = path
+        adoptSessionRootIfNeeded()
+        loadSessions()
         return true
     }
 
@@ -818,6 +833,127 @@ final class ContentViewModel {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         return text.components(separatedBy: "\n").count
+    }
+
+    // MARK: - Sessions
+
+    /// Episode folders under the show root, newest first.
+    var savedSessions: [ClipSession] = []
+
+    /// Injectable so session naming is testable without the wall clock.
+    var now: @Sendable () -> Date = { Date() }
+
+    /// Picker for the show root, injectable like the download one.
+    var sessionRootPicker: () -> String? = {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.title = "Choose Show Folder"
+        panel.message = "Pick the folder your episode folders live in."
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return url.path
+    }
+
+    /// The session the app is pointed at, read back from the download folder
+    /// rather than stored — the folder is the session, so there is no second
+    /// copy of that fact to fall out of date.
+    ///
+    /// nil while downloads go to the default location, which is not an episode
+    /// of anything.
+    var currentSession: ClipSession? {
+        guard let path = settings.downloadDirectoryPath, !path.isEmpty else { return nil }
+        return ClipSessionStore.session(
+            forClipsFolder: URL(fileURLWithPath: path, isDirectory: true)
+        )
+    }
+
+    /// Window title: the session, or the app name before one is chosen.
+    var sessionTitle: String { currentSession?.title ?? "ClipHack" }
+
+    var sessionRoot: URL? {
+        guard let path = settings.sessionRootPath, !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    var sessionRootDisplayName: String {
+        sessionRoot?.lastPathComponent ?? "No show folder"
+    }
+
+    func loadSessions() {
+        guard let root = sessionRoot else {
+            savedSessions = []
+            return
+        }
+        savedSessions = ClipSessionStore.sessions(inRoot: root)
+    }
+
+    /// Points downloads, processed output, and the clip list at `session`.
+    ///
+    /// Both folders, deliberately. An episode's source audio, its notes
+    /// sidecars and its finished WAVs belong in one place: that is what makes
+    /// the clip list scoped to a single episode instead of to a scratch folder
+    /// shared by all of them, and what leaves an old episode still browsable
+    /// months later. Output lands flat in the folder while sources sit in their
+    /// own per-clip subfolders, so the folder Logic imports from stays legible.
+    func openSession(_ session: ClipSession) {
+        let path = session.clipsFolder.path
+        settings.downloadDirectoryPath = path
+        settings.outputDirectoryPath = path
+        adoptSessionRootIfNeeded()
+        loadClipList()
+        loadSessions()
+    }
+
+    /// The title to offer for a new session: next episode number, today's date.
+    var suggestedSessionTitle: String {
+        guard let root = sessionRoot else {
+            return "\(ClipSessionStore.defaultPrefix)_0001 \(ClipSessionStore.dateString(now()))"
+        }
+        return ClipSessionStore.nextTitle(inRoot: root, date: now())
+    }
+
+    /// Creates `<root>/<title>/clips` and switches to it. Returns false when
+    /// there is no root to create in, or the folder can't be made.
+    @discardableResult
+    func createSession(title: String) -> Bool {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard let root = sessionRoot else {
+            alertTitle = "Choose a Show Folder"
+            alertMessage = "Pick the folder your episode folders live in before creating a session."
+            return false
+        }
+        do {
+            let session = try ClipSessionStore.create(title: trimmed, inRoot: root)
+            openSession(session)
+            return true
+        } catch {
+            alertTitle = "Error"
+            alertMessage = "Couldn't create \"\(trimmed)\": \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Presents the show-folder picker and persists the choice.
+    @discardableResult
+    func chooseSessionRoot() -> Bool {
+        guard let path = sessionRootPicker() else { return false }
+        settings.sessionRootPath = path
+        loadSessions()
+        return true
+    }
+
+    /// Adopts a show root the first time a session folder is chosen, so the
+    /// session list works without a separate setup step: the root is simply
+    /// the episode folder's parent.
+    private func adoptSessionRootIfNeeded() {
+        guard settings.sessionRootPath?.isEmpty ?? true,
+              let path = settings.downloadDirectoryPath, !path.isEmpty else { return }
+        settings.sessionRootPath = ClipSessionStore.inferredRoot(
+            forClipsFolder: URL(fileURLWithPath: path, isDirectory: true)
+        ).path
     }
 
     // MARK: - Processing

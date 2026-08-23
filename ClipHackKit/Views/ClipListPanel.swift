@@ -9,9 +9,9 @@ import SwiftUI
 /// truth — and the list survives quitting, a week of prep, and the audio being
 /// processed and trashed, because the sidecars outlive the files they describe.
 ///
-/// Scope comes from the download folder. Point ClipHack at an episode's folder
-/// and this is that episode's list; there is no separate notion of a show to
-/// keep in sync.
+/// Scope comes from the download folder, which the session picker points at an
+/// episode's `clips` folder — so this is always the current session's list, and
+/// a session is a folder rather than a record that could fall out of sync.
 struct ClipListPanel: View {
     @Bindable var viewModel: ContentViewModel
 
@@ -54,7 +54,7 @@ struct ClipListPanel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Clip List")
                     .font(.headline)
-                Text(viewModel.clipListDirectory.lastPathComponent)
+                Text(viewModel.sessionTitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .help(viewModel.clipListDirectory.path)
@@ -135,7 +135,7 @@ struct ClipListPanel: View {
                 .foregroundStyle(.tertiary)
             Text("No clip notes in this folder")
                 .font(.headline)
-            Text("Clips get a notes file when \"Save clip notes\" is on in the download popover. Point the download folder at this episode's folder to see its list here.")
+            Text("Clips get a notes file when \"Save clip notes\" is on in the download popover. Pick or start a session from the toolbar to see that episode's list here.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

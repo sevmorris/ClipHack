@@ -56,6 +56,26 @@ The file list shows the notes below the file name. The tool reads the notes from
 
 You can drop a folder onto the window. The tool finds all the audio files in the folder and in the directories below it. Thus, you can drop one clip folder, or all the clip folders for a show. If you drop the same file two times, the tool does not add it two times.
 
+## Sessions
+
+One episode is one folder. The folder's name is the session title:
+
+```
+~/Desktop/Hacks on Tap/          ← the show folder
+├── HT_0378 2026-08-18/
+├── HT_0379 2026-08-24/
+│   └── clips/                   ← downloads, notes files, and processed audio
+└── HT_0380 2026-08-31/
+```
+
+The session menu in the toolbar lists every episode in the show folder, newest first. The current session is also the window title.
+
+* **Switch session:** Pick an episode from the menu. The tool points the download folder, the output folder, and the clip list at that episode's `clips` folder in one step.
+* **New Session:** The tool reads the highest episode number in the show folder and suggests the next one with today's date, for example `HT_0380 2026-08-31`. You can change the name. The tool then makes `<episode>/clips` and switches to it.
+* **Choose Show Folder:** Sets the folder that holds your episode folders. The tool sets this automatically the first time you pick a session folder. It uses the folder above the episode.
+
+The tool does not save a session record. It reads the session from the folder path. Thus you can rename or move a folder in the Finder and nothing goes out of date. An episode folder that you make by hand appears in the menu on its own.
+
 ## Clip List
 
 The clip list is every clip in your download folder as one numbered list:

@@ -5,6 +5,8 @@ public struct ContentView: View {
     @State private var viewModel = ContentViewModel()
     @State private var fileListWidth: CGFloat = 250
     @State private var showSettings: Bool = true
+    @State private var showNewSession = false
+    @State private var newSessionTitle = ""
 
     public init() {}
 
@@ -55,6 +57,15 @@ public struct ContentView: View {
         } message: {
             Text(viewModel.alertMessage ?? "")
         }
+        .navigationTitle(viewModel.sessionTitle)
+        .onAppear { viewModel.loadSessions() }
+        .alert("New Session", isPresented: $showNewSession) {
+            TextField("Session name", text: $newSessionTitle)
+            Button("Create") { viewModel.createSession(title: newSessionTitle) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Creates \"\(newSessionTitle)\" in \(viewModel.sessionRootDisplayName), with a clips folder inside it, and points downloads there.")
+        }
         .sheet(isPresented: $viewModel.isClipListPresented) {
             ClipListPanel(viewModel: viewModel)
         }
@@ -81,6 +92,10 @@ public struct ContentView: View {
 
     private var headerView: some View {
         HStack {
+            sessionMenu
+
+            Divider().frame(height: 20)
+
             PresetPicker(viewModel: viewModel)
 
             Spacer()
@@ -177,6 +192,46 @@ public struct ContentView: View {
         }
         .padding()
         .background(.regularMaterial)
+    }
+
+    /// Which episode the app is pointed at, and how to switch or start one.
+    /// The session is the download folder's parent, so opening one is just
+    /// re-pointing that folder — there is no session state to restore.
+    private var sessionMenu: some View {
+        Menu {
+            if viewModel.savedSessions.isEmpty {
+                Text(viewModel.sessionRoot == nil
+                     ? "No show folder chosen yet"
+                     : "No sessions in \(viewModel.sessionRootDisplayName)")
+            } else {
+                ForEach(viewModel.savedSessions) { session in
+                    Button {
+                        viewModel.openSession(session)
+                    } label: {
+                        if session.id == viewModel.currentSession?.id {
+                            Label(session.title, systemImage: "checkmark")
+                        } else {
+                            Text(session.title)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Button("New Session…") {
+                newSessionTitle = viewModel.suggestedSessionTitle
+                showNewSession = true
+            }
+            .disabled(viewModel.sessionRoot == nil)
+
+            Button("Choose Show Folder…") { viewModel.chooseSessionRoot() }
+        } label: {
+            Label(viewModel.sessionTitle, systemImage: "calendar")
+        }
+        .fixedSize()
+        .help(viewModel.currentSession.map { "Session folder: \($0.folder.path)" }
+              ?? "No session — downloads go to the default folder")
     }
 
     private var draggableDivider: some View {

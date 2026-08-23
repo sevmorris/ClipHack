@@ -125,12 +125,12 @@ final class ClipHackPresetStore {
     }
 
     private func loadPresets() {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey) else { return }
+        guard let data = ClipHackSettings.store.data(forKey: userDefaultsKey) else { return }
         presets = (try? JSONDecoder().decode([ClipHackPreset].self, from: data)) ?? []
     }
 
     private func saveToUserDefaults() {
         guard let data = try? JSONEncoder().encode(presets) else { return }
-        UserDefaults.standard.set(data, forKey: userDefaultsKey)
+        ClipHackSettings.store.set(data, forKey: userDefaultsKey)
     }
 }

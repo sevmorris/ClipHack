@@ -44,6 +44,13 @@ public struct HelpView: View {
                     definition("Already downloaded", "Downloading a link you already used adds the clip you have instead of fetching a second copy. ClipHack checks the notes files in the destination, so this works days later in a new session too. Delete a clip's audio and the link downloads again as normal.")
                     text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by selecting it and pressing Return. The file is renamed on disk; the extension is kept.")
                 }
+                section("Sessions") {
+                    text("One episode is one folder, and the folder's name is the session title — HT_0380 2026-08-24. The session menu in the toolbar lists every episode in your show folder, newest first, and the current one is also the window title.")
+                    definition("Switching session", "Points the download folder, the output folder and the clip list at that episode's clips folder in one step — so an episode's source audio, its notes files and its finished WAVs all stay together.")
+                    definition("New Session", "Reads the highest episode number already in the show folder and suggests the next one with today's date. Edit the name if you like; ClipHack then creates <episode>/clips and switches to it.")
+                    definition("Choose Show Folder", "The folder your episode folders live in. Set automatically the first time you pick a session folder — it is simply the folder above the episode — so there is normally nothing to configure.")
+                    text("Nothing about a session is stored: it is read back from the folder path. Rename or move a folder in the Finder and nothing goes stale, and an episode folder you create by hand shows up in the menu on its own.")
+                }
                 section("Clip List") {
                     text("The clip list is every clip in your download folder as one numbered list, ready to paste. Open it from the toolbar (⇧⌘L), or copy it straight to the clipboard with ⇧⌘C without opening anything.")
                     code("1) TRUMP traveled to South Dakota to read a red scare speech\n2) JD VANCE said the quiet part out loud")

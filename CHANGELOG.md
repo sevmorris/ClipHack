@@ -2,6 +2,19 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.21.0] — 2026-08-22
+
+**Added**
+- **Saved sessions.** One episode is one folder, and the folder's name is the session title — `HT_0380 2026-08-24`. The toolbar menu lists every episode under the show folder, newest first, and switching to one points downloads, processed output, and the clip list at that episode's `clips` folder in a single move. New Session suggests the next episode number by reading the highest one already on disk and stamps today's date, then creates `<episode>/clips` and switches to it. The session name is also the window title.
+  Nothing about a session is stored: it is read back from the folder path, so renaming or moving a folder in Finder cannot leave a stale record behind, and an episode folder made by hand shows up on its own. The show folder is adopted automatically the first time a session folder is chosen — it is simply the episode's parent — so there is no separate setup step.
+  Pointing both the download and output folders at the episode is what makes the clip list genuinely per-episode rather than reading a scratch folder shared by every show, and it leaves an old episode still browsable months later.
+
+**Fixed**
+- **Applying a preset no longer moves the folders you chose.** `applyPreset` replaced the whole settings struct and restored only the output folder, so picking any preset silently reset the download folder back to `~/Music/ClipHack`. A preset says how audio is processed, not where files live; the download folder, the output folder and the show folder are all preserved now. Without this, switching preset would also have dropped you out of the current session.
+
+**Developer**
+- Preferences now persist through one overridable store, and the tests point it at a scratch suite. The test target builds real view models and assigns settings, which save on every change — so running the suite rewrote the real user's download and output folders. It no longer touches them.
+
 ## [1.20.0] — 2026-08-22
 
 **Added**
