@@ -198,4 +198,111 @@ final class ClipNotesFileTests: XCTestCase {
             "one clip per file — a re-download records what it was downloaded with"
         )
     }
+    // MARK: - Reading a folder's worth of clips (the clip list panel)
+
+    func testEntriesFindsEveryClipInTheFolder() throws {
+        try makeClip("Alpha", source: "https://a", notes: "Trump — first")
+        try makeClip("Beta", source: "https://b", notes: "Vance — second")
+        try makeClip("Gamma", source: "https://c")
+
+        let entries = ClipNotesFile.entries(in: tempDir)
+        XCTAssertEqual(entries.count, 3)
+        XCTAssertEqual(
+            Set(entries.map(\.record.filename)),
+            ["Alpha.m4a", "Beta.m4a", "Gamma.m4a"]
+        )
+        XCTAssertTrue(entries.allSatisfy { $0.audio != nil })
+    }
+
+    func testEntriesKeepsAClipWhoseAudioIsGone() throws {
+        let audio = try makeClip("Alpha", source: "https://a", notes: "Trump — said it")
+        try FileManager.default.removeItem(at: audio)
+
+        let entries = ClipNotesFile.entries(in: tempDir)
+        XCTAssertEqual(entries.count, 1, "the list has to survive the audio being cleaned up")
+        XCTAssertEqual(entries.first?.record.notes, "Trump — said it")
+        XCTAssertNil(entries.first?.audio, "and has to say the audio is gone")
+    }
+
+    func testEntriesReadInTheOrderClipsWereAdded() throws {
+        // Names deliberately reverse-alphabetical against their write order, so
+        // an alphabetical sort would fail this.
+        for (stem, day) in [("Zulu", 1), ("Mike", 2), ("Alpha", 3)] {
+            try makeClip(stem, source: "https://\(stem)")
+            let sidecar = tempDir
+                .appendingPathComponent(stem, isDirectory: true)
+                .appendingPathComponent("\(stem).txt")
+            try FileManager.default.setAttributes(
+                [.creationDate: Date(timeIntervalSince1970: TimeInterval(day) * 86_400)],
+                ofItemAtPath: sidecar.path
+            )
+        }
+
+        XCTAssertEqual(
+            ClipNotesFile.entries(in: tempDir).map(\.record.filename),
+            ["Zulu.m4a", "Mike.m4a", "Alpha.m4a"]
+        )
+    }
+
+    func testEntriesIsEmptyForAFolderWithNoClips() {
+        XCTAssertTrue(ClipNotesFile.entries(in: tempDir).isEmpty)
+    }
+
+    // MARK: - Editing a clip's notes after the fact
+
+    func testUpdateNotesKeepsTheRecordedFilenameAndSource() throws {
+        try makeClip("Alpha", source: "https://a", notes: "raw post text")
+        let sidecar = tempDir
+            .appendingPathComponent("Alpha", isDirectory: true)
+            .appendingPathComponent("Alpha.txt")
+
+        try ClipNotesFile.updateNotes("Trump — said the thing\n:30 to :12", atSidecar: sidecar)
+
+        XCTAssertEqual(
+            try String(contentsOf: sidecar, encoding: .utf8),
+            "Alpha.m4a\nTrump — said the thing\n:30 to :12\nhttps://a\n\n",
+            "editing the list entry must not disturb the sidecar's shape"
+        )
+        let record = try XCTUnwrap(ClipNotesFile.readSidecar(at: sidecar))
+        XCTAssertEqual(record.filename, "Alpha.m4a")
+        XCTAssertEqual(record.sourceURL, "https://a")
+        XCTAssertEqual(record.notes, "Trump — said the thing\n:30 to :12")
+    }
+
+    func testUpdateNotesThrowsWhenThereIsNoSidecar() {
+        let missing = tempDir.appendingPathComponent("Nope.txt")
+        XCTAssertThrowsError(try ClipNotesFile.updateNotes("anything", atSidecar: missing))
+    }
+    // MARK: - End to end: a folder of clips becomes the list
+
+    func testFolderOfClipsExportsAsTheNumberedList() throws {
+        let clips = [
+            ("Clip1", "Trump — traveled to South Dakota to read a red scare speech\n:30 to :12"),
+            ("Clip2", "JD Vance — said the quiet part out loud"),
+            ("Clip3", ""),   // downloaded but never written up
+        ]
+        for (day, clip) in clips.enumerated() {
+            try makeClip(clip.0, source: "https://\(clip.0)", notes: clip.1)
+            let sidecar = tempDir
+                .appendingPathComponent(clip.0, isDirectory: true)
+                .appendingPathComponent("\(clip.0).txt")
+            try FileManager.default.setAttributes(
+                [.creationDate: Date(timeIntervalSince1970: TimeInterval(day + 1) * 86_400)],
+                ofItemAtPath: sidecar.path
+            )
+        }
+
+        let entries = ClipNotesFile.entries(in: tempDir).map {
+            ClipListEntry.parse(notes: $0.record.notes)
+        }
+
+        XCTAssertEqual(
+            ClipListEntry.numberedList(entries),
+            """
+            1) TRUMP traveled to South Dakota to read a red scare speech
+            2) JD VANCE said the quiet part out loud
+            """,
+            "timings stay out of the list, an unwritten clip takes no number"
+        )
+    }
 }

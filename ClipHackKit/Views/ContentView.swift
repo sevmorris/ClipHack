@@ -55,6 +55,9 @@ public struct ContentView: View {
         } message: {
             Text(viewModel.alertMessage ?? "")
         }
+        .sheet(isPresented: $viewModel.isClipListPresented) {
+            ClipListPanel(viewModel: viewModel)
+        }
         .alert("Already Processed?", isPresented: $viewModel.showReprocessWarning) {
             Button("Add Anyway") { viewModel.confirmReprocessWarning() }
             Button("Cancel", role: .cancel) { viewModel.dismissReprocessWarning() }
@@ -96,6 +99,24 @@ public struct ContentView: View {
                     // download (finishDownload) or via its explicit Close button.
                     .interactiveDismissDisabled()
             }
+
+            Button {
+                viewModel.loadClipList()
+                viewModel.isClipListPresented = true
+            } label: {
+                Label("Clip List", systemImage: "list.number")
+            }
+            .help("Edit this show's clip list")
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+
+            Button {
+                viewModel.copyClipList()
+            } label: {
+                Label("Copy List", systemImage: "doc.on.clipboard")
+            }
+            .labelStyle(.iconOnly)
+            .help("Copy the numbered clip list to the clipboard")
+            .keyboardShortcut("c", modifiers: [.command, .shift])
 
             Divider().frame(height: 20)
 

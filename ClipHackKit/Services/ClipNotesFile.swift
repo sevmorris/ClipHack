@@ -110,6 +110,52 @@ enum ClipNotesFile {
         return nil
     }
 
+    /// One row per clip sidecar under `directory` — for a per-episode download
+    /// folder, that is exactly this show's clips. Ordered by when each sidecar
+    /// was written, so the list reads back in the order clips were added over
+    /// the week rather than alphabetically.
+    ///
+    /// `audio` is nil when the clip's audio is gone. Sidecars outlive the files
+    /// they describe, and that is the point: a list has to survive a cleanup.
+    struct Entry: Equatable, Identifiable {
+        var sidecar: URL
+        var record: Record
+        var audio: URL?
+
+        var id: URL { sidecar }
+    }
+
+    static func entries(in directory: URL) -> [Entry] {
+        let found: [(entry: Entry, added: Date)] = sidecarURLs(in: directory).compactMap { url in
+            guard let record = readSidecar(at: url) else { return nil }
+            let added = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
+                ?? Date.distantPast
+            let entry = Entry(
+                sidecar: url,
+                record: record,
+                audio: audioFile(for: record, sidecar: url)
+            )
+            return (entry, added)
+        }
+        return found.sorted { lhs, rhs in
+            guard lhs.added == rhs.added else { return lhs.added < rhs.added }
+            return lhs.entry.sidecar.lastPathComponent
+                .localizedStandardCompare(rhs.entry.sidecar.lastPathComponent) == .orderedAscending
+        }.map(\.entry)
+    }
+
+    /// Rewrites just the notes of an existing sidecar, keeping the filename and
+    /// source URL it already recorded. This is the write path for editing a
+    /// clip's list entry after the download that created it — the recorded
+    /// filename stays a snapshot of download time, exactly as `write` leaves it.
+    static func updateNotes(_ notes: String, atSidecar sidecar: URL) throws {
+        guard let record = readSidecar(at: sidecar) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let text = body(filename: record.filename, notes: notes, sourceURL: record.sourceURL)
+        try Data(text.utf8).write(to: sidecar, options: .atomic)
+    }
+
     /// Sidecars in `directory` and in each of its immediate subfolders.
     private static func sidecarURLs(in directory: URL) -> [URL] {
         let folders = [directory] + contents(of: directory).filter(isDirectory)

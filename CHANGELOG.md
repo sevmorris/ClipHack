@@ -2,6 +2,16 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.20.0] — 2026-08-22
+
+**Added**
+- **A clip list.** Every clip in the download folder as one numbered list, ready to paste — `⇧⌘L` to edit it, `⇧⌘C` to copy it without opening anything. Lines come out as `1) TRUMP traveled to South Dakota…`: the name is capitalized on the way out, which separates it from the description without needing a dash. The notes file stores the name as typed, so a row edited later shows what you wrote rather than a shout. Rows are the clips' own notes files edited in place, not a document of their own: change a person or a description and it is written straight back to that clip's `.txt`. That keeps one source of truth, and it means the list survives everything the audio does not — a week of prep, quitting, processing, and originals being trashed — because the sidecars already outlive the files they describe. A clip whose audio is gone keeps its line, marked "audio removed". Scope comes from the download folder, so pointing ClipHack at an episode's folder makes the list that episode; there is no separate notion of a show to keep in sync.
+- **A Person field in the download popover**, and a name read out of an X post's own text to fill it. Both shapes clips arrive in put the speaker first — `Trump: we're going to…` and `Trump traveled all the way to…` — so one rule covers both: the opening run of capitalized words, stopping at a colon or at the first word that isn't one, after any `BREAKING:` style marker is dropped. It abstains rather than guesses, leaving the field blank when no name reads confidently, because a wrong name looks correct and an empty field does not. The account that posted a clip is deliberately never used: aggregator accounts post most clips and are almost never the person in them.
+
+**Changed**
+- **The first line of a clip's notes is now its list entry** — `Person — what they said` — with every line below it left free for timings and scratch, exactly as before. The notes sidecar's format is unchanged and stays byte-compatible, since its body was always free text; nothing already reading those files has to change.
+- The Notes box placeholder now says what its first line is for.
+
 ## [1.19.3] — 2026-08-20
 
 **Interface**

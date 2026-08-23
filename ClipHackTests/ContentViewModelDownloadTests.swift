@@ -627,4 +627,55 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(vm.settings.downloadDirectoryPath),
                        "the newly-picked folder must resolve as present")
     }
+    // MARK: - Person prefill
+    //
+    // The person in a clip comes out of the post's own text, never from the
+    // account that posted it — aggregators post most clips.
+
+    func testApplySplitsThePersonOutOfThePostText() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
+        XCTAssertEqual(vm.downloadPersonField, "Trump")
+        XCTAssertEqual(vm.downloadNotesField, "We are going to win")
+    }
+
+    func testApplyLeavesPersonEmptyWhenNoNameCanBeRead() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.applyFetchedNotes("just setting up my twttr", for: xURL)
+        XCTAssertEqual(vm.downloadPersonField, "", "abstaining beats guessing a name")
+        XCTAssertEqual(vm.downloadNotesField, "just setting up my twttr")
+    }
+
+    func testApplyDoesNotClobberATypedPerson() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.downloadPersonField = "Someone Else"
+        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
+        XCTAssertEqual(vm.downloadPersonField, "Someone Else")
+    }
+
+    func testMovingToANonXURLClearsAnAutoFilledPerson() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
+        XCTAssertEqual(vm.downloadPersonField, "Trump")
+
+        vm.downloadURLField = "https://example.com/not-a-post"
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadPersonField, "", "machine-filled person must not outlive its post")
+        XCTAssertEqual(vm.downloadNotesField, "")
+    }
+
+    func testATypedPersonSurvivesAURLChange() {
+        let vm = makeViewModel()
+        vm.downloadURLField = xURL
+        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
+        vm.downloadPersonField = "Someone I typed"
+
+        vm.downloadURLField = "https://example.com/not-a-post"
+        vm.downloadURLFieldChanged()
+        XCTAssertEqual(vm.downloadPersonField, "Someone I typed")
+    }
 }

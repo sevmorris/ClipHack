@@ -318,7 +318,13 @@ final class ContentViewModel {
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
     /// Optional free-text carried onto the added row and into the notes file.
+    /// Line one becomes this clip's list description; anything typed below it
+    /// is scratch (timings) and rides along untouched.
     var downloadNotesField: String = ""
+    /// Who is *in* the clip — the speaker, not whoever posted it. Auto-filled
+    /// from the post's own text when a name can be read confidently, left blank
+    /// when it can't.
+    var downloadPersonField: String = ""
     /// "Save clip notes": write a notes sidecar into each download's own clip
     /// folder. Persisted across launches.
     var clipNotesEnabled: Bool {
@@ -384,6 +390,10 @@ final class ContentViewModel {
     /// user has typed or edited (never touched). nil once the user edits them or
     /// we clear them.
     private var autoFilledNotes: String?
+    /// The same idea for Person: what a fetch filled, so moving the URL to a
+    /// different post can drop machine-written text without ever clearing a
+    /// name the user typed.
+    private var autoFilledPerson: String?
 
     /// Trimmed http(s) URL, or nil if the string isn't a usable web URL.
     static func validatedWebURL(_ raw: String) -> String? {
@@ -475,8 +485,16 @@ final class ContentViewModel {
               downloadURLField == urlString,
               downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return }
-        downloadNotesField = text
-        autoFilledNotes = text
+        // The account that posted a clip is usually not the person in it, so
+        // the name is read out of the post's own text and left empty when it
+        // can't be read confidently — a wrong name reads as correct.
+        let (person, description) = ClipPersonName.extract(fromPostText: text)
+        downloadNotesField = description
+        autoFilledNotes = description
+        if let person, downloadPersonField.trimmingCharacters(in: .whitespaces).isEmpty {
+            downloadPersonField = person
+            autoFilledPerson = person
+        }
     }
 
     /// Clears Notes only when they still hold exactly what a previous auto-fill
@@ -484,9 +502,16 @@ final class ContentViewModel {
     /// user-authored notes while letting stale machine-filled text refresh for
     /// a new post.
     private func discardStaleAutoFilledNotes() {
-        guard let auto = autoFilledNotes, downloadNotesField == auto else { return }
-        downloadNotesField = ""
-        autoFilledNotes = nil
+        if let auto = autoFilledNotes, downloadNotesField == auto {
+            downloadNotesField = ""
+            autoFilledNotes = nil
+        }
+        // Checked separately: the user may have rewritten one field and left
+        // the other exactly as the fetch filled it.
+        if let auto = autoFilledPerson, downloadPersonField == auto {
+            downloadPersonField = ""
+            autoFilledPerson = nil
+        }
     }
 
     /// Resets the X-post Notes auto-fill bookkeeping when the download form is
@@ -495,6 +520,7 @@ final class ContentViewModel {
     private func resetNotesAutoFillState() {
         lastPrefilledStatusID = nil
         autoFilledNotes = nil
+        autoFilledPerson = nil
     }
 
     /// The row previously added for `sourceURL`, if it is still in the list.
@@ -548,6 +574,7 @@ final class ContentViewModel {
         downloadURLField = ""
         downloadNameField = ""
         downloadNotesField = ""
+        downloadPersonField = ""
         resetNotesAutoFillState()
         downloadState = .idle
         isDownloadPopoverPresented = false
@@ -663,7 +690,16 @@ final class ContentViewModel {
             return
         }
 
-        let notes = downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Line one of the sidecar's notes is this clip's list entry —
+        // "Person — what they said" — and anything typed below it is kept as-is.
+        let box = ClipListEntry.splitNotesBox(
+            downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        let notes = ClipListEntry.compose(
+            person: downloadPersonField.trimmingCharacters(in: .whitespaces),
+            description: box.description,
+            extra: box.extra
+        )
         if !notes.isEmpty {
             files[index].notes = notes
         }
@@ -682,6 +718,106 @@ final class ContentViewModel {
         downloadedURLToFileID[sourceURL] = files[index].id
         selectedFileIDs = [files[index].id]
         clearDownloadForm()
+    }
+
+    // MARK: - Clip list
+
+    /// One clip's line in the list panel, backed by its notes sidecar.
+    ///
+    /// Identified by the sidecar URL rather than the audio path: the audio can
+    /// be renamed, processed, or trashed out from under a row, and the sidecar
+    /// is the thing that persists.
+    struct ClipListRow: Identifiable, Equatable {
+        let id: URL
+        var person: String
+        var description: String
+        /// Lines below the list line — timings, scratch. Round-tripped verbatim.
+        var extra: String
+        var filename: String
+        var sourceURL: String
+        /// False once the clip's audio is gone but its notes remain, which is
+        /// normal late in a show's prep.
+        var hasAudio: Bool
+    }
+
+    var isClipListPresented = false
+    var clipListRows: [ClipListRow] = []
+
+    /// The folder the clip list reads, which is wherever downloads go. Pointing
+    /// ClipHack at an episode's own folder therefore scopes the list to that
+    /// episode — there is no separate notion of a show to keep in sync.
+    var clipListDirectory: URL {
+        YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
+    }
+
+    /// Rebuilds the rows from the sidecars on disk. Cheap enough to call on
+    /// every panel open — a show is tens of small text files.
+    func loadClipList() {
+        clipListRows = ClipNotesFile.entries(in: clipListDirectory).map { entry in
+            let parsed = ClipListEntry.parse(notes: entry.record.notes)
+            return ClipListRow(
+                id: entry.sidecar,
+                person: parsed.person,
+                description: parsed.description,
+                extra: parsed.extra,
+                filename: entry.record.filename,
+                sourceURL: entry.record.sourceURL,
+                hasAudio: entry.audio != nil
+            )
+        }
+    }
+
+    /// Writes one row back to its sidecar.
+    ///
+    /// Called on every keystroke rather than on commit, so there is never an
+    /// edit living only in memory: prep runs over days and the panel is the
+    /// list, so a lost edit is a lost clip. Each save is an atomic write of a
+    /// file well under a kilobyte.
+    func saveClipListRow(_ row: ClipListRow) {
+        guard let index = clipListRows.firstIndex(where: { $0.id == row.id }) else { return }
+        clipListRows[index] = row
+        do {
+            try ClipNotesFile.updateNotes(
+                ClipListEntry.compose(
+                    person: row.person,
+                    description: row.description,
+                    extra: row.extra
+                ),
+                atSidecar: row.id
+            )
+        } catch {
+            alertTitle = "Notice"
+            alertMessage = "Couldn't save notes for \"\(row.filename)\": \(error.localizedDescription)"
+        }
+    }
+
+    /// The finished numbered list for the rows currently loaded.
+    var clipListText: String {
+        ClipListEntry.numberedList(
+            clipListRows.map {
+                ClipListEntry.Parsed(person: $0.person, description: $0.description)
+            }
+        )
+    }
+
+    /// Puts the numbered clip list on the clipboard, returning how many entries
+    /// went with it.
+    ///
+    /// Reads from disk first. Every panel edit is already written through, so
+    /// the sidecars are the truth, and this way the shortcut works whether or
+    /// not the panel has ever been opened this session.
+    @discardableResult
+    func copyClipList() -> Int {
+        loadClipList()
+        let text = clipListText
+        guard !text.isEmpty else {
+            alertTitle = "Nothing to Copy"
+            alertMessage = "No clip notes were found in \"\(clipListDirectory.lastPathComponent)\". Clips get a notes file when \"Save clip notes\" is on in the download popover."
+            return 0
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        return text.components(separatedBy: "\n").count
     }
 
     // MARK: - Processing

@@ -47,6 +47,13 @@ struct DownloadPopover: View {
                 .onSubmit { viewModel.startDownload() }
                 .disabled(viewModel.isDownloading)
 
+            TextField("Person in clip (optional)", text: $viewModel.downloadPersonField)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: Self.fieldWidth)
+                .onSubmit { viewModel.startDownload() }
+                .disabled(viewModel.isDownloading)
+                .help("Who is speaking in the clip — the name this clip gets in the clip list. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
+
             notesEditor
 
             Toggle("Save clip notes", isOn: $viewModel.clipNotesEnabled)
@@ -84,7 +91,7 @@ struct DownloadPopover: View {
                 // Sits exactly where the editor's first glyph does: the same 4/3
                 // padding, plus the text container's 5pt lineFragmentPadding on
                 // the leading edge (measured against the hosted NSTextView).
-                Text("Notes (optional, e.g. :30 to :12)")
+                Text("What the clip is about (timings on the lines below)")
                     .font(.body)
                     .foregroundStyle(.tertiary)
                     .padding(.leading, 9)
