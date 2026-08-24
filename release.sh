@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SOURCE_REPO="sevmorris/ClipHack"          # private — source, tags
+SOURCE_REPO="sevmorris/ClipHack"          # public — source, tags
 RELEASES_REPO="sevmorris/ClipHack-releases" # public — DMG artifacts, updater target
 
 # ── Args ──────────────────────────────────────────────────────────────────────
