@@ -47,12 +47,21 @@ struct DownloadPopover: View {
                 .onSubmit { viewModel.startDownload() }
                 .disabled(viewModel.isDownloading)
 
-            TextField("Person in clip (optional)", text: $viewModel.downloadPersonField)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: Self.fieldWidth)
-                .onSubmit { viewModel.startDownload() }
-                .disabled(viewModel.isDownloading)
-                .help("Who is speaking in the clip — the name this clip gets in the clip list. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
+            HStack(spacing: 6) {
+                TextField("Person in clip (optional)", text: $viewModel.downloadPersonField)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { viewModel.startDownload() }
+                    .disabled(viewModel.isDownloading)
+                    .help("Who is speaking in the clip — the name this clip gets in the clip list. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
+
+                TextField("1:13 to :55", text: $viewModel.downloadTimestampField)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 110)
+                    .onSubmit { viewModel.startDownload() }
+                    .disabled(viewModel.isDownloading)
+                    .help("The cut to make. Written on its own line in the clip's notes file, and left out of the copied clip list.")
+            }
+            .frame(width: Self.fieldWidth)
 
             notesEditor
 

@@ -3,11 +3,25 @@ import Foundation
 /// The plain-text notes sidecar that sits beside a downloaded clip inside its
 /// own folder — `Title/Title.m4a` next to `Title/Title.txt`.
 ///
-/// Replaces the daily `clip-list-YYYY-MM-DD.txt` this app used to append to, but
-/// deliberately keeps that file's body verbatim: filename / notes (a blank line
-/// when empty) / source URL, then a trailing blank line. Concatenating the
-/// sidecars (`cat */*.txt`) therefore reproduces a clip list exactly, so
-/// WireHack's logs and anything else reading that format still work.
+/// One blank-line-separated block per element, in this order:
+///
+///     Some Title.m4a          ← omitted when the clip was named by hand
+///
+///     TRUMP — "the quote"     ← the clip's list entry, then any scratch
+///
+///     1:13 to :55             ← the cut, when one was entered
+///
+///     https://x.com/…
+///
+/// The filename is dropped for a hand-named clip because it then says nothing
+/// the name did not already say. Nothing needs it to find the audio: the
+/// sidecar shares the clip's stem, which is what `audioFile(for:sidecar:)`
+/// falls back to.
+///
+/// This replaced a daily `clip-list-YYYY-MM-DD.txt` whose one-line-per-element
+/// body was kept verbatim so WireHack's logs still parsed. That constraint is
+/// retired — WireHack is superseded, and the clip list is generated in-app now
+/// rather than by concatenating these files.
 enum ClipNotesFile {
     /// Sidecar name for an audio file: same stem, `.txt`.
     static func filename(forAudioFile audioFilename: String) -> String {
@@ -15,23 +29,41 @@ enum ClipNotesFile {
         return (stem.isEmpty ? audioFilename : stem) + ".txt"
     }
 
-    /// Empty notes are written as a blank line so the four-line shape holds
-    /// whether or not notes were entered; multiline notes are kept verbatim
-    /// (the trailing blank line still delimits one clip from the next).
-    static func body(filename: String, notes: String, sourceURL: String) -> String {
-        "\(filename)\n\(notes)\n\(sourceURL)\n\n"
+    /// Assembles the sidecar body. Empty elements are left out entirely rather
+    /// than written as blank lines, so the blank line between blocks always
+    /// means "next element" and never "this one was empty".
+    static func body(
+        filename: String,
+        notes: String,
+        timestamp: String = "",
+        sourceURL: String
+    ) -> String {
+        let blocks = [filename, notes, timestamp, sourceURL]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return blocks.joined(separator: "\n\n") + "\n"
     }
 
     /// Writes the sidecar next to `audioFile`. One clip per file, so this
     /// overwrites rather than appends — a re-download of the same clip records
     /// the notes it was downloaded with, not a growing history.
-    static func write(notes: String, sourceURL: String, forAudioFile audioFile: URL) throws {
+    ///
+    /// `includeFilename` is false for a clip the user named themselves: the
+    /// line would only repeat the name they just typed.
+    static func write(
+        notes: String,
+        timestamp: String = "",
+        sourceURL: String,
+        forAudioFile audioFile: URL,
+        includeFilename: Bool = true
+    ) throws {
         let url = audioFile
             .deletingLastPathComponent()
             .appendingPathComponent(filename(forAudioFile: audioFile.lastPathComponent))
         let text = body(
-            filename: audioFile.lastPathComponent,
+            filename: includeFilename ? audioFile.lastPathComponent : "",
             notes: notes,
+            timestamp: timestamp,
             sourceURL: sourceURL
         )
         try Data(text.utf8).write(to: url, options: .atomic)
@@ -43,26 +75,103 @@ enum ClipNotesFile {
     struct Record: Equatable {
         var filename: String
         var notes: String
+        /// The cut, e.g. "1:13 to :55". Empty when none was entered.
+        var timestamp: String = ""
         var sourceURL: String
     }
 
-    /// Parses a sidecar body. The inverse of `body(filename:notes:sourceURL:)`:
-    /// first line is the filename, last non-empty line is the source URL, and
-    /// everything between is the notes — which may run to any number of lines,
-    /// blank ones included.
+    /// Audio extensions a first line has to end in to read as a filename rather
+    /// than as the start of the notes.
+    private static let audioExtensions: Set<String> = [
+        "wav", "aif", "aiff", "mp3", "flac", "m4a", "ogg", "opus", "caf", "wma",
+        "aac", "mp4", "mov",
+    ]
+
+    /// True when a line is an in/out timestamp rather than prose — "1:13 to :55",
+    /// ":30 to :12", "To :17", "0:05".
+    ///
+    /// A colon is required, so a stray number at the end of the notes is not
+    /// mistaken for a cut. Only ever applied to the last block before the URL,
+    /// which is where `body` puts one.
+    static func isTimestamp(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 40, !trimmed.contains("\n") else { return false }
+        let pattern = #"^(?:to\s+)?\d{0,2}:\d{1,2}(?:\s*(?:to|-|–|—|>)\s*\d{0,2}:?\d{1,2})?$"#
+        return trimmed.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    /// Parses a sidecar body — the inverse of `body`.
+    ///
+    /// Read from the ends inward, because that is what stays stable when the
+    /// optional elements come and go: the last non-empty line is always the
+    /// source URL, a first line ending in an audio extension is the filename,
+    /// the last block above the URL is the timestamp when it reads as one, and
+    /// whatever remains is the notes.
+    ///
+    /// Reads the pre-1.22 shape too, where the elements were single lines with
+    /// no blank between them and a cut lived at the end of the notes — such a
+    /// file comes back with its timestamp lifted into its own field.
     static func parse(_ text: String) -> Record? {
         var lines = text.components(separatedBy: "\n")
-        while let last = lines.last, last.isEmpty { lines.removeLast() }
-        guard lines.count >= 2 else { return nil }
+        func dropTrailingBlanks() {
+            while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
+                lines.removeLast()
+            }
+        }
+        func dropLeadingBlanks() {
+            while let first = lines.first, first.trimmingCharacters(in: .whitespaces).isEmpty {
+                lines.removeFirst()
+            }
+        }
 
-        let sourceURL = lines.removeLast()
-        let filename = lines.removeFirst()
-        guard !filename.isEmpty, !sourceURL.isEmpty else { return nil }
+        dropTrailingBlanks()
+        guard !lines.isEmpty else { return nil }
+
+        let sourceURL = lines.removeLast().trimmingCharacters(in: .whitespaces)
+        guard !sourceURL.isEmpty else { return nil }
+        // A lone line is only a record if it is actually a source URL; without
+        // this any one-line text file in a clip folder would read as a clip.
+        guard !lines.isEmpty || sourceURL.contains("://") else { return nil }
+
+        dropTrailingBlanks()
+        dropLeadingBlanks()
+
+        var filename = ""
+        if let first = lines.first {
+            let candidate = first.trimmingCharacters(in: .whitespaces)
+            if audioExtensions.contains((candidate as NSString).pathExtension.lowercased()) {
+                filename = candidate
+                lines.removeFirst()
+                dropLeadingBlanks()
+            }
+        }
+
+        var timestamp = ""
+        if let start = lastBlockStart(in: lines) {
+            let block = lines[start...].joined(separator: "\n")
+            if isTimestamp(block) {
+                timestamp = block.trimmingCharacters(in: .whitespacesAndNewlines)
+                lines.removeSubrange(start...)
+                dropTrailingBlanks()
+            }
+        }
+
         return Record(
             filename: filename,
             notes: lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines),
+            timestamp: timestamp,
             sourceURL: sourceURL
         )
+    }
+
+    /// Index of the first line of the final blank-line-separated block.
+    private static func lastBlockStart(in lines: [String]) -> Int? {
+        guard !lines.isEmpty else { return nil }
+        var index = lines.count - 1
+        while index > 0, !lines[index - 1].trimmingCharacters(in: .whitespaces).isEmpty {
+            index -= 1
+        }
+        return index
     }
 
     /// Reads the sidecar sitting beside `audioFile`, if there is one. Silent on
@@ -148,11 +257,20 @@ enum ClipNotesFile {
     /// source URL it already recorded. This is the write path for editing a
     /// clip's list entry after the download that created it — the recorded
     /// filename stays a snapshot of download time, exactly as `write` leaves it.
-    static func updateNotes(_ notes: String, atSidecar sidecar: URL) throws {
+    static func updateNotes(
+        _ notes: String,
+        timestamp: String,
+        atSidecar sidecar: URL
+    ) throws {
         guard let record = readSidecar(at: sidecar) else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        let text = body(filename: record.filename, notes: notes, sourceURL: record.sourceURL)
+        let text = body(
+            filename: record.filename,
+            notes: notes,
+            timestamp: timestamp,
+            sourceURL: record.sourceURL
+        )
         try Data(text.utf8).write(to: sidecar, options: .atomic)
     }
 
@@ -168,8 +286,12 @@ enum ClipNotesFile {
     /// has been renamed away — a same-stem sibling next to the sidecar.
     private static func audioFile(for record: ClipNotesFile.Record, sidecar: URL) -> URL? {
         let folder = sidecar.deletingLastPathComponent()
-        let recorded = folder.appendingPathComponent(record.filename)
-        if FileManager.default.fileExists(atPath: recorded.path) { return recorded }
+        // Guard the empty case: appending "" lands back on the folder, which
+        // exists, so a hand-named clip would report its own folder as the audio.
+        if !record.filename.isEmpty {
+            let recorded = folder.appendingPathComponent(record.filename)
+            if FileManager.default.fileExists(atPath: recorded.path) { return recorded }
+        }
 
         let stem = sidecar.deletingPathExtension().lastPathComponent
         return contents(of: folder).first {

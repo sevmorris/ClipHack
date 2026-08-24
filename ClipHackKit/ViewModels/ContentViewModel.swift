@@ -332,6 +332,9 @@ final class ContentViewModel {
     /// from the post's own text when a name can be read confidently, left blank
     /// when it can't.
     var downloadPersonField: String = ""
+    /// The cut to make, e.g. "1:13 to :55". Written on its own line in the
+    /// clip's notes file, and kept out of the copied list.
+    var downloadTimestampField: String = ""
     /// "Save clip notes": write a notes sidecar into each download's own clip
     /// folder. Persisted across launches.
     var clipNotesEnabled: Bool {
@@ -590,6 +593,7 @@ final class ContentViewModel {
         downloadNameField = ""
         downloadNotesField = ""
         downloadPersonField = ""
+        downloadTimestampField = ""
         resetNotesAutoFillState()
         downloadState = .idle
         isDownloadPopoverPresented = false
@@ -723,7 +727,15 @@ final class ContentViewModel {
         // sidecar right beside it.
         if clipNotesEnabled {
             do {
-                try ClipNotesFile.write(notes: notes, sourceURL: sourceURL, forAudioFile: fileURL)
+                try ClipNotesFile.write(
+                    notes: notes,
+                    timestamp: downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines),
+                    sourceURL: sourceURL,
+                    forAudioFile: fileURL,
+                    // A name typed by hand is already the filename — repeating
+                    // it in the notes says nothing the name did not.
+                    includeFilename: YtDlpService.sanitizedStem(downloadNameField) == nil
+                )
             } catch {
                 alertTitle = "Notice"
                 alertMessage = "Downloaded, but the clip notes could not be written: \(error.localizedDescription)"
@@ -746,8 +758,10 @@ final class ContentViewModel {
         let id: URL
         var person: String
         var description: String
-        /// Lines below the list line — timings, scratch. Round-tripped verbatim.
+        /// Lines below the list line — scratch. Round-tripped verbatim.
         var extra: String
+        /// The cut, on its own line in the notes file.
+        var timestamp: String
         var filename: String
         var sourceURL: String
         /// False once the clip's audio is gone but its notes remain, which is
@@ -775,6 +789,7 @@ final class ContentViewModel {
                 person: parsed.person,
                 description: parsed.description,
                 extra: parsed.extra,
+                timestamp: entry.record.timestamp,
                 filename: entry.record.filename,
                 sourceURL: entry.record.sourceURL,
                 hasAudio: entry.audio != nil
@@ -798,6 +813,7 @@ final class ContentViewModel {
                     description: row.description,
                     extra: row.extra
                 ),
+                timestamp: row.timestamp,
                 atSidecar: row.id
             )
         } catch {

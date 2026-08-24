@@ -27,30 +27,43 @@ final class ClipNotesFileTests: XCTestCase {
         XCTAssertEqual(ClipNotesFile.filename(forAudioFile: "Untitled"), "Untitled.txt")
     }
 
-    // MARK: - Body format (kept identical to the clip list this replaced)
+    // MARK: - Body format
 
-    func testBodyHasThreeLinesAndTrailingBlank() {
+    func testEveryElementIsSeparatedByABlankLine() {
         XCTAssertEqual(
             ClipNotesFile.body(
                 filename: "Clip.m4a",
-                notes: ":30 to :12",
+                notes: "Trump — the quote",
+                timestamp: "1:13 to :55",
                 sourceURL: "https://example.com/watch?v=abc"
             ),
-            "Clip.m4a\n:30 to :12\nhttps://example.com/watch?v=abc\n\n"
+            "Clip.m4a\n\nTrump — the quote\n\n1:13 to :55\n\nhttps://example.com/watch?v=abc\n"
         )
     }
 
-    func testEmptyNotesStayABlankLine() {
+    func testAnOmittedFilenameLeavesNoGapAtTheTop() {
+        XCTAssertEqual(
+            ClipNotesFile.body(filename: "", notes: "Trump — the quote", sourceURL: "https://u"),
+            "Trump — the quote\n\nhttps://u\n"
+        )
+    }
+
+    func testEmptyElementsAreLeftOutRatherThanWrittenBlank() {
+        // A blank line always means "next element", never "this one is empty".
         XCTAssertEqual(
             ClipNotesFile.body(filename: "Clip.m4a", notes: "", sourceURL: "https://u"),
-            "Clip.m4a\n\nhttps://u\n\n"
+            "Clip.m4a\n\nhttps://u\n"
+        )
+        XCTAssertEqual(
+            ClipNotesFile.body(filename: "Clip.m4a", notes: "note", timestamp: "", sourceURL: "https://u"),
+            "Clip.m4a\n\nnote\n\nhttps://u\n"
         )
     }
 
     func testMultilineNotesAreKeptVerbatim() {
         XCTAssertEqual(
             ClipNotesFile.body(filename: "Clip.m4a", notes: "line one\nline two", sourceURL: "https://u"),
-            "Clip.m4a\nline one\nline two\nhttps://u\n\n"
+            "Clip.m4a\n\nline one\nline two\n\nhttps://u\n"
         )
     }
 
@@ -63,7 +76,35 @@ final class ClipNotesFileTests: XCTestCase {
         let sidecar = tempDir.appendingPathComponent("Title.txt")
         XCTAssertEqual(
             try String(contentsOf: sidecar, encoding: .utf8),
-            "Title.m4a\nthe good part\nhttps://a\n\n"
+            "Title.m4a\n\nthe good part\n\nhttps://a\n"
+        )
+    }
+
+    func testAHandNamedClipLeavesTheFilenameOut() throws {
+        let audio = tempDir.appendingPathComponent("Title.m4a")
+        try ClipNotesFile.write(
+            notes: "Trump — the quote",
+            timestamp: "1:13 to :55",
+            sourceURL: "https://a",
+            forAudioFile: audio,
+            includeFilename: false
+        )
+        XCTAssertEqual(
+            try String(contentsOf: tempDir.appendingPathComponent("Title.txt"), encoding: .utf8),
+            "Trump — the quote\n\n1:13 to :55\n\nhttps://a\n"
+        )
+    }
+
+    func testAClipWithNoFilenameLineIsStillFoundByItsStem() throws {
+        let folder = tempDir.appendingPathComponent("Hand Named", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let audio = folder.appendingPathComponent("Hand Named.m4a")
+        try Data("audio".utf8).write(to: audio)
+        try ClipNotesFile.write(notes: "n", sourceURL: "https://hand", forAudioFile: audio, includeFilename: false)
+
+        assertSameFile(
+            ClipNotesFile.existingClip(forSourceURL: "https://hand", in: tempDir), audio,
+            "the sidecar shares the clip's stem, so the filename line is not needed to find it"
         )
     }
 
@@ -91,8 +132,56 @@ final class ClipNotesFileTests: XCTestCase {
 
     func testParseRejectsJunk() {
         XCTAssertNil(ClipNotesFile.parse(""))
-        XCTAssertNil(ClipNotesFile.parse("just one line\n"))
-        XCTAssertNil(ClipNotesFile.parse("\n\nhttps://u\n"), "a missing filename is not a record")
+        XCTAssertNil(ClipNotesFile.parse("just one line\n"),
+                     "a lone line that is not a URL must not read as a clip")
+        XCTAssertNil(ClipNotesFile.parse("\n\n\n"))
+    }
+
+    func testAMissingFilenameIsNowAValidRecord() {
+        // Hand-named clips write no filename line.
+        let record = ClipNotesFile.parse("Trump — the quote\n\nhttps://u\n")
+        XCTAssertEqual(record?.filename, "")
+        XCTAssertEqual(record?.notes, "Trump — the quote")
+        XCTAssertEqual(record?.sourceURL, "https://u")
+    }
+
+    // MARK: - Timestamps
+
+    func testTimestampRoundTrips() {
+        let text = ClipNotesFile.body(
+            filename: "Clip.m4a", notes: "Trump — the quote",
+            timestamp: "1:13 to :55", sourceURL: "https://u"
+        )
+        let record = ClipNotesFile.parse(text)
+        XCTAssertEqual(record?.timestamp, "1:13 to :55")
+        XCTAssertEqual(record?.notes, "Trump — the quote", "the cut must not bleed into the notes")
+    }
+
+    func testNotesEndingInProseAreNotMistakenForATimestamp() {
+        let record = ClipNotesFile.parse("Clip.m4a\n\nfirst para\n\nsecond para\n\nhttps://u\n")
+        XCTAssertEqual(record?.timestamp, "")
+        XCTAssertEqual(record?.notes, "first para\n\nsecond para")
+    }
+
+    func testTimestampShapes() {
+        for good in ["1:13 to :55", ":30 to :12", "To :17", "0:05", "1:13-2:00", "to 1:02"] {
+            XCTAssertTrue(ClipNotesFile.isTimestamp(good), good)
+        }
+        for bad in ["Trump — said it", "second para", "100", "AUDIENCE: 😬", ""] {
+            XCTAssertFalse(ClipNotesFile.isTimestamp(bad), bad)
+        }
+    }
+
+    func testAPreExistingSidecarStillParsesAndItsCutIsLifted() {
+        // The shape ClipHack wrote before this change: single lines, no blanks
+        // between elements, and the cut at the end of the notes.
+        let record = ClipNotesFile.parse(
+            "Aaron_Rupar_TRUMP.m4a\nTRUMP — \"the quote\"\n\nAUDIENCE: 😬\n\nTo :17\nhttps://x.com/atrupar/status/2090948085333504072\n\n"
+        )
+        XCTAssertEqual(record?.filename, "Aaron_Rupar_TRUMP.m4a")
+        XCTAssertEqual(record?.notes, "TRUMP — \"the quote\"\n\nAUDIENCE: 😬")
+        XCTAssertEqual(record?.timestamp, "To :17")
+        XCTAssertEqual(record?.sourceURL, "https://x.com/atrupar/status/2090948085333504072")
     }
 
     func testReadReturnsNilWhenThereIsNoSidecar() {
@@ -194,7 +283,7 @@ final class ClipNotesFileTests: XCTestCase {
         let sidecar = tempDir.appendingPathComponent("Title.txt")
         XCTAssertEqual(
             try String(contentsOf: sidecar, encoding: .utf8),
-            "Title.m4a\nsecond\nhttps://a\n\n",
+            "Title.m4a\n\nsecond\n\nhttps://a\n",
             "one clip per file — a re-download records what it was downloaded with"
         )
     }
@@ -256,22 +345,23 @@ final class ClipNotesFileTests: XCTestCase {
             .appendingPathComponent("Alpha", isDirectory: true)
             .appendingPathComponent("Alpha.txt")
 
-        try ClipNotesFile.updateNotes("Trump — said the thing\n:30 to :12", atSidecar: sidecar)
+        try ClipNotesFile.updateNotes("Trump — said the thing", timestamp: ":30 to :12", atSidecar: sidecar)
 
         XCTAssertEqual(
             try String(contentsOf: sidecar, encoding: .utf8),
-            "Alpha.m4a\nTrump — said the thing\n:30 to :12\nhttps://a\n\n",
+            "Alpha.m4a\n\nTrump — said the thing\n\n:30 to :12\n\nhttps://a\n",
             "editing the list entry must not disturb the sidecar's shape"
         )
         let record = try XCTUnwrap(ClipNotesFile.readSidecar(at: sidecar))
         XCTAssertEqual(record.filename, "Alpha.m4a")
         XCTAssertEqual(record.sourceURL, "https://a")
-        XCTAssertEqual(record.notes, "Trump — said the thing\n:30 to :12")
+        XCTAssertEqual(record.notes, "Trump — said the thing")
+        XCTAssertEqual(record.timestamp, ":30 to :12")
     }
 
     func testUpdateNotesThrowsWhenThereIsNoSidecar() {
         let missing = tempDir.appendingPathComponent("Nope.txt")
-        XCTAssertThrowsError(try ClipNotesFile.updateNotes("anything", atSidecar: missing))
+        XCTAssertThrowsError(try ClipNotesFile.updateNotes("anything", timestamp: "", atSidecar: missing))
     }
     // MARK: - End to end: a folder of clips becomes the list
 

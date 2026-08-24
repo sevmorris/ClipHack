@@ -164,7 +164,54 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         let notesURL = dir.appendingPathComponent("Title.txt")
         let content = try String(contentsOf: notesURL, encoding: .utf8)
-        XCTAssertEqual(content, "Title.m4a\nthe good part\nhttps://example.com/watch?v=abc\n\n")
+        XCTAssertEqual(content, "Title.m4a\n\nthe good part\n\nhttps://example.com/watch?v=abc\n")
+    }
+
+    func testAHandTypedNameLeavesTheFilenameOutOfTheNotes() throws {
+        let dir = try makeClipFolder()
+        let vm = makeViewModel()
+        let wasEnabled = vm.clipNotesEnabled
+        defer { vm.clipNotesEnabled = wasEnabled }
+        vm.clipNotesEnabled = true
+        vm.downloadNameField = "Title"          // named by hand
+        vm.downloadPersonField = "Trump"
+        vm.downloadNotesField = "the good part"
+        vm.downloadTimestampField = "1:13 to :55"
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: dir.appendingPathComponent("Title.m4a").path
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: dir.appendingPathComponent("Title.txt"), encoding: .utf8),
+            "Trump — the good part\n\n1:13 to :55\n\nhttps://example.com/watch?v=abc\n"
+        )
+    }
+
+    func testTheCutGoesOnItsOwnLineAndStaysOutOfTheList() throws {
+        let dir = try makeClipFolder()
+        let vm = makeViewModel()
+        let wasEnabled = vm.clipNotesEnabled
+        defer { vm.clipNotesEnabled = wasEnabled }
+        vm.clipNotesEnabled = true
+        vm.downloadPersonField = "Trump"
+        vm.downloadNotesField = "the good part"
+        vm.downloadTimestampField = "1:13 to :55"
+        vm.finishDownload(
+            sourceURL: "https://example.com/watch?v=abc",
+            filePath: dir.appendingPathComponent("Title.m4a").path
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: dir.appendingPathComponent("Title.txt"), encoding: .utf8),
+            "Title.m4a\n\nTrump — the good part\n\n1:13 to :55\n\nhttps://example.com/watch?v=abc\n"
+        )
+        let record = try XCTUnwrap(ClipNotesFile.readSidecar(at: dir.appendingPathComponent("Title.txt")))
+        XCTAssertEqual(
+            ClipListEntry.numberedList([ClipListEntry.parse(notes: record.notes)]),
+            "1) TRUMP the good part",
+            "the cut is for the notes file, not the copied list"
+        )
     }
 
     func testClipNotesSkippedWhenDisabled() throws {

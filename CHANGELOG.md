@@ -2,6 +2,19 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.22.0] — 2026-08-22
+
+**Added**
+- **A box for the cut.** The download popover takes a timestamp — `1:13 to :55` — beside the person, and writes it on its own line in the clip's notes file. It is deliberately kept out of the copied clip list, which stays one line per clip. The clip list panel shows it per row so it can be corrected later.
+
+**Changed**
+- **The notes file separates every element with a blank line**, so the source URL, the cut and the clip's entry each stand apart instead of running together.
+- **A clip you name yourself no longer records its filename.** The line only repeated the name just typed. Nothing needs it to find the audio — the notes file already shares the clip's stem, which is what lookup falls back to.
+- Sidecars written before this change still read correctly, and a cut sitting at the end of their notes is lifted into its own field. Files are migrated as they are edited rather than rewritten in bulk.
+
+**Fixed**
+- A clip with no recorded filename could resolve to its own folder rather than its audio, because appending an empty name lands back on the directory and that exists. Only reachable via the new hand-named form, and caught before it shipped.
+
 ## [1.21.1] — 2026-08-22
 
 **Added**

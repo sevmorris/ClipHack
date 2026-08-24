@@ -103,6 +103,11 @@ struct ClipListPanel: View {
                     TextField("What they said, or what the clip is about",
                               text: binding(index: index, \.description))
                         .textFieldStyle(.roundedBorder)
+
+                    TextField("1:13 to :55", text: binding(index: index, \.timestamp))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 100)
+                        .help("The cut. Kept in the notes file, left out of the copied list.")
                 }
 
                 HStack(spacing: 8) {

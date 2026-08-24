@@ -46,7 +46,22 @@ Processed output goes into the same folder. Thus, all the parts of one clip stay
 * **Custom name (optional):** Type a name for the download. The tool changes the file name and the folder name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
 * **Person in clip (optional):** Type the name of the person speaking in the clip. This name goes in the clip list. If you use a link from X (Twitter), the tool reads the name from the post text and fills the field. The tool leaves the field empty if it cannot read a name. The tool does not use the name of the account that posted the clip. That account is usually not the person in the clip.
 * **Notes (optional):** Type text to keep with the file row. The first line says what the clip is about. That line and the person make the clip's entry in the list. Text on the lines below stays out of the list. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
-* **Save clip notes:** This writes the file name, notes, and source URL to a text file in the clip folder. The record shows the download at the time it occurred. If you rename a file later, the tool does not change the record. This is the correct function.
+* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55`. The tool writes this on its own line in the notes file. The tool leaves it out of the copied clip list.
+* **Save clip notes:** This writes the notes to a text file in the clip folder. The tool writes one element per block and puts a blank line between the blocks:
+
+```
+Some Title.m4a
+
+TRUMP — "I should be at 100 percent on the economy"
+
+1:13 to :55
+
+https://x.com/atrupar/status/2090948085333504072
+```
+
+The tool writes the file name only when it takes the name from the source. If you type a file name yourself, the tool leaves that line out, because the line repeats the name you typed. The tool still finds the audio, because the text file has the same name as the audio file.
+
+The record shows the download at the time it occurred. If you rename a file later, the tool does not change the record. This is the correct function.
 
 If you use a link a second time, the tool does not download the clip again. The tool reads the notes files in the destination directory. If it finds the clip, it adds the file to the list and tells you. This is also correct if you downloaded the clip on a different day. If you deleted the audio file, the tool downloads the clip again.
 
