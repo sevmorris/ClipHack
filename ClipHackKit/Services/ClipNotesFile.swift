@@ -18,10 +18,11 @@ import Foundation
 /// sidecar shares the clip's stem, which is what `audioFile(for:sidecar:)`
 /// falls back to.
 ///
-/// This replaced a daily `clip-list-YYYY-MM-DD.txt` whose one-line-per-element
-/// body was kept verbatim so WireHack's logs still parsed. That constraint is
-/// retired — WireHack is superseded, and the clip list is generated in-app now
-/// rather than by concatenating these files.
+/// **The app no longer writes these.** A session keeps one file holding every
+/// clip (`SessionNotesFile`), and each block in it is exactly the body defined
+/// here — so this type is now the block format plus the reader that folds
+/// pre-existing per-clip files into a session. `write` remains as the authoring
+/// side of that legacy shape.
 enum ClipNotesFile {
     /// Sidecar name for an audio file: same stem, `.txt`.
     static func filename(forAudioFile audioFilename: String) -> String {
@@ -174,15 +175,6 @@ enum ClipNotesFile {
         return index
     }
 
-    /// Reads the sidecar sitting beside `audioFile`, if there is one. Silent on
-    /// every failure — restoring notes is a convenience, never a blocker.
-    static func read(forAudioFile audioFile: URL) -> Record? {
-        let url = audioFile
-            .deletingLastPathComponent()
-            .appendingPathComponent(filename(forAudioFile: audioFile.lastPathComponent))
-        return readSidecar(at: url)
-    }
-
     static func readSidecar(at url: URL) -> Record? {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         return parse(text)
@@ -200,23 +192,6 @@ enum ClipNotesFile {
             return idA == idB
         }
         return false
-    }
-
-    /// Finds a clip already downloaded from `sourceURL`, by reading the notes
-    /// sidecars in `directory` and its clip folders (one level down — that is
-    /// exactly where downloads are filed). Returns the audio file itself.
-    ///
-    /// The audio has to still be on disk: sidecars outlive the clips they
-    /// describe when a show's files are deleted, and a leftover note must never
-    /// block re-downloading.
-    static func existingClip(forSourceURL sourceURL: String, in directory: URL) -> URL? {
-        for sidecar in sidecarURLs(in: directory) {
-            guard let record = readSidecar(at: sidecar),
-                  isSameSource(record.sourceURL, sourceURL),
-                  let audio = audioFile(for: record, sidecar: sidecar) else { continue }
-            return audio
-        }
-        return nil
     }
 
     /// One row per clip sidecar under `directory` — for a per-episode download
@@ -251,27 +226,6 @@ enum ClipNotesFile {
             return lhs.entry.sidecar.lastPathComponent
                 .localizedStandardCompare(rhs.entry.sidecar.lastPathComponent) == .orderedAscending
         }.map(\.entry)
-    }
-
-    /// Rewrites just the notes of an existing sidecar, keeping the filename and
-    /// source URL it already recorded. This is the write path for editing a
-    /// clip's list entry after the download that created it — the recorded
-    /// filename stays a snapshot of download time, exactly as `write` leaves it.
-    static func updateNotes(
-        _ notes: String,
-        timestamp: String,
-        atSidecar sidecar: URL
-    ) throws {
-        guard let record = readSidecar(at: sidecar) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        let text = body(
-            filename: record.filename,
-            notes: notes,
-            timestamp: timestamp,
-            sourceURL: record.sourceURL
-        )
-        try Data(text.utf8).write(to: sidecar, options: .atomic)
     }
 
     /// Sidecars in `directory` and in each of its immediate subfolders.

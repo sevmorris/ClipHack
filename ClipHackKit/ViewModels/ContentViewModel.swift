@@ -172,11 +172,10 @@ final class ContentViewModel {
         // Notes live on disk beside the audio, so a clip re-added days later —
         // in a new session, by drag or by folder drop — still arrives with the
         // text that says what it is.
+        let records = SessionNotesFile.read(at: sessionNotesURL)
         let newFiles = urls.map { url -> FileItem in
             var item = FileItem(url: url)
-            if let notes = ClipNotesFile.read(forAudioFile: url)?.notes, !notes.isEmpty {
-                item.notes = notes
-            }
+            if let notes = restoredNotes(for: url, from: records) { item.notes = notes }
             return item
         }
         files.append(contentsOf: newFiles)
@@ -533,6 +532,29 @@ final class ContentViewModel {
         autoFilledPerson = nil
     }
 
+    /// Notes for a clip being added back to the list.
+    ///
+    /// The session file first, matched on the filename its block recorded — a
+    /// clip named by hand records none, so it cannot be matched that way. Then
+    /// a per-clip file beside the audio, which covers a folder dropped in from
+    /// outside the session and clips written before the session file existed.
+    private func restoredNotes(
+        for url: URL,
+        from records: [ClipNotesFile.Record]
+    ) -> String? {
+        if let notes = records.first(where: { $0.filename == url.lastPathComponent })?.notes,
+           !notes.isEmpty {
+            return notes
+        }
+        let sidecar = url
+            .deletingLastPathComponent()
+            .appendingPathComponent(ClipNotesFile.filename(forAudioFile: url.lastPathComponent))
+        if let notes = ClipNotesFile.readSidecar(at: sidecar)?.notes, !notes.isEmpty {
+            return notes
+        }
+        return nil
+    }
+
     /// The row previously added for `sourceURL`, if it is still in the list.
     func existingDownloadRowID(for sourceURL: String) -> UUID? {
         guard let id = downloadedURLToFileID[sourceURL],
@@ -605,7 +627,15 @@ final class ContentViewModel {
     ///
     /// Internal for unit tests.
     func adoptAlreadyDownloadedClip(for url: String, in destination: URL) -> Bool {
-        guard let existing = ClipNotesFile.existingClip(forSourceURL: url, in: destination) else {
+        let file = sessionNotesURL(for: destination)
+        // Fold in anything still in per-clip files first, so a link used before
+        // the session file existed is still recognised as already downloaded.
+        try? SessionNotesFile.adoptSidecars(in: destination, sessionFile: file)
+        let records = SessionNotesFile.read(at: file)
+        guard let existing = records
+            .first(where: { ClipNotesFile.isSameSource($0.sourceURL, url) })
+            .flatMap({ audioURL(for: $0, in: destination) })
+        else {
             return false
         }
 
@@ -727,15 +757,20 @@ final class ContentViewModel {
         // sidecar right beside it.
         if clipNotesEnabled {
             do {
-                try ClipNotesFile.write(
+                // A name typed by hand is already the filename; ClipHack's own
+                // name is recorded, because in one shared file it is what ties
+                // a block back to a clip on disk.
+                let record = ClipNotesFile.Record(
+                    filename: YtDlpService.sanitizedStem(downloadNameField) == nil
+                        ? fileURL.lastPathComponent : "",
                     notes: notes,
                     timestamp: downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines),
-                    sourceURL: sourceURL,
-                    forAudioFile: fileURL,
-                    // A name typed by hand is already the filename — repeating
-                    // it in the notes says nothing the name did not.
-                    includeFilename: YtDlpService.sanitizedStem(downloadNameField) == nil
+                    sourceURL: sourceURL
                 )
+                // The session's folder is the configured destination, not something
+                // walked up from the file — a download that was not filed into a
+                // folder of its own would land two levels too high.
+                try SessionNotesFile.upsert(record, at: sessionNotesURL)
             } catch {
                 alertTitle = "Notice"
                 alertMessage = "Downloaded, but the clip notes could not be written: \(error.localizedDescription)"
@@ -755,7 +790,10 @@ final class ContentViewModel {
     /// be renamed, processed, or trashed out from under a row, and the sidecar
     /// is the thing that persists.
     struct ClipListRow: Identifiable, Equatable {
-        let id: URL
+        /// Assigned at load. The row's own identity, not a position and not a
+        /// path — the whole file is rewritten on every edit, so nothing needs
+        /// to address a block on disk.
+        let id: UUID
         var person: String
         var description: String
         /// Lines below the list line — scratch. Round-tripped verbatim.
@@ -781,45 +819,91 @@ final class ContentViewModel {
 
     /// Rebuilds the rows from the sidecars on disk. Cheap enough to call on
     /// every panel open — a show is tens of small text files.
+    /// The session's one notes file, named after the session.
+    func sessionNotesURL(for folder: URL) -> URL {
+        SessionNotesFile.url(
+            inClipsFolder: folder,
+            title: ClipSessionStore.session(forClipsFolder: folder).title
+        )
+    }
+
+    var sessionNotesURL: URL { sessionNotesURL(for: clipListDirectory) }
+
+    /// The clip's audio, when it is still on disk. Downloads are filed into a
+    /// folder of their own, so look there as well as directly in the session.
+    /// A block with no filename — a clip named by hand — cannot be located.
+    func audioURL(for record: ClipNotesFile.Record, in folder: URL) -> URL? {
+        guard !record.filename.isEmpty else { return nil }
+        let stem = (record.filename as NSString).deletingPathExtension
+        let candidates = [
+            folder.appendingPathComponent(record.filename),
+            folder.appendingPathComponent(stem).appendingPathComponent(record.filename),
+        ]
+        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
     func loadClipList() {
-        clipListRows = ClipNotesFile.entries(in: clipListDirectory).map { entry in
-            let parsed = ClipListEntry.parse(notes: entry.record.notes)
+        let file = sessionNotesURL
+        // Fold in any per-clip files written before the session file existed.
+        // Their originals are left alone; they are simply no longer read.
+        try? SessionNotesFile.adoptSidecars(in: clipListDirectory, sessionFile: file)
+
+        clipListRows = SessionNotesFile.read(at: file).map { record in
+            let parsed = ClipListEntry.parse(notes: record.notes)
             return ClipListRow(
-                id: entry.sidecar,
+                id: UUID(),
                 person: parsed.person,
                 description: parsed.description,
                 extra: parsed.extra,
-                timestamp: entry.record.timestamp,
-                filename: entry.record.filename,
-                sourceURL: entry.record.sourceURL,
-                hasAudio: entry.audio != nil
+                timestamp: record.timestamp,
+                filename: record.filename,
+                sourceURL: record.sourceURL,
+                hasAudio: audioURL(for: record, in: clipListDirectory) != nil
             )
         }
     }
 
-    /// Writes one row back to its sidecar.
+    /// Every row, written back as the whole file.
     ///
-    /// Called on every keystroke rather than on commit, so there is never an
-    /// edit living only in memory: prep runs over days and the panel is the
-    /// list, so a lost edit is a lost clip. Each save is an atomic write of a
-    /// file well under a kilobyte.
-    func saveClipListRow(_ row: ClipListRow) {
-        guard let index = clipListRows.firstIndex(where: { $0.id == row.id }) else { return }
-        clipListRows[index] = row
-        do {
-            try ClipNotesFile.updateNotes(
-                ClipListEntry.compose(
+    /// Whole-file rather than per-block: the rows are the state, so rendering
+    /// them is the only way the file can disagree with what is on screen.
+    func saveClipList() {
+        let records = clipListRows.map { row in
+            ClipNotesFile.Record(
+                filename: row.filename,
+                notes: ClipListEntry.compose(
                     person: row.person,
                     description: row.description,
                     extra: row.extra
                 ),
                 timestamp: row.timestamp,
-                atSidecar: row.id
+                sourceURL: row.sourceURL
             )
+        }
+        do {
+            try SessionNotesFile.write(records, to: sessionNotesURL)
         } catch {
             alertTitle = "Notice"
-            alertMessage = "Couldn't save notes for \"\(row.filename)\": \(error.localizedDescription)"
+            alertMessage = "Couldn't save the clip list: \(error.localizedDescription)"
         }
+    }
+
+    /// Applies one field of one row, found by identity.
+    ///
+    /// By identity and never by position: the panel's fields outlive the array
+    /// they were built from, and `loadClipList` re-sorts it (Refresh, ⇧⌘C, and
+    /// switching session all reload). An index captured when a field was drawn
+    /// can therefore point at a different clip by the time a keystroke lands,
+    /// which would write the typed text into that clip's sidecar and destroy
+    /// what was there.
+    func updateClipListRow(
+        id: UUID,
+        keyPath: WritableKeyPath<ClipListRow, String>,
+        value: String
+    ) {
+        guard let index = clipListRows.firstIndex(where: { $0.id == id }) else { return }
+        clipListRows[index][keyPath: keyPath] = value
+        saveClipList()
     }
 
     /// The finished numbered list for the rows currently loaded.

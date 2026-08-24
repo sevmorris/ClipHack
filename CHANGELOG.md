@@ -2,7 +2,19 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [1.22.0] — 2026-08-22
+## [1.23.0] — 2026-08-24
+
+**Changed**
+- **One notes file per session, instead of one per clip.** A session keeps `HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt`, holding every clip in it, blocks separated by a `---` rule. Each block is the same shape as before — filename, entry, cut, source URL, a blank line between each — so nothing about how a clip reads has changed, only how many files it takes.
+  Maintained rather than appended. ClipHack rewrites the file from what it holds, so a re-download or an edit replaces a clip's block instead of stacking a second one after it. That is why the per-clip files existed: the daily appending log this returns to grew a history that had to be pruned by hand. The name is recorded only when ClipHack chose it, exactly as before, but it now carries weight — in a shared file it is what ties a block back to a clip on disk, so the already-downloaded check works for auto-named clips and not for ones named by hand.
+- **Existing per-clip files are folded in automatically** the first time a session is opened or a link is checked, in the order they were written and without duplicating a clip already recorded. The originals are left exactly where they are: they are your files, and a migration that deletes them has no undo. They are simply no longer read.
+
+**Fixed**
+- **An edit in the clip list could be written into the wrong clip.** The panel's fields were bound to a row's position, and reloading re-sorts the rows — Refresh, ⇧⌘C and switching session all reload. Typing after a reload therefore wrote into whichever clip had taken that slot, destroying what was there. Fields now follow the row itself.
+- A clip dropped in from outside the session keeps its notes: the per-clip file beside it is still read when the session file has nothing for it.
+- The 1.22.0 entry below was dated 2026-08-22; its tag is 2026-08-24.
+
+## [1.22.0] — 2026-08-24
 
 **Added**
 - **A box for the cut.** The download popover takes a timestamp — `1:13 to :55` — beside the person, and writes it on its own line in the clip's notes file. It is deliberately kept out of the copied clip list, which stays one line per clip. The clip list panel shows it per row so it can be corrected later.

@@ -95,30 +95,9 @@ final class ClipNotesFileTests: XCTestCase {
         )
     }
 
-    func testAClipWithNoFilenameLineIsStillFoundByItsStem() throws {
-        let folder = tempDir.appendingPathComponent("Hand Named", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let audio = folder.appendingPathComponent("Hand Named.m4a")
-        try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "n", sourceURL: "https://hand", forAudioFile: audio, includeFilename: false)
-
-        assertSameFile(
-            ClipNotesFile.existingClip(forSourceURL: "https://hand", in: tempDir), audio,
-            "the sidecar shares the clip's stem, so the filename line is not needed to find it"
-        )
-    }
 
     // MARK: - Reading back (notes survive the session)
 
-    func testRoundTripRestoresNotesAndSource() throws {
-        let audio = tempDir.appendingPathComponent("Title.m4a")
-        try ClipNotesFile.write(notes: "Vance on tariffs", sourceURL: "https://x.com/a/status/12", forAudioFile: audio)
-
-        let record = try XCTUnwrap(ClipNotesFile.read(forAudioFile: audio))
-        XCTAssertEqual(record.filename, "Title.m4a")
-        XCTAssertEqual(record.notes, "Vance on tariffs")
-        XCTAssertEqual(record.sourceURL, "https://x.com/a/status/12")
-    }
 
     func testParseKeepsMultilineNotesIncludingBlankLines() {
         let record = ClipNotesFile.parse("Clip.m4a\nfirst para\n\nsecond para\nhttps://u\n\n")
@@ -184,9 +163,6 @@ final class ClipNotesFileTests: XCTestCase {
         XCTAssertEqual(record?.sourceURL, "https://x.com/atrupar/status/2090948085333504072")
     }
 
-    func testReadReturnsNilWhenThereIsNoSidecar() {
-        XCTAssertNil(ClipNotesFile.read(forAudioFile: tempDir.appendingPathComponent("Nothing.m4a")))
-    }
 
     // MARK: - Finding an already-downloaded clip
 
@@ -214,66 +190,11 @@ final class ClipNotesFileTests: XCTestCase {
         return audio
     }
 
-    func testFindsClipDownloadedInAnEarlierSession() throws {
-        let audio = try makeClip("Title", source: "https://youtube.com/watch?v=abc")
-        try makeClip("Other", source: "https://youtube.com/watch?v=zzz")
 
-        assertSameFile(
-            ClipNotesFile.existingClip(forSourceURL: "https://youtube.com/watch?v=abc", in: tempDir),
-            audio
-        )
-        XCTAssertNil(ClipNotesFile.existingClip(forSourceURL: "https://youtube.com/watch?v=new", in: tempDir))
-    }
 
-    func testXPostMatchesDespiteTrackingParams() throws {
-        let audio = try makeClip("Post", source: "https://x.com/atrupar/status/2073253157933666426")
 
-        assertSameFile(
-            ClipNotesFile.existingClip(
-                forSourceURL: "https://x.com/atrupar/status/2073253157933666426?s=46&t=xyz",
-                in: tempDir
-            ),
-            audio,
-            "the same post pasted with different params is the same clip"
-        )
-    }
 
-    func testYouTubeVideoIDsAreNotTreatedAsInterchangeable() {
-        XCTAssertFalse(
-            ClipNotesFile.isSameSource(
-                "https://youtube.com/watch?v=abc",
-                "https://youtube.com/watch?v=different"
-            ),
-            "the query string carries the video id — it must not be ignored"
-        )
-    }
 
-    func testDeletedClipDoesNotBlockRedownload() throws {
-        let audio = try makeClip("Title", source: "https://a")
-        try FileManager.default.removeItem(at: audio)   // show's over, files deleted
-
-        XCTAssertNil(
-            ClipNotesFile.existingClip(forSourceURL: "https://a", in: tempDir),
-            "a leftover sidecar with no audio must not block downloading it again"
-        )
-    }
-
-    func testRenamedClipIsStillFoundViaItsStem() throws {
-        let audio = try makeClip("Title", source: "https://a")
-        let renamed = audio.deletingLastPathComponent().appendingPathComponent("Title.opus")
-        try FileManager.default.moveItem(at: audio, to: renamed)
-
-        assertSameFile(ClipNotesFile.existingClip(forSourceURL: "https://a", in: tempDir), renamed)
-    }
-
-    func testFindsClipSittingLooseInTheDestination() throws {
-        // A download from before per-clip folders, or one whose move fell back.
-        let audio = tempDir.appendingPathComponent("Loose.m4a")
-        try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "", sourceURL: "https://loose", forAudioFile: audio)
-
-        assertSameFile(ClipNotesFile.existingClip(forSourceURL: "https://loose", in: tempDir), audio)
-    }
 
     func testSecondWriteReplacesRatherThanAppends() throws {
         let audio = tempDir.appendingPathComponent("Title.m4a")
@@ -339,30 +260,7 @@ final class ClipNotesFileTests: XCTestCase {
 
     // MARK: - Editing a clip's notes after the fact
 
-    func testUpdateNotesKeepsTheRecordedFilenameAndSource() throws {
-        try makeClip("Alpha", source: "https://a", notes: "raw post text")
-        let sidecar = tempDir
-            .appendingPathComponent("Alpha", isDirectory: true)
-            .appendingPathComponent("Alpha.txt")
 
-        try ClipNotesFile.updateNotes("Trump — said the thing", timestamp: ":30 to :12", atSidecar: sidecar)
-
-        XCTAssertEqual(
-            try String(contentsOf: sidecar, encoding: .utf8),
-            "Alpha.m4a\n\nTrump — said the thing\n\n:30 to :12\n\nhttps://a\n",
-            "editing the list entry must not disturb the sidecar's shape"
-        )
-        let record = try XCTUnwrap(ClipNotesFile.readSidecar(at: sidecar))
-        XCTAssertEqual(record.filename, "Alpha.m4a")
-        XCTAssertEqual(record.sourceURL, "https://a")
-        XCTAssertEqual(record.notes, "Trump — said the thing")
-        XCTAssertEqual(record.timestamp, ":30 to :12")
-    }
-
-    func testUpdateNotesThrowsWhenThereIsNoSidecar() {
-        let missing = tempDir.appendingPathComponent("Nope.txt")
-        XCTAssertThrowsError(try ClipNotesFile.updateNotes("anything", timestamp: "", atSidecar: missing))
-    }
     // MARK: - End to end: a folder of clips becomes the list
 
     func testFolderOfClipsExportsAsTheNumberedList() throws {

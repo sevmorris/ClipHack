@@ -17,8 +17,8 @@ struct ClipListPanel: View {
 
     /// Export numbers keyed by sidecar, matching what `numberedList` will emit
     /// so a row's badge is the number it actually exports as.
-    private var exportNumbers: [URL: Int] {
-        var numbers: [URL: Int] = [:]
+    private var exportNumbers: [UUID: Int] {
+        var numbers: [UUID: Int] = [:]
         var next = 1
         for row in viewModel.clipListRows
         where ClipListEntry.isListable(person: row.person, description: row.description) {
@@ -75,15 +75,15 @@ struct ClipListPanel: View {
     private var rowList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(Array(viewModel.clipListRows.enumerated()), id: \.element.id) { index, row in
-                    rowView(index: index, row: row)
+                ForEach(viewModel.clipListRows) { row in
+                    rowView(row)
                 }
             }
             .padding(12)
         }
     }
 
-    private func rowView(index: Int, row: ContentViewModel.ClipListRow) -> some View {
+    private func rowView(_ row: ContentViewModel.ClipListRow) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Text(exportNumbers[row.id].map { "\($0))" } ?? "—")
                 .font(.system(.body, design: .monospaced))
@@ -93,7 +93,7 @@ struct ClipListPanel: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    TextField("Person", text: binding(index: index, \.person))
+                    TextField("Person", text: binding(id: row.id, \.person))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 160)
 
@@ -101,10 +101,10 @@ struct ClipListPanel: View {
                         .foregroundStyle(.secondary)
 
                     TextField("What they said, or what the clip is about",
-                              text: binding(index: index, \.description))
+                              text: binding(id: row.id, \.description))
                         .textFieldStyle(.roundedBorder)
 
-                    TextField("1:13 to :55", text: binding(index: index, \.timestamp))
+                    TextField("1:13 to :55", text: binding(id: row.id, \.timestamp))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 100)
                         .help("The cut. Kept in the notes file, left out of the copied list.")
@@ -202,23 +202,18 @@ struct ClipListPanel: View {
 
     /// A binding that writes through to the sidecar on every keystroke.
     ///
-    /// Index-guarded on both sides: a refresh can shorten the array while a
-    /// field still holds focus.
+    /// Keyed by the row's sidecar URL, never by its position: `loadClipList`
+    /// re-sorts the array (Refresh, ⇧⌘C and switching session all reload), and
+    /// an index captured when the field was drawn can by then name a different
+    /// clip — writing the typed text into that clip's notes and destroying what
+    /// was there.
     private func binding(
-        index: Int,
+        id: UUID,
         _ keyPath: WritableKeyPath<ContentViewModel.ClipListRow, String>
     ) -> Binding<String> {
         Binding(
-            get: {
-                guard viewModel.clipListRows.indices.contains(index) else { return "" }
-                return viewModel.clipListRows[index][keyPath: keyPath]
-            },
-            set: { newValue in
-                guard viewModel.clipListRows.indices.contains(index) else { return }
-                var row = viewModel.clipListRows[index]
-                row[keyPath: keyPath] = newValue
-                viewModel.saveClipListRow(row)
-            }
+            get: { viewModel.clipListRows.first { $0.id == id }?[keyPath: keyPath] ?? "" },
+            set: { viewModel.updateClipListRow(id: id, keyPath: keyPath, value: $0) }
         )
     }
 }

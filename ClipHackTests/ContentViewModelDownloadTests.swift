@@ -155,6 +155,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
+        vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
         vm.downloadNotesField = "the good part"
         vm.finishDownload(
@@ -162,8 +163,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
             filePath: dir.appendingPathComponent("Title.m4a").path
         )
 
-        let notesURL = dir.appendingPathComponent("Title.txt")
-        let content = try String(contentsOf: notesURL, encoding: .utf8)
+        let content = try String(contentsOf: vm.sessionNotesURL, encoding: .utf8)
         XCTAssertEqual(content, "Title.m4a\n\nthe good part\n\nhttps://example.com/watch?v=abc\n")
     }
 
@@ -172,6 +172,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
+        vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
         vm.downloadNameField = "Title"          // named by hand
         vm.downloadPersonField = "Trump"
@@ -183,7 +184,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            try String(contentsOf: dir.appendingPathComponent("Title.txt"), encoding: .utf8),
+            try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
             "Trump — the good part\n\n1:13 to :55\n\nhttps://example.com/watch?v=abc\n"
         )
     }
@@ -193,6 +194,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
+        vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
         vm.downloadPersonField = "Trump"
         vm.downloadNotesField = "the good part"
@@ -203,10 +205,10 @@ final class ContentViewModelDownloadTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            try String(contentsOf: dir.appendingPathComponent("Title.txt"), encoding: .utf8),
+            try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
             "Title.m4a\n\nTrump — the good part\n\n1:13 to :55\n\nhttps://example.com/watch?v=abc\n"
         )
-        let record = try XCTUnwrap(ClipNotesFile.readSidecar(at: dir.appendingPathComponent("Title.txt")))
+        let record = try XCTUnwrap(SessionNotesFile.read(at: vm.sessionNotesURL).first)
         XCTAssertEqual(
             ClipListEntry.numberedList([ClipListEntry.parse(notes: record.notes)]),
             "1) TRUMP the good part",
@@ -237,12 +239,13 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
+        vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
         )
-        let notesURL = dir.appendingPathComponent("Title.txt")
+        let notesURL = vm.sessionNotesURL
         let afterFirst = try String(contentsOf: notesURL, encoding: .utf8)
 
         vm.downloadURLField = "https://example.com/watch?v=abc"
