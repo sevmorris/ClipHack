@@ -293,4 +293,21 @@ final class ClipNotesFileTests: XCTestCase {
             "timings stay out of the list, an unwritten clip takes no number"
         )
     }
+    /// The exact shape of a hand-written block: no filename line, a blank line
+    /// inside the notes, the cut on its own line, then the source URL.
+    func testHandWrittenBlockWithNoFilenameParsesEveryPart() {
+        let record = ClipNotesFile.parse("""
+        TRUMP — "I should be at 100 percent on the economy"
+
+        AUDIENCE: 😬
+
+        :46 to :17
+
+        https://x.com/atrupar/status/2090948085333504072?s=43
+        """)
+        XCTAssertEqual(record?.filename, "")
+        XCTAssertEqual(record?.notes, "TRUMP — \"I should be at 100 percent on the economy\"\n\nAUDIENCE: 😬")
+        XCTAssertEqual(record?.timestamp, ":46 to :17")
+        XCTAssertEqual(record?.sourceURL, "https://x.com/atrupar/status/2090948085333504072?s=43")
+    }
 }
