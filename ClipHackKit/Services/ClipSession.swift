@@ -6,7 +6,7 @@ import Foundation
 /// nothing to keep in sync when a folder is renamed or moved, one made in
 /// Finder shows up on its own, and the name travels with the files.
 ///
-///     ~/Desktop/Hacks on Tap/          ← root, one per show
+///     ~/Desktop/Example Show/          ← root, one per show
 ///     └── HT_0379 2026-08-24/          ← the session; its name is the title
 ///         └── clips/                   ← where downloads are filed
 ///             └── Some Title/

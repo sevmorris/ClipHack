@@ -67,24 +67,24 @@ final class ClipSessionTests: XCTestCase {
     // MARK: - Reading a session back from a path
 
     func testSessionIsReadBackFromAClipsFolder() {
-        let clips = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24/clips")
+        let clips = URL(fileURLWithPath: "/Users/example/Desktop/Example Show/HT_0379 2026-08-24/clips")
         let session = ClipSessionStore.session(forClipsFolder: clips)
         XCTAssertEqual(session.title, "HT_0379 2026-08-24")
         XCTAssertEqual(session.clipsFolder, clips)
     }
 
     func testAFolderNotNamedClipsIsTheEpisodeItself() {
-        let folder = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24")
+        let folder = URL(fileURLWithPath: "/Users/example/Desktop/Example Show/HT_0379 2026-08-24")
         let session = ClipSessionStore.session(forClipsFolder: folder)
         XCTAssertEqual(session.title, "HT_0379 2026-08-24")
         XCTAssertEqual(session.clipsFolder, folder)
     }
 
     func testShowRootIsInferredFromAClipsFolder() {
-        let clips = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24/clips")
+        let clips = URL(fileURLWithPath: "/Users/example/Desktop/Example Show/HT_0379 2026-08-24/clips")
         XCTAssertEqual(
             ClipSessionStore.inferredRoot(forClipsFolder: clips).path,
-            "/Users/sev/Desktop/Hacks on Tap"
+            "/Users/example/Desktop/Example Show"
         )
     }
 
@@ -159,18 +159,18 @@ final class ClipSessionTests: XCTestCase {
     // trailing slash. The earlier tests used the no-flag form, so this shape
     // was never exercised.
     func testSessionIsReadBackFromADirectoryURL() {
-        let clips = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24/clips",
+        let clips = URL(fileURLWithPath: "/Users/example/Desktop/Example Show/HT_0379 2026-08-24/clips",
                         isDirectory: true)
         let session = ClipSessionStore.session(forClipsFolder: clips)
         XCTAssertEqual(session.title, "HT_0379 2026-08-24")
     }
 
     func testShowRootIsInferredFromADirectoryURL() {
-        let clips = URL(fileURLWithPath: "/Users/sev/Desktop/Hacks on Tap/HT_0379 2026-08-24/clips",
+        let clips = URL(fileURLWithPath: "/Users/example/Desktop/Example Show/HT_0379 2026-08-24/clips",
                         isDirectory: true)
         XCTAssertEqual(
             ClipSessionStore.inferredRoot(forClipsFolder: clips).path,
-            "/Users/sev/Desktop/Hacks on Tap"
+            "/Users/example/Desktop/Example Show"
         )
     }
     // MARK: - Repairing a mis-picked show root
