@@ -32,18 +32,18 @@ To download audio from a web link directly into the file list, do one of these s
 
 The tool saves video sources as audio only. It uses the native codec without re-encoding. The tool saves downloads in the `~/Music/ClipHack` directory.
 
-Each download gets its own folder. The tool gives the folder the same name as the file:
+Downloads go straight into the session's folder. The tool does not make a folder for each clip:
 
 ```
-~/Music/ClipHack/
-└── Some Title/
-    ├── Some Title.m4a
-    └── Some Title.txt
+HT_0379 2026-08-24/clips/
+├── Some Title.m4a                 ← the download
+├── Some Title-44knorm-clipped-1dB.wav
+└── HT_0379 2026-08-24.txt         ← the notes for every clip
 ```
 
-Processed output goes into the same folder. Thus, all the parts of one clip stay together. If a second download has the same name, the tool makes a different folder (`Some Title-2`). The tool does not write over the first download.
+If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
 
-* **Custom name (optional):** Type a name for the download. The tool changes the file name and the folder name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
+* **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
 * **Person in clip (optional):** Type the name of the person speaking in the clip. This name goes in the clip list. If you use a link from X (Twitter), the tool reads the name from the post text and fills the field. The tool leaves the field empty if it cannot read a name. The tool does not use the name of the account that posted the clip. That account is usually not the person in the clip.
 * **Notes (optional):** Type text to keep with the file row. The first line says what the clip is about. That line and the person make the clip's entry in the list. Text on the lines below stays out of the list. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
 * **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55`. The tool writes this on its own line in the notes file. The tool leaves it out of the copied clip list.

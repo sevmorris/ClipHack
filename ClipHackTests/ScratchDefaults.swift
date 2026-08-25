@@ -10,11 +10,16 @@ import Foundation
 /// settings, presets, or the view model.
 @MainActor
 enum ScratchDefaults {
-    /// One fixed suite, not a fresh UUID per install: `setUp` runs once per
-    /// test *method*, so a unique name each time leaves a stray plist per test
-    /// in ~/Library/Preferences. Cleared on the way in as well as out, so a
-    /// test still starts from empty defaults.
-    private static let suiteName = "io.github.sevmorris.ClipHack.tests"
+    /// One suite per test *process*.
+    ///
+    /// Not a fresh name per install — `setUp` runs once per test method, and a
+    /// unique name each time leaves a stray plist per test behind. Not one
+    /// fixed name either: xcodebuild runs test classes in parallel processes,
+    /// and a shared suite means one class's teardown wipes another's settings
+    /// mid-test. Keyed on the pid, both problems go away — a handful of files,
+    /// each owned by exactly one process.
+    private static let suiteName =
+        "io.github.sevmorris.ClipHack.tests.\(ProcessInfo.processInfo.processIdentifier)"
 
     static func install() {
         let suite = UserDefaults(suiteName: suiteName) ?? .standard

@@ -5,6 +5,7 @@ enum YtDlpError: LocalizedError {
     case executionFailed(String)
     case cancelled
     case noOutputFile
+    case nameTaken(String)
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +17,8 @@ enum YtDlpError: LocalizedError {
             return "Download cancelled"
         case .noOutputFile:
             return "Download finished but no output file was found."
+        case .nameTaken(let name):
+            return "A different clip is already saved as \"\(name)\". Give this one a custom name and download it again."
         }
     }
 }
@@ -123,52 +126,6 @@ final class YtDlpService {
         return filenames.contains { $0.lowercased() == lowered || $0.lowercased().hasPrefix(prefix) }
     }
 
-    /// Name for a clip folder holding `stem`'s download, uniquified with -2,
-    /// -3, … against anything already on disk at that name (a folder from an
-    /// earlier download of the same title, or a stray file).
-    static func clipFolderName(for stem: String, in directory: URL) -> String {
-        uniqueStem(stem) { candidate in
-            FileManager.default.fileExists(
-                atPath: directory.appendingPathComponent(candidate).path
-            )
-        }
-    }
-
-    /// Files a finished download into its own folder — `Title.m4a` becomes
-    /// `Title/Title.m4a` — so the clip's audio, its notes sidecar, and whatever
-    /// ClipHack later renders from it stay together. Returns the new path.
-    ///
-    /// Best-effort by design: if the folder can't be created or the move fails,
-    /// the original path comes back unchanged and the download is still usable.
-    /// A tidy folder is a nicety; a lost download is not.
-    static func fileIntoClipFolder(_ path: String) -> String {
-        let fm = FileManager.default
-        let source = URL(fileURLWithPath: path)
-        let parent = source.deletingLastPathComponent()
-        let stem = source.deletingPathExtension().lastPathComponent
-        guard !stem.isEmpty else { return path }
-        // Already filed — e.g. yt-dlp resolved a file sitting in its own folder.
-        guard parent.lastPathComponent != stem else { return path }
-
-        let folder = parent.appendingPathComponent(
-            clipFolderName(for: stem, in: parent),
-            isDirectory: true
-        )
-        do {
-            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-            let target = folder.appendingPathComponent(source.lastPathComponent)
-            try fm.moveItem(at: source, to: target)
-            return target.path
-        } catch {
-            // Only ever the empty folder this call just made: clipFolderName
-            // picked a name nothing was using.
-            if let contents = try? fm.contentsOfDirectory(atPath: folder.path), contents.isEmpty {
-                try? fm.removeItem(at: folder)
-            }
-            return path
-        }
-    }
-
     /// Builds the yt-dlp argument list. Kept separate so flags stay easy to audit.
     /// `-f ba/b` prefers a native audio-only stream (no video bytes downloaded);
     /// `-x` strips audio out of combined formats via the bundled ffmpeg. No
@@ -217,6 +174,23 @@ final class YtDlpService {
         guard line.hasPrefix(prefix), line.hasSuffix(suffix),
               line.count > prefix.count + suffix.count else { return nil }
         return String(line.dropFirst(prefix.count).dropLast(suffix.count))
+    }
+
+    /// True when yt-dlp skipped the download because the target name was taken.
+    ///
+    /// It never overwrites, so a skip means a file of that name is already
+    /// sitting in the destination. ClipHack checks a link against the session
+    /// before downloading, so by this point that file is a *different* clip
+    /// that happens to share a title — adopting it would attach the wrong
+    /// audio to this entry.
+    ///
+    /// Reachable only since downloads stopped being filed into a folder of
+    /// their own, which used to leave the flat name free every time.
+    nonisolated static func skippedBecauseNameTaken(
+        markerPath: String?,
+        alreadyDownloadedPath: String?
+    ) -> Bool {
+        (markerPath?.isEmpty ?? true) && !(alreadyDownloadedPath?.isEmpty ?? true)
     }
 
     /// Picks the final downloaded file. The after_move marker is authoritative;
@@ -343,6 +317,14 @@ final class YtDlpService {
             if process.isRunning { process.terminate() }
         }
 
+        if Self.skippedBecauseNameTaken(
+            markerPath: filepathCapture.get(),
+            alreadyDownloadedPath: alreadyDownloadedCapture.get()
+        ), uniqueCustomStem == nil {
+            let taken = URL(fileURLWithPath: alreadyDownloadedCapture.get() ?? "").lastPathComponent
+            throw YtDlpError.nameTaken(taken)
+        }
+
         guard let filepath = Self.resolveDownloadedFile(
             markerPath: filepathCapture.get(),
             alreadyDownloadedPath: alreadyDownloadedCapture.get(),
@@ -350,7 +332,11 @@ final class YtDlpService {
         ) else {
             throw YtDlpError.noOutputFile
         }
-        return Self.fileIntoClipFolder(filepath)
+        // Left where yt-dlp wrote it, flat in the destination. The per-clip
+        // folder this used to be moved into no longer holds anything: notes go
+        // to the session's own file, processed output lands flat beside it, and
+        // the source is trashed once processed — so the folder was left empty.
+        return filepath
     }
 }
 

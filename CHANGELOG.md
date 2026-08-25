@@ -2,6 +2,15 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.23.1] — 2026-08-24
+
+**Changed**
+- **Downloads land straight in the session's folder.** Each one used to be filed into a folder of its own, so that a clip's audio, its notes and whatever was rendered from it stayed together. None of that is true any more — notes moved to the session's own file, processed output goes flat beside it, and the source is trashed once processed — so the folder was left behind empty. It is no longer created.
+
+**Fixed**
+- **A clip can no longer be given another clip's audio.** yt-dlp skips rather than overwrites, so with flat filenames a download whose title matched one already in the session would silently resolve to that existing file. ClipHack checks a link against the session before downloading, so a skip at that point means a genuinely different clip sharing a title: it now stops with a message naming the file and asking for a custom name. Not reachable before, because filing each download into its own folder always left the flat name free.
+- **The test suite no longer trips over itself.** Its scratch preferences suite had one fixed name while xcodebuild runs test classes in parallel processes, so one class's teardown could wipe another's settings mid-test. Keyed on the process now.
+
 ## [1.23.0] — 2026-08-24
 
 **Changed**
