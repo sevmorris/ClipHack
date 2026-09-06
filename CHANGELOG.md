@@ -2,6 +2,14 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.24.0] — 2026-09-05
+
+**Removed**
+- **The clip list.** ClipHack no longer assembles a numbered list of a session's clips: the panel (⇧⌘L), the Copy List button (⇧⌘C) and the numbered export are gone. Nothing else about how a clip is recorded changes — the person, the notes, the cut and the source URL are still written to the session's notes file exactly as before, and that file is still folded together from any per-clip files an older version left behind. What is gone is only the reading side: the notes are now read in a text editor rather than in a panel.
+
+**Fixed**
+- **The app no longer claims each download gets its own folder.** That stopped being true in 1.23.1, but the download popover and the Help window still said it, and Help still described naming a download as naming "its folder". Downloads land flat in the session's folder, and the text now says so.
+
 ## [1.23.1] — 2026-08-24
 
 **Changed**

@@ -209,11 +209,8 @@ final class ContentViewModelDownloadTests: XCTestCase {
             "Title.m4a\n\nTrump — the good part\n\n1:13 to :55\n\nhttps://example.com/watch?v=abc\n"
         )
         let record = try XCTUnwrap(SessionNotesFile.read(at: vm.sessionNotesURL).first)
-        XCTAssertEqual(
-            ClipListEntry.numberedList([ClipListEntry.parse(notes: record.notes)]),
-            "1) TRUMP the good part",
-            "the cut is for the notes file, not the copied list"
-        )
+        XCTAssertEqual(record.notes, "Trump — the good part")
+        XCTAssertEqual(record.timestamp, "1:13 to :55", "the cut is kept on its own line")
     }
 
     func testClipNotesSkippedWhenDisabled() throws {

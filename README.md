@@ -20,7 +20,6 @@ ClipHack is an internal tool. It prepares third-party audio clips (for example: 
 * **Loudness normalization:** The tool does a two-pass EBU R128 normalization. You set the target level (for example, -18 LUFS).
 * **Peak control:** The tool applies a brick-wall limiter at the native sample rate, holding sample peaks at the ceiling you set (from -6 dB to -1 dB).
 * **Download from URL:** You can paste or drop a web link into the application. The tool downloads the audio into the file list. It uses the included yt-dlp software.
-* **Clip list:** The tool makes a numbered list of the clips in the download folder. You edit each line in the application. You copy the finished list to the clipboard.
 
 ---
 
@@ -44,9 +43,9 @@ HT_0379 2026-08-24/clips/
 If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
 
 * **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
-* **Person in clip (optional):** Type the name of the person speaking in the clip. This name goes in the clip list. If you use a link from X (Twitter), the tool reads the name from the post text and fills the field. The tool leaves the field empty if it cannot read a name. The tool does not use the name of the account that posted the clip. That account is usually not the person in the clip.
-* **Notes (optional):** Type text to keep with the file row. The first line says what the clip is about. That line and the person make the clip's entry in the list. Text on the lines below stays out of the list. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
-* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55`. The tool writes this on its own line in the notes file. The tool leaves it out of the copied clip list.
+* **Person in clip (optional):** Type the name of the person speaking in the clip. The tool writes this name at the start of the clip's notes. If you use a link from X (Twitter), the tool reads the name from the post text and fills the field. The tool leaves the field empty if it cannot read a name. The tool does not use the name of the account that posted the clip. That account is usually not the person in the clip.
+* **Notes (optional):** Type text to keep with the file row. The first line says what the clip is about. That line and the person open the clip's entry in the notes file. The tool keeps the lines below exactly as you type them. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
+* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55`. The tool writes this on its own line in the notes file.
 * **Save clip notes:** This writes the notes to the session's text file. The session keeps one file for all its clips:
 
 ```
@@ -75,11 +74,19 @@ The record shows the download at the time it occurred. If you rename a file late
 
 If you use a link a second time, the tool does not download the clip again. The tool reads the notes files in the destination directory. If it finds the clip, it adds the file to the list and tells you. This is also correct if you downloaded the clip on a different day. If you deleted the audio file, the tool downloads the clip again.
 
+The yt-dlp software is included with each release. You do not need Homebrew or other external software.
+
 ## Notes in the File List
 
-The file list shows the notes below the file name. The tool reads the notes from the text file in the clip folder. Thus, the notes stay with the clip after you close the application. Point at the notes to see the full text.
+The file list shows the notes below the file name. The tool reads the notes from the session's text file. Thus, the notes stay with the clip after you close the application. Point at the notes to see the full text.
 
 You can drop a folder onto the window. The tool finds all the audio files in the folder and in the directories below it. Thus, you can drop one clip folder, or all the clip folders for a show. If you drop the same file two times, the tool does not add it two times.
+
+To rename a file in the list, do one of these steps:
+* Right-click the row and select **Rename…**.
+* Select the row and push **Return**.
+
+The tool renames the file on your disk. You can only change the name stem. The file extension does not change.
 
 ## Sessions
 
@@ -95,42 +102,13 @@ One episode is one folder. The folder's name is the session title:
 
 The session menu in the toolbar lists every episode in the show folder, newest first. The current session is also the window title.
 
-* **Switch session:** Pick an episode from the menu. The tool points the download folder, the output folder, and the clip list at that episode's `clips` folder in one step.
+* **Switch session:** Pick an episode from the menu. The tool points the download folder and the output folder at that episode's `clips` folder in one step.
 * **New Session:** The tool reads the highest episode number in the show folder and suggests the next one with today's date, for example `HT_0380 2026-08-31`. You can change the name. The tool then makes `<episode>/clips` and switches to it.
 * **Choose Show Folder:** Sets the folder that holds your episode folders. The tool sets this automatically the first time you pick a session folder. It uses the folder above the episode. If you pick an episode folder by mistake, the tool uses the folder above it.
 
 The show folder usually holds other folders too, for example templates and shared audio. The tool puts the episodes first in the menu, with the highest number at the top. The other folders follow.
 
 The tool does not save a session record. It reads the session from the folder path. Thus you can rename or move a folder in the Finder and nothing goes out of date. An episode folder that you make by hand appears in the menu on its own.
-
-## Clip List
-
-The clip list is every clip in your download folder as one numbered list:
-
-```
-1) TRUMP traveled to South Dakota to read a red scare speech
-2) JD VANCE said the quiet part out loud
-```
-
-The tool puts the name in capital letters. The capital letters separate the name from the text, so the line needs no dash. The notes file keeps the name as you typed it. Thus the panel shows your text, not capital letters.
-
-To open the list, click the list button in the toolbar (Shift + Command + L). To copy the list to the clipboard without opening it, push Shift + Command + C.
-
-Each row is one clip's notes file. When you change a person or a description, the tool writes the change to that clip's own text file. There is no separate list file. There is nothing to save.
-
-The tool reads the notes files, not the audio. Thus the list stays correct across many days, after you quit the application, and after you process the clips and delete the originals. A clip with no audio keeps its line. The tool marks that line `audio removed`.
-
-The list shows the clips in the current download folder. Point the download folder at one episode's folder. The list is then that episode. There is nothing else to set.
-
-The tool assigns the numbers when you copy the list, in the order you added the clips. A row you have not written up yet gets no number. The tool leaves that row out of the copied list. Thus the numbers never have gaps.
-
-To rename a file in the list, do one of these steps:
-* Right-click the row and select **Rename…**.
-* Select the row and push **Return**.
-
-The tool renames the file on your disk. You can only change the name stem. The file extension does not change.
-
-The yt-dlp software is included with each release. You do not need Homebrew or other external software.
 
 ---
 

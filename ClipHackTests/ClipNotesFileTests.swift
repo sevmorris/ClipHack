@@ -181,12 +181,22 @@ final class ClipNotesFileTests: XCTestCase {
 
     /// Mirrors a real download: a clip folder holding audio plus its sidecar.
     @discardableResult
-    private func makeClip(_ stem: String, source: String, notes: String = "") throws -> URL {
+    private func makeClip(
+        _ stem: String,
+        source: String,
+        notes: String = "",
+        timestamp: String = ""
+    ) throws -> URL {
         let folder = tempDir.appendingPathComponent(stem, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let audio = folder.appendingPathComponent("\(stem).m4a")
         try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: notes, sourceURL: source, forAudioFile: audio)
+        try ClipNotesFile.write(
+            notes: notes,
+            timestamp: timestamp,
+            sourceURL: source,
+            forAudioFile: audio
+        )
         return audio
     }
 
@@ -261,16 +271,19 @@ final class ClipNotesFileTests: XCTestCase {
     // MARK: - Editing a clip's notes after the fact
 
 
-    // MARK: - End to end: a folder of clips becomes the list
+    // MARK: - End to end: a folder of clips, read back in order
 
-    func testFolderOfClipsExportsAsTheNumberedList() throws {
+    /// A show's clips are written over days, so the order they were added is
+    /// the only order that means anything — and it comes from the file dates,
+    /// not from the names, which are whatever the source titles happened to be.
+    func testFolderOfClipsReadsBackInTheOrderTheyWereAdded() throws {
         let clips = [
-            ("Clip1", "Trump — traveled to South Dakota to read a red scare speech\n:30 to :12"),
-            ("Clip2", "JD Vance — said the quiet part out loud"),
-            ("Clip3", ""),   // downloaded but never written up
+            ("Zulu", "Trump — traveled to South Dakota to read a red scare speech", ":30 to :12"),
+            ("Alpha", "JD Vance — said the quiet part out loud", ""),
+            ("Mike", "", ""),   // downloaded but never written up
         ]
         for (day, clip) in clips.enumerated() {
-            try makeClip(clip.0, source: "https://\(clip.0)", notes: clip.1)
+            try makeClip(clip.0, source: "https://\(clip.0)", notes: clip.1, timestamp: clip.2)
             let sidecar = tempDir
                 .appendingPathComponent(clip.0, isDirectory: true)
                 .appendingPathComponent("\(clip.0).txt")
@@ -280,18 +293,19 @@ final class ClipNotesFileTests: XCTestCase {
             )
         }
 
-        let entries = ClipNotesFile.entries(in: tempDir).map {
-            ClipListEntry.parse(notes: $0.record.notes)
-        }
+        let entries = ClipNotesFile.entries(in: tempDir)
 
+        XCTAssertEqual(entries.map(\.record.sourceURL), ["https://Zulu", "https://Alpha", "https://Mike"])
         XCTAssertEqual(
-            ClipListEntry.numberedList(entries),
-            """
-            1) TRUMP traveled to South Dakota to read a red scare speech
-            2) JD VANCE said the quiet part out loud
-            """,
-            "timings stay out of the list, an unwritten clip takes no number"
+            entries.map(\.record.notes),
+            [
+                "Trump — traveled to South Dakota to read a red scare speech",
+                "JD Vance — said the quiet part out loud",
+                "",
+            ],
+            "a clip never written up keeps its place and its empty notes"
         )
+        XCTAssertEqual(entries.map(\.record.timestamp), [":30 to :12", "", ""])
     }
     /// The exact shape of a hand-written block: no filename line, a blank line
     /// inside the notes, the cut on its own line, then the source URL.

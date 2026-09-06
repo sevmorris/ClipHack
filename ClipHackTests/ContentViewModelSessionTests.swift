@@ -49,7 +49,9 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(vm.currentSession?.folder.lastPathComponent, "HT_0380 2026-08-24")
     }
 
-    func testOpeningASessionLoadsItsClipList() throws {
+    /// Opening an episode written by an older version folds its per-clip files
+    /// into the session's one file, so the notes read as a single document.
+    func testOpeningASessionFoldsInItsPerClipNotes() throws {
         let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
         let clipFolder = session.clipsFolder.appendingPathComponent("Some Clip", isDirectory: true)
         try FileManager.default.createDirectory(at: clipFolder, withIntermediateDirectories: true)
@@ -60,9 +62,10 @@ final class ContentViewModelSessionTests: XCTestCase {
         let vm = makeViewModel()
         vm.openSession(session)
 
-        XCTAssertEqual(vm.clipListRows.count, 1)
-        XCTAssertEqual(vm.clipListRows.first?.person, "TRUMP")
-        XCTAssertEqual(vm.clipListText, "1) TRUMP said it")
+        let records = SessionNotesFile.read(at: vm.sessionNotesURL)
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(records.first?.notes, "TRUMP — said it")
+        XCTAssertEqual(records.first?.sourceURL, "https://a")
     }
 
     // MARK: - Creating
@@ -213,48 +216,6 @@ final class ContentViewModelSessionTests: XCTestCase {
     }
     // MARK: - Editing the clip list targets the right clip
 
-    /// The panel's fields outlive the array they were drawn from, and a reload
-    /// can reorder it. An edit must follow the clip, not the slot it sat in.
-    func testEditingARowAfterAReloadStillWritesToItsOwnClip() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
-        let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
-        try SessionNotesFile.write([
-            ClipNotesFile.Record(filename: "Alpha.m4a", notes: "Alpha — one", sourceURL: "https://a"),
-            ClipNotesFile.Record(filename: "Beta.m4a", notes: "Beta — two", sourceURL: "https://b"),
-        ], to: file)
-
-        let vm = makeViewModel()
-        vm.openSession(session)
-        XCTAssertEqual(vm.clipListRows.map(\.person), ["Alpha", "Beta"])
-
-        let alphaID = try XCTUnwrap(vm.clipListRows.first { $0.person == "Alpha" }?.id)
-        vm.loadClipList()   // fresh rows, fresh identities
-
-        // A field bound to the id from before the reload must not write blindly.
-        vm.updateClipListRow(id: alphaID, keyPath: \.person, value: "ghost")
-        XCTAssertEqual(
-            SessionNotesFile.read(at: file).map(\.notes),
-            ["Alpha — one", "Beta — two"],
-            "an id that no longer exists must change nothing"
-        )
-
-        // Editing by a current id writes to that clip and leaves the other be.
-        let currentAlpha = try XCTUnwrap(vm.clipListRows.first { $0.person == "Alpha" }?.id)
-        vm.updateClipListRow(id: currentAlpha, keyPath: \.person, value: "Alpha edited")
-        XCTAssertEqual(
-            SessionNotesFile.read(at: file).map(\.notes),
-            ["Alpha edited — one", "Beta — two"]
-        )
-    }
-
-    func testEditingAVanishedRowIsANoOp() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
-        let vm = makeViewModel()
-        vm.openSession(session)
-        vm.updateClipListRow(id: UUID(), keyPath: \.person, value: "x")
-        XCTAssertTrue(vm.clipListRows.isEmpty)
-    }
-
     // MARK: - One file per session
 
     func testDownloadsLandInTheSessionFile() throws {
@@ -310,6 +271,8 @@ final class ContentViewModelSessionTests: XCTestCase {
         let vm = makeViewModel()
         vm.openSession(session)
         XCTAssertFalse(vm.adoptAlreadyDownloadedClip(for: "https://a", in: session.clipsFolder))
-        XCTAssertEqual(vm.clipListRows.first?.hasAudio, false)
+        let record = try XCTUnwrap(SessionNotesFile.read(at: file).first)
+        XCTAssertNil(vm.audioURL(for: record, in: session.clipsFolder),
+                     "the block survives, but nothing on disk answers to it")
     }
 }

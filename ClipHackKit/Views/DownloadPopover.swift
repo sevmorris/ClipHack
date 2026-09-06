@@ -52,14 +52,14 @@ struct DownloadPopover: View {
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { viewModel.startDownload() }
                     .disabled(viewModel.isDownloading)
-                    .help("Who is speaking in the clip — the name this clip gets in the clip list. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
+                    .help("Who is speaking in the clip — the name this clip is recorded under. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
 
                 TextField("1:13 to :55", text: $viewModel.downloadTimestampField)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 110)
                     .onSubmit { viewModel.startDownload() }
                     .disabled(viewModel.isDownloading)
-                    .help("The cut to make. Written on its own line in the clip's notes file, and left out of the copied clip list.")
+                    .help("The cut to make. Written on its own line in the session's notes file.")
             }
             .frame(width: Self.fieldWidth)
 
@@ -68,7 +68,7 @@ struct DownloadPopover: View {
             Toggle("Save clip notes", isOn: $viewModel.clipNotesEnabled)
                 .toggleStyle(.checkbox)
                 .disabled(viewModel.isDownloading)
-                .help("Saves file name, notes, and source URL to a text file inside the clip's own folder.")
+                .help("Saves file name, notes, the cut, and source URL to this session's notes file, in the download folder.")
 
             destinationRow
 
@@ -174,7 +174,7 @@ struct DownloadPopover: View {
     private var statusLine: some View {
         switch viewModel.downloadState {
         case .idle:
-            Text("Each download gets its own folder. Video sources are saved as audio only.")
+            Text("Downloads land in this folder. Video sources are saved as audio only.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: Self.fieldWidth, alignment: .leading)

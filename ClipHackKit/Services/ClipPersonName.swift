@@ -14,9 +14,9 @@ import Foundation
 /// so one rule covers both: take the opening run of capitalized words, stopping
 /// at a colon or at the first word that isn't one.
 ///
-/// Abstains rather than guesses. A wrong name written silently into a clip list
-/// is worse than an empty field, because the empty field is obvious and the
-/// wrong name reads as correct.
+/// Abstains rather than guesses. A wrong name written silently into a clip's
+/// notes is worse than an empty field, because the empty field is obvious and
+/// the wrong name reads as correct.
 enum ClipPersonName {
 
     /// Longest name the opening run is allowed to be. Past this the text is

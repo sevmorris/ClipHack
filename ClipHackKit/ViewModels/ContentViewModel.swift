@@ -324,23 +324,23 @@ final class ContentViewModel {
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
     /// Optional free-text carried onto the added row and into the notes file.
-    /// Line one becomes this clip's list description; anything typed below it
-    /// is scratch (timings) and rides along untouched.
+    /// Line one becomes this clip's description; anything typed below it is
+    /// scratch (timings) and rides along untouched.
     var downloadNotesField: String = ""
     /// Who is *in* the clip — the speaker, not whoever posted it. Auto-filled
     /// from the post's own text when a name can be read confidently, left blank
     /// when it can't.
     var downloadPersonField: String = ""
     /// The cut to make, e.g. "1:13 to :55". Written on its own line in the
-    /// clip's notes file, and kept out of the copied list.
+    /// session's notes file.
     var downloadTimestampField: String = ""
-    /// "Save clip notes": write a notes sidecar into each download's own clip
-    /// folder. Persisted across launches.
+    /// "Save clip notes": record each download in the session's notes file.
+    /// Persisted across launches.
     var clipNotesEnabled: Bool {
         didSet { ClipHackSettings.store.set(clipNotesEnabled, forKey: Self.clipNotesKey) }
     }
-    /// Key predates the per-clip notes file (it gated the daily clip list this
-    /// replaced) — kept as-is so the preference survives the upgrade.
+    /// Key predates the notes file (it gated a daily clip list, long since
+    /// gone) — kept as-is so the preference survives the upgrade.
     private static let clipNotesKey = "clipListEnabled"
 
     /// "Trash Originals": move each source file to the Trash once its output is
@@ -575,9 +575,7 @@ final class ContentViewModel {
     }
 
     /// Full destination path, for the Destination row's tooltip.
-    var downloadDirectoryDisplayPath: String {
-        YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath).path
-    }
+    var downloadDirectoryDisplayPath: String { downloadDirectory.path }
 
     /// The folder-picker itself, injectable so the re-prompt flow is testable
     /// without a modal panel. Returns the chosen folder path, or nil on cancel.
@@ -739,12 +737,12 @@ final class ContentViewModel {
             return
         }
 
-        // Line one of the sidecar's notes is this clip's list entry —
+        // Line one of the notes says who is in the clip and what it is —
         // "Person — what they said" — and anything typed below it is kept as-is.
-        let box = ClipListEntry.splitNotesBox(
+        let box = ClipNotesLine.splitNotesBox(
             downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
         )
-        let notes = ClipListEntry.compose(
+        let notes = ClipNotesLine.compose(
             person: downloadPersonField.trimmingCharacters(in: .whitespaces),
             description: box.description,
             extra: box.extra
@@ -753,8 +751,7 @@ final class ContentViewModel {
             files[index].notes = notes
         }
 
-        // The download already landed in its own clip folder, so this writes the
-        // sidecar right beside it.
+        // Recorded in the session's own notes file, beside the audio.
         if clipNotesEnabled {
             do {
                 // A name typed by hand is already the filename; ClipHack's own
@@ -782,43 +779,15 @@ final class ContentViewModel {
         clearDownloadForm()
     }
 
-    // MARK: - Clip list
+    // MARK: - Clip notes
 
-    /// One clip's line in the list panel, backed by its notes sidecar.
-    ///
-    /// Identified by the sidecar URL rather than the audio path: the audio can
-    /// be renamed, processed, or trashed out from under a row, and the sidecar
-    /// is the thing that persists.
-    struct ClipListRow: Identifiable, Equatable {
-        /// Assigned at load. The row's own identity, not a position and not a
-        /// path — the whole file is rewritten on every edit, so nothing needs
-        /// to address a block on disk.
-        let id: UUID
-        var person: String
-        var description: String
-        /// Lines below the list line — scratch. Round-tripped verbatim.
-        var extra: String
-        /// The cut, on its own line in the notes file.
-        var timestamp: String
-        var filename: String
-        var sourceURL: String
-        /// False once the clip's audio is gone but its notes remain, which is
-        /// normal late in a show's prep.
-        var hasAudio: Bool
-    }
-
-    var isClipListPresented = false
-    var clipListRows: [ClipListRow] = []
-
-    /// The folder the clip list reads, which is wherever downloads go. Pointing
-    /// ClipHack at an episode's own folder therefore scopes the list to that
-    /// episode — there is no separate notion of a show to keep in sync.
-    var clipListDirectory: URL {
+    /// The folder a download lands in, which is where its notes are recorded.
+    /// The session picker points this at an episode's own `clips` folder, so an
+    /// episode's audio and its notes stay together with nothing else to set.
+    var downloadDirectory: URL {
         YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
     }
 
-    /// Rebuilds the rows from the sidecars on disk. Cheap enough to call on
-    /// every panel open — a show is tens of small text files.
     /// The session's one notes file, named after the session.
     func sessionNotesURL(for folder: URL) -> URL {
         SessionNotesFile.url(
@@ -827,11 +796,13 @@ final class ContentViewModel {
         )
     }
 
-    var sessionNotesURL: URL { sessionNotesURL(for: clipListDirectory) }
+    var sessionNotesURL: URL { sessionNotesURL(for: downloadDirectory) }
 
-    /// The clip's audio, when it is still on disk. Downloads are filed into a
-    /// folder of their own, so look there as well as directly in the session.
-    /// A block with no filename — a clip named by hand — cannot be located.
+    /// The clip's audio, when it is still on disk. A block with no filename —
+    /// a clip named by hand — cannot be located.
+    ///
+    /// The per-clip subfolder is still searched: downloads land flat now, but
+    /// clips fetched before that changed are filed one level down.
     func audioURL(for record: ClipNotesFile.Record, in folder: URL) -> URL? {
         guard !record.filename.isEmpty else { return nil }
         let stem = (record.filename as NSString).deletingPathExtension
@@ -840,99 +811,6 @@ final class ContentViewModel {
             folder.appendingPathComponent(stem).appendingPathComponent(record.filename),
         ]
         return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
-    }
-
-    func loadClipList() {
-        let file = sessionNotesURL
-        // Fold in any per-clip files written before the session file existed.
-        // Their originals are left alone; they are simply no longer read.
-        try? SessionNotesFile.adoptSidecars(in: clipListDirectory, sessionFile: file)
-
-        clipListRows = SessionNotesFile.read(at: file).map { record in
-            let parsed = ClipListEntry.parse(notes: record.notes)
-            return ClipListRow(
-                id: UUID(),
-                person: parsed.person,
-                description: parsed.description,
-                extra: parsed.extra,
-                timestamp: record.timestamp,
-                filename: record.filename,
-                sourceURL: record.sourceURL,
-                hasAudio: audioURL(for: record, in: clipListDirectory) != nil
-            )
-        }
-    }
-
-    /// Every row, written back as the whole file.
-    ///
-    /// Whole-file rather than per-block: the rows are the state, so rendering
-    /// them is the only way the file can disagree with what is on screen.
-    func saveClipList() {
-        let records = clipListRows.map { row in
-            ClipNotesFile.Record(
-                filename: row.filename,
-                notes: ClipListEntry.compose(
-                    person: row.person,
-                    description: row.description,
-                    extra: row.extra
-                ),
-                timestamp: row.timestamp,
-                sourceURL: row.sourceURL
-            )
-        }
-        do {
-            try SessionNotesFile.write(records, to: sessionNotesURL)
-        } catch {
-            alertTitle = "Notice"
-            alertMessage = "Couldn't save the clip list: \(error.localizedDescription)"
-        }
-    }
-
-    /// Applies one field of one row, found by identity.
-    ///
-    /// By identity and never by position: the panel's fields outlive the array
-    /// they were built from, and `loadClipList` re-sorts it (Refresh, ⇧⌘C, and
-    /// switching session all reload). An index captured when a field was drawn
-    /// can therefore point at a different clip by the time a keystroke lands,
-    /// which would write the typed text into that clip's sidecar and destroy
-    /// what was there.
-    func updateClipListRow(
-        id: UUID,
-        keyPath: WritableKeyPath<ClipListRow, String>,
-        value: String
-    ) {
-        guard let index = clipListRows.firstIndex(where: { $0.id == id }) else { return }
-        clipListRows[index][keyPath: keyPath] = value
-        saveClipList()
-    }
-
-    /// The finished numbered list for the rows currently loaded.
-    var clipListText: String {
-        ClipListEntry.numberedList(
-            clipListRows.map {
-                ClipListEntry.Parsed(person: $0.person, description: $0.description)
-            }
-        )
-    }
-
-    /// Puts the numbered clip list on the clipboard, returning how many entries
-    /// went with it.
-    ///
-    /// Reads from disk first. Every panel edit is already written through, so
-    /// the sidecars are the truth, and this way the shortcut works whether or
-    /// not the panel has ever been opened this session.
-    @discardableResult
-    func copyClipList() -> Int {
-        loadClipList()
-        let text = clipListText
-        guard !text.isEmpty else {
-            alertTitle = "Nothing to Copy"
-            alertMessage = "No clip notes were found in \"\(clipListDirectory.lastPathComponent)\". Clips get a notes file when \"Save clip notes\" is on in the download popover."
-            return 0
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        return text.components(separatedBy: "\n").count
     }
 
     // MARK: - Sessions
@@ -982,9 +860,8 @@ final class ContentViewModel {
     /// Picks up a setup that predates sessions: downloads still going to the
     /// default folder while the *output* folder already points at an episode's
     /// clips folder. That was the shape before a session set both, and without
-    /// this an upgrade shows no session — and so an empty clip list and a bare
-    /// title bar — until one is chosen by hand, even though the folder was
-    /// chosen long ago.
+    /// this an upgrade shows no session, and a bare title bar, until one is
+    /// chosen by hand, even though the folder was chosen long ago.
     ///
     /// Deliberately narrow: only a folder actually named `clips` is treated as
     /// an episode, so an unrelated output folder is never adopted.
@@ -1013,20 +890,21 @@ final class ContentViewModel {
         savedSessions = ClipSessionStore.sessions(inRoot: root)
     }
 
-    /// Points downloads, processed output, and the clip list at `session`.
+    /// Points downloads and processed output at `session`.
     ///
-    /// Both folders, deliberately. An episode's source audio, its notes
-    /// sidecars and its finished WAVs belong in one place: that is what makes
-    /// the clip list scoped to a single episode instead of to a scratch folder
-    /// shared by all of them, and what leaves an old episode still browsable
-    /// months later. Output lands flat in the folder while sources sit in their
-    /// own per-clip subfolders, so the folder Logic imports from stays legible.
+    /// Both folders, deliberately. An episode's source audio, its notes and its
+    /// finished WAVs belong in one place: that is what keeps an episode's notes
+    /// file its own instead of a scratch folder's shared by every show, and
+    /// what leaves an old episode still browsable months later.
     func openSession(_ session: ClipSession) {
         let path = session.clipsFolder.path
         settings.downloadDirectoryPath = path
         settings.outputDirectoryPath = path
         adoptSessionRootIfNeeded()
-        loadClipList()
+        // Fold in any per-clip files written before the session file existed,
+        // so an old episode reopened today reads as one file. Their originals
+        // are left alone; they are simply no longer read.
+        try? SessionNotesFile.adoptSidecars(in: downloadDirectory, sessionFile: sessionNotesURL)
         loadSessions()
     }
 

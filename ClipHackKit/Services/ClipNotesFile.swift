@@ -1,13 +1,14 @@
 import Foundation
 
-/// The plain-text notes sidecar that sits beside a downloaded clip inside its
-/// own folder — `Title/Title.m4a` next to `Title/Title.txt`.
+/// The plain-text notes sidecar that sat beside a downloaded clip inside the
+/// per-clip folder ClipHack used to make — `Title/Title.m4a` next to
+/// `Title/Title.txt`.
 ///
 /// One blank-line-separated block per element, in this order:
 ///
 ///     Some Title.m4a          ← omitted when the clip was named by hand
 ///
-///     TRUMP — "the quote"     ← the clip's list entry, then any scratch
+///     TRUMP — "the quote"     ← who and what, then any scratch
 ///
 ///     1:13 to :55             ← the cut, when one was entered
 ///
