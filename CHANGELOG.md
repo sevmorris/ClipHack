@@ -2,6 +2,13 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.24.1] — 2026-09-05
+
+**Documentation**
+- **The manual covers downloading, sessions and clip notes.** It had only ever documented the processing side, so the two controls furthest left in the window — the session menu and Add from URL — were the two it did not mention. Three new sections now cover the download form field by field, what switching session moves and why, and the shape of the session's notes file. The Interface section gains the two missing toolbar entries.
+- **The manual is published.** GitHub Pages is enabled for the repo, serving `docs/` at [sevmorris.github.io/ClipHack/manual](https://sevmorris.github.io/ClipHack/manual/). It had been written and version-stamped by every release for months without being reachable anywhere.
+- **Links to it from the README and the Help window.** Neither pointed at the manual, so finding it meant already knowing the URL.
+
 ## [1.24.0] — 2026-09-05
 
 **Removed**
