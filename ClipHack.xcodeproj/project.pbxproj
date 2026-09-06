@@ -508,7 +508,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.24.0;
+				MARKETING_VERSION = 1.24.1;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackKit;
 				PRODUCT_NAME = ClipHackKit;
 				SKIP_INSTALL = YES;
@@ -543,7 +543,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.24.0;
+				MARKETING_VERSION = 1.24.1;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackKit;
 				PRODUCT_NAME = ClipHackKit;
 				SKIP_INSTALL = YES;
@@ -576,7 +576,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.24.0;
+				MARKETING_VERSION = 1.24.1;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHack;
 				PRODUCT_NAME = ClipHack;
 				REGISTER_APP_GROUPS = YES;
@@ -610,7 +610,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.24.0;
+				MARKETING_VERSION = 1.24.1;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHack;
 				PRODUCT_NAME = ClipHack;
 				REGISTER_APP_GROUPS = YES;
@@ -635,7 +635,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.24.0;
+				MARKETING_VERSION = 1.24.1;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -657,7 +657,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.24.0;
+				MARKETING_VERSION = 1.24.1;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
