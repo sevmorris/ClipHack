@@ -360,6 +360,9 @@
     <a href="#getting-started" class="section-head">Using the App</a>
     <a href="#getting-started">Getting Started</a>
     <a href="#interface">Interface</a>
+    <a href="#downloads">Downloading Clips</a>
+    <a href="#sessions">Sessions</a>
+    <a href="#notes">Clip Notes</a>
     <a href="#pipeline" class="section-head">Processing</a>
     <a href="#pipeline">Pipeline</a>
     <a href="#settings">Settings Reference</a>
@@ -401,7 +404,7 @@
       <h2>Getting Started</h2>
       <ol>
         <li>Configure your settings in the right panel — sample rate, ceiling, and any optional processing stages.</li>
-        <li>Drag and drop audio or video files onto the window, or drag them into the file list on the left.</li>
+        <li>Drag and drop audio or video files onto the window, or drag them into the file list on the left. To pull a clip off the web instead, use <a href="#downloads">Add from URL</a>.</li>
         <li>Click <strong>Process</strong>.</li>
         <li>Output files are saved alongside the originals, or in your chosen output folder if you've set one.</li>
       </ol>
@@ -418,6 +421,7 @@
       <h3>File List (left panel)</h3>
       <p>Drag files here to add them. Each row shows the filename, processing status, and — after analysis — RMS level, peak level, and LUFS. A warning badge appears when the noise floor is high enough to affect level accuracy.</p>
       <p>Select a file to see its waveform. For stereo files, L and R channels are displayed separately with independent amplitude scales.</p>
+      <p>A clip with notes saved beside it shows them under its file name — see <a href="#notes">Clip Notes</a>.</p>
 
       <h3>Waveform (center)</h3>
       <p>Shows the selected file's waveform. Stereo files display both channels stacked with L on top. The amplitude axis is calibrated in dBFS. After processing, the waveform switches to show the output file.</p>
@@ -427,8 +431,10 @@
       <p>All processing controls live here. Toggle the panel open or closed with the sliders icon in the toolbar. Settings are saved between sessions.</p>
 
       <h3>Toolbar</h3>
-      <p>The left side of the toolbar holds the <strong>Preset Picker</strong> — a dropdown menu for applying built-in or custom settings presets. Built-in presets include <em>Broadcast Conform</em>, <em>Clean &amp; Limit</em>, and <em>Normalize &amp; Limit</em>. Use <em>Save Current Settings…</em> to create a custom preset from your current settings. The label shows the active preset name, or <em>Custom</em> when settings don't match any saved preset.</p>
+      <p>Next to the session menu sits the <strong>Preset Picker</strong> — a dropdown menu for applying built-in or custom settings presets. Built-in presets include <em>Broadcast Conform</em>, <em>Clean &amp; Limit</em>, and <em>Normalize &amp; Limit</em>. Use <em>Save Current Settings…</em> to create a custom preset from your current settings. The label shows the active preset name, or <em>Custom</em> when settings don't match any saved preset.</p>
       <ul>
+        <li><strong>Session menu</strong> — the leftmost control. Lists the episodes in your show folder and switches between them; see <a href="#sessions">Sessions</a>.</li>
+        <li><strong>Add from URL</strong> (Cmd+L) — download a clip's audio from a web link; see <a href="#downloads">Downloading Clips</a>.</li>
         <li><strong>Process</strong> (Cmd+Return) — process all ready files. Disabled while any file is still analyzing.</li>
         <li><strong>Cancel</strong> (Cmd+.) — cancel an in-progress batch</li>
         <li><strong>Remove ▾</strong> — menu: <em>Remove Selected</em> removes selected files; <em>Remove Processed</em> clears completed files</li>
@@ -436,6 +442,134 @@
         <li><strong>&#9776;</strong> — toggle the settings panel</li>
       </ul>
       <p>In the file list, Cmd+A selects all files. Right-click the list for a context menu with <em>Remove Processed Files</em>.</p>
+    </section>
+
+    <!-- DOWNLOADS -->
+    <section id="downloads">
+      <h2>Downloading Clips</h2>
+      <p>ClipHack downloads a clip's audio straight into the file list. Click <strong>Add from URL</strong> in the toolbar (Cmd+L), or drop a web link onto the window. Dropping a link fills the form and opens it — it never starts the download on its own, which takes an explicit click on <strong>Download</strong>.</p>
+      <p>Video sources are saved as audio only, in the source's native codec with no re-encode. The downloader (yt-dlp) is bundled inside the app alongside FFmpeg, so there is nothing to install.</p>
+
+      <h3>The download form</h3>
+      <table class="settings-table">
+        <thead>
+          <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>URL</td>
+            <td>yes</td>
+            <td>Any http(s) link yt-dlp can read.</td>
+          </tr>
+          <tr>
+            <td>Custom file name</td>
+            <td>optional</td>
+            <td>Names the download before it lands. Stem only — the extension always follows the source audio. Leave it blank to keep the source title.</td>
+          </tr>
+          <tr>
+            <td>Person in clip</td>
+            <td>optional</td>
+            <td>Who is speaking in the clip. For X/Twitter links ClipHack reads the name out of the post's own text when it can, and leaves the field blank when it can't.</td>
+          </tr>
+          <tr>
+            <td>The cut</td>
+            <td>optional</td>
+            <td>The part of the clip you want — <code>1:13 to :55</code>. Written on its own line in the notes file.</td>
+          </tr>
+          <tr>
+            <td>Notes</td>
+            <td>optional</td>
+            <td>Free text kept with the file row and written to the notes file. The first line says what the clip is about; the lines below it are yours, for timings and scratch, and are kept exactly as typed. Drag the grip in the bottom-right corner to make the box taller — the size is remembered.</td>
+          </tr>
+          <tr>
+            <td>Save clip notes</td>
+            <td>toggle</td>
+            <td>Records the download in the session's notes file. See <a href="#notes">Clip Notes</a>.</td>
+          </tr>
+          <tr>
+            <td>Destination</td>
+            <td>—</td>
+            <td>Where downloads land. Defaults to <code>~/Music/ClipHack</code>; <em>Change…</em> picks another folder and <em>Reset</em> returns to the default. Opening a session points this at that episode instead.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>The poster is not the person</strong>
+        The name is read from the text of the post, never from the account that posted it — aggregator accounts carry most clips, so the account name is usually not the person speaking. When no name can be read with confidence the field is left empty rather than guessed at.
+      </div>
+
+      <h3>Where downloads land</h3>
+      <p>Straight into the destination folder, flat. ClipHack does not create a folder per clip.</p>
+      <p>yt-dlp never overwrites: if a clip of the same name is already in the folder, the download stops and ClipHack names the file rather than quietly resolving to it. Give this one a custom name and download it again.</p>
+
+      <h3>Using a link twice</h3>
+      <p>Downloading a link you have already used adds the clip you have instead of fetching a second copy. ClipHack checks the notes files in the destination rather than only what is on screen, so this still works days later in a new session. Delete a clip's audio and the link downloads again as normal.</p>
+
+      <h3>X/Twitter links</h3>
+      <p>For a post link, ClipHack fetches the post's text and pre-fills the Notes box with it (best effort), and fills <strong>Person in clip</strong> from that text when a name can be read. Both are yours to edit or clear. Editing either one stops ClipHack from replacing what you wrote if the URL changes.</p>
+    </section>
+
+    <!-- SESSIONS -->
+    <section id="sessions">
+      <h2>Sessions</h2>
+      <p>A session is one episode, and one episode is one folder. The folder's name <em>is</em> the session title — <code>HT_0380 2026-09-08</code>. The session menu sits at the left of the toolbar and lists every episode in your show folder; the current one is also the window title.</p>
+
+      <pre><code>Hacks on Tap/                                   ← show folder
+└── HT_0380 2026-09-08/                         ← episode — its name is the session title
+    └── clips/                                  ← downloads and output both land here
+        ├── Some Title.m4a                      ← the download
+        ├── Some Title-44knorm-clipped-1dB.wav
+        └── HT_0380 2026-09-08.txt              ← notes for every clip in the session</code></pre>
+
+      <ul>
+        <li><strong>Switch session</strong> — points the download folder <em>and</em> the output folder at that episode's <code>clips</code> folder in one step.</li>
+        <li><strong>New Session…</strong> — reads the highest episode number already in the show folder and suggests the next one with today's date. Edit the name if you like; ClipHack then creates <code>&lt;episode&gt;/clips</code> and switches to it.</li>
+        <li><strong>Choose Show Folder…</strong> — the folder your episode folders live in. Normally there is nothing to set: it is chosen for you the first time you pick a session folder, by taking the folder above the episode.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>Why both folders move together</strong>
+        An episode's source audio, its notes and its finished WAVs belong in one place. Pointing both folders at the episode is what keeps the notes file that episode's own rather than a scratch folder's shared by every show, and what leaves an old episode still browsable months later.
+      </div>
+
+      <p>A show folder usually holds more than episodes — templates, shared assets, incoming audio. Numbered episodes come first in the menu, highest number at the top, and everything else follows below them.</p>
+      <p>Nothing about a session is stored. It is read back from the folder path, so renaming or moving a folder in the Finder cannot leave anything stale, and an episode folder you create by hand shows up in the menu on its own.</p>
+    </section>
+
+    <!-- NOTES -->
+    <section id="notes">
+      <h2>Clip Notes</h2>
+      <p>With <strong>Save clip notes</strong> on, each download is recorded in one text file per session, named after the session and sitting in the same <code>clips</code> folder:</p>
+      <pre><code>HT_0380 2026-09-08/clips/HT_0380 2026-09-08.txt</code></pre>
+
+      <p>One block per clip, blocks separated by a <code>---</code> rule. Inside a block, one element per line group with a blank line between them: the file name, the person and what the clip is, the cut, then the source URL.</p>
+
+      <pre><code>Aaron_Rupar_-_TRUMP_….m4a
+
+TRUMP — "I should be at 100 percent on the economy"
+
+:46 to :17
+
+https://x.com/atrupar/status/2090948085333504072
+
+---
+
+MAMDANI — I continue to support Congressman Jeffries
+…</code></pre>
+
+      <p>The file name is written only when ClipHack chose it. A name you typed yourself is left out, because the line would only repeat the name you already gave the file.</p>
+
+      <div class="callout">
+        <strong>Maintained, not appended</strong>
+        ClipHack rewrites the file from what it holds, so downloading the same link again replaces that clip's block instead of stacking a second one after it. The file does not collect a history that has to be pruned by hand.
+      </div>
+
+      <h3>Notes in the file list</h3>
+      <p>The file list shows a clip's notes under its file name — point at them to read the full text. Because the notes live on disk rather than in the window, a clip added back later (dropped in, or picked up from a folder) arrives with the text that says what it is, even in a new session days later.</p>
+
+      <h3>Files from an earlier version</h3>
+      <p>ClipHack used to write one text file per clip. Those are folded into the session's file the first time you open the session. The originals are left exactly where they are — they are your files — and are simply no longer read.</p>
     </section>
 
     <!-- PIPELINE -->
