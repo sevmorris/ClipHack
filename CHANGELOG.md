@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.25.0] — 2026-09-06
 
 **Added**
 - **Output channels can be set per clip.** Right-click a row and use *Output Channels* to put that clip on Stereo, Mono — Left or Mono — Right, or back on *Follow Settings*. It applies to the whole selection at once, and a clip that overrides the panel carries a badge beside its name.
