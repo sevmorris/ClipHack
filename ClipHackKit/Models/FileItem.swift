@@ -55,6 +55,13 @@ struct FileItem: Identifiable, Equatable {
     /// Set once the source file has been moved to the Trash after processing.
     /// `url` still names where it used to be, so the row keeps its identity.
     var originalTrashed: Bool = false
+    /// Per-clip channel handling. nil — the default — follows the settings
+    /// panel, so a queue with no overrides behaves exactly as it always has.
+    ///
+    /// Held here rather than in `ClipHackSettings` because it is a property of
+    /// the clip, not of the batch: whether a clip's content sits on one channel
+    /// is a fact about that recording.
+    var channelMode: ClipChannelMode?
 
     init(url: URL) {
         self.id = UUID()
@@ -91,5 +98,6 @@ struct FileItem: Identifiable, Equatable {
             && lhs.fileInfo == rhs.fileInfo && lhs.outputStats == rhs.outputStats
             && lhs.outputFileInfo == rhs.outputFileInfo && lhs.notes == rhs.notes
             && lhs.originalTrashed == rhs.originalTrashed
+            && lhs.channelMode == rhs.channelMode
     }
 }

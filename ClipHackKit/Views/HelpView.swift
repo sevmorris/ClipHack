@@ -76,6 +76,7 @@ public struct HelpView: View {
                     text("Output format: 24-bit WAV")
                 }
                 section("Settings") {
+                    text("These apply to every file in the queue. The one exception is channel handling, which a clip can override for itself — see **Per-clip output channels** below.")
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
                     definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff — three options. DC Block (20 Hz): removes DC offset only, passes all audible content including bass fundamentals. 40 Hz: removes subsonic rumble while preserving music bass. 80 Hz: standard voice HPF, removes proximity effect and handling noise.")
@@ -84,6 +85,13 @@ public struct HelpView: View {
                     definition("Target", "Loudness normalization target in LUFS, from -35 to -14. -18 LUFS is a common podcast insertion target.")
                     definition("Trash Originals", "On by default. Moves each source file to the Trash once its processed output is written — the output is checked on disk first, and a file that fails to process is always kept. Recover anything you want back from the Trash. Note that a downloaded clip whose audio has been trashed will download again if you reuse the same link.")
                     definition("Output Directory", "Custom output folder for processed files. Defaults to the same directory as the source file.")
+                }
+                section("Per-Clip Output Channels") {
+                    text("Some clips want stereo and others want one channel of a stereo source. Right-click a row and use **Output Channels** to set that clip on its own: Stereo, Mono — Left, Mono — Right, or Follow Settings to go back to the panel.")
+                    text("The setting applies to every selected row at once, so several clips from the same source can be marked in one go. A clip that overrides the panel shows a small badge beside its name; rows without one follow the settings panel as they always have.")
+                    text("Only channel handling can be set per clip. Sample rate, ceiling, filters and loudness stay the same for the whole batch.")
+                    text("Because Process runs the whole queue rather than the selection, this is what lets a mixed batch — some stereo, some mono-left — go through in one pass instead of two.")
+                    definition("Why it matters", "With mono output, ClipHack takes the channel you name rather than downmixing. A clip whose content sits on the right would come out silent under a Left setting, and which channel carries the audio is a property of that recording — so it belongs on the clip, not the batch.")
                 }
                 section("Acknowledgments") {
                     text("ClipHack bundles two open-source command-line tools:")

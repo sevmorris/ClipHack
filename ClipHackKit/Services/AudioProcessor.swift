@@ -3,6 +3,14 @@ import Foundation
 struct JobInput: Sendable {
     let id: UUID
     let url: URL
+    /// This clip's channel handling. nil ⇒ use the batch settings.
+    let channelMode: ClipChannelMode?
+
+    init(id: UUID, url: URL, channelMode: ClipChannelMode? = nil) {
+        self.id = id
+        self.url = url
+        self.channelMode = channelMode
+    }
 }
 
 actor AudioProcessor {
@@ -49,7 +57,7 @@ actor AudioProcessor {
                     do {
                         try Task.checkCancellation()
                         self.onFileStarted?(input.id)
-                        let result = try await self.processOne(input.url, id: input.id, tools: tools)
+                        let result = try await self.processOne(input, tools: tools)
                         return .success(result)
                     } catch is CancellationError {
                         return .cancelled
@@ -81,7 +89,17 @@ actor AudioProcessor {
         }
     }
 
-    private func processOne(_ input: URL, id: UUID, tools: FFmpegManager.Paths) async throws -> JobResult {
+    private func processOne(_ job: JobInput, tools: FFmpegManager.Paths) async throws -> JobResult {
+        let input = job.url
+        let id = job.id
+        // Channel handling is the one setting a clip may override, because it
+        // is a property of the recording rather than of the batch. Everything
+        // else — rate, ceiling, filters — stays batch-wide.
+        let (stereoOutput, monoChannel) = ClipChannelMode.resolve(
+            job.channelMode,
+            settings: settings
+        )
+
         let fm = FileManager.default
         guard fm.fileExists(atPath: input.path) else {
             throw ProcessingError.invalidInput
@@ -112,7 +130,7 @@ actor AudioProcessor {
         defer { try? fm.removeItem(at: work) }
 
         let (inputSampleRate, channels) = try await probeStream(exe: tools.ffprobe, url: input)
-        let outputChannels = settings.stereoOutput ? max(2, channels) : 1
+        let outputChannels = stereoOutput ? max(2, channels) : 1
 
         var currentURL: URL = input
         if inputSampleRate != sr {
@@ -127,9 +145,9 @@ actor AudioProcessor {
 
         try Task.checkCancellation()
 
-        if !settings.stereoOutput && channels > 1 {
+        if !stereoOutput && channels > 1 {
             let chanURL = work.appendingPathComponent("\(stem)_ch.wav")
-            let pan = settings.channel == .left ? "pan=1c|c0=c0" : "pan=1c|c0=c1"
+            let pan = monoChannel == .left ? "pan=1c|c0=c0" : "pan=1c|c0=c1"
             try await FFmpegRunner.run(exe: tools.ffmpeg, args: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
                 "-i", currentURL.path, "-af", pan,

@@ -2,6 +2,13 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Added**
+- **Output channels can be set per clip.** Right-click a row and use *Output Channels* to put that clip on Stereo, Mono — Left or Mono — Right, or back on *Follow Settings*. It applies to the whole selection at once, and a clip that overrides the panel carries a badge beside its name.
+  Channel handling was the one batch-wide setting that is really a property of the recording rather than of the run: mono output pans to the channel you name rather than downmixing, so a clip whose audio sits on the right came out silent in a batch set to Left. Getting a mixed set through meant two passes, because Process runs the whole queue rather than the selection — it is now one.
+  Deliberately narrow: only channel handling can be overridden. Sample rate, ceiling, filters and loudness stay batch-wide, and a queue with no overrides behaves exactly as before. The override lives in the file list and is not written to the notes file, so it does not survive quitting.
+
 ## [1.24.1] — 2026-09-05
 
 **Documentation**

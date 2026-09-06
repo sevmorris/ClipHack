@@ -78,6 +78,24 @@ If you use a link a second time, the tool does not download the clip again. The 
 
 The yt-dlp software is included with each release. You do not need Homebrew or other external software.
 
+## Per-Clip Output Channels
+
+The settings panel applies to every file in the queue. Channel handling is the exception: one clip can override it.
+
+Right-click a row and open **Output Channels**:
+
+* **Follow Settings** — use the settings panel. This is the default.
+* **Stereo** — this clip only.
+* **Mono — Left** / **Mono — Right** — this clip only.
+
+The choice applies to every selected row, so you can mark several clips at once. A clip that overrides the panel shows a badge beside its name.
+
+This matters because mono output takes the channel you name; it does not downmix. If a clip's audio sits on the right, a Left setting gives you silence. Which channel carries the audio is a fact about that recording, so it belongs on the clip.
+
+Only channel handling works this way. Sample rate, ceiling, filters, and loudness are the same for the whole batch. Process runs the whole queue, not your selection, so this is what lets a mixed batch go through in one pass.
+
+The override lives in the file list for the current session. It is not written to the notes file, so it does not survive quitting the application.
+
 ## Notes in the File List
 
 The file list shows the notes below the file name. The tool reads the notes from the session's text file. Thus, the notes stay with the clip after you close the application. Point at the notes to see the full text.

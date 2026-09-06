@@ -14,6 +14,40 @@ struct FileListView: View {
                     // single-click selection and drops clicks intermittently.
                     // Rename is Return (Finder-style) or the context menu.
                     .contextMenu {
+                        // Right-clicking a row outside the selection should act
+                        // on that row, matching Finder; inside it, on the whole
+                        // selection.
+                        let targets = viewModel.selectedFileIDs.contains(file.id)
+                            ? viewModel.selectedFileIDs
+                            : [file.id]
+                        Menu {
+                            Button {
+                                viewModel.setChannelMode(nil, for: targets)
+                            } label: {
+                                Label(
+                                    "Follow Settings",
+                                    systemImage: viewModel.commonChannelMode(for: targets) == nil
+                                        ? "checkmark" : ""
+                                )
+                            }
+                            Divider()
+                            ForEach(ClipChannelMode.allCases, id: \.self) { mode in
+                                Button {
+                                    viewModel.setChannelMode(mode, for: targets)
+                                } label: {
+                                    Label(
+                                        mode.label,
+                                        systemImage: viewModel.commonChannelMode(for: targets) == mode
+                                            ? "checkmark" : ""
+                                    )
+                                }
+                            }
+                        } label: {
+                            Label("Output Channels", systemImage: "waveform")
+                        }
+
+                        Divider()
+
                         Button {
                             viewModel.beginRename(file.id)
                         } label: {
@@ -90,6 +124,16 @@ struct FileRowView: View {
                         .foregroundStyle(.orange)
                         .font(.caption)
                         .help("High noise floor — loudness normalization may be less accurate on noisy sources.")
+                }
+
+                if let mode = file.channelMode {
+                    Text(mode.badge)
+                        .font(.caption2)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.accentColor.opacity(0.18), in: Capsule())
+                        .foregroundStyle(.secondary)
+                        .help("This clip overrides the settings panel: \(mode.label). Right-click to change it.")
                 }
 
                 if file.isProcessed {

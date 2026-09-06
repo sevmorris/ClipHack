@@ -363,6 +363,7 @@
     <a href="#downloads">Downloading Clips</a>
     <a href="#sessions">Sessions</a>
     <a href="#notes">Clip Notes</a>
+    <a href="#channels">Per-Clip Channels</a>
     <a href="#pipeline" class="section-head">Processing</a>
     <a href="#pipeline">Pipeline</a>
     <a href="#settings">Settings Reference</a>
@@ -421,7 +422,7 @@
       <h3>File List (left panel)</h3>
       <p>Drag files here to add them. Each row shows the filename, processing status, and — after analysis — RMS level, peak level, and LUFS. A warning badge appears when the noise floor is high enough to affect level accuracy.</p>
       <p>Select a file to see its waveform. For stereo files, L and R channels are displayed separately with independent amplitude scales.</p>
-      <p>A clip with notes saved beside it shows them under its file name — see <a href="#notes">Clip Notes</a>.</p>
+      <p>A clip with notes saved beside it shows them under its file name — see <a href="#notes">Clip Notes</a>. A clip that overrides the settings panel's channel handling carries a badge beside its name — see <a href="#channels">Per-Clip Output Channels</a>.</p>
 
       <h3>Waveform (center)</h3>
       <p>Shows the selected file's waveform. Stereo files display both channels stacked with L on top. The amplitude axis is calibrated in dBFS. After processing, the waveform switches to show the output file.</p>
@@ -572,6 +573,31 @@ MAMDANI — I continue to support Congressman Jeffries
       <p>ClipHack used to write one text file per clip. Those are folded into the session's file the first time you open the session. The originals are left exactly where they are — they are your files — and are simply no longer read.</p>
     </section>
 
+    <!-- PER-CLIP CHANNELS -->
+    <section id="channels">
+      <h2>Per-Clip Output Channels</h2>
+      <p>The settings panel applies to every file in the queue. Channel handling is the one exception: a clip can override it for itself.</p>
+      <p>Right-click a row and open <strong>Output Channels</strong>:</p>
+      <ul>
+        <li><strong>Follow Settings</strong> — use the settings panel. The default, and what every clip does until you say otherwise.</li>
+        <li><strong>Stereo</strong> — this clip only.</li>
+        <li><strong>Mono &mdash; Left</strong> / <strong>Mono &mdash; Right</strong> — this clip only.</li>
+      </ul>
+      <p>The choice applies to every selected row at once, so several clips from the same source can be marked in one go. A clip that overrides the panel carries a small badge beside its name, so a mixed queue reads at a glance.</p>
+
+      <div class="callout">
+        <strong>Mono takes a channel, it does not downmix</strong>
+        With Stereo Output off, ClipHack pans to the channel you named rather than averaging the two. A clip whose content sits on the right comes out silent under a Left setting — and which channel carries the audio is a property of that recording, not of the batch. That is the whole reason this setting lives on the clip.
+      </div>
+
+      <p>Only channel handling works this way. Sample rate, ceiling, the filters and loudness stay batch-wide. Since <strong>Process</strong> runs the whole queue rather than the current selection, this is what lets a mixed batch — some stereo, some mono-left — go through in one pass instead of two.</p>
+
+      <div class="callout callout-warn">
+        <strong>Not saved between launches</strong>
+        The override lives in the file list for the current session. It is not written to the notes file, so quitting loses it. Set it in the run where you process the clips.
+      </div>
+    </section>
+
     <!-- PIPELINE -->
     <section id="pipeline">
       <h2>Processing Pipeline</h2>
@@ -625,6 +651,7 @@ MAMDANI — I continue to support Congressman Jeffries
     <!-- SETTINGS -->
     <section id="settings">
       <h2>Settings Reference</h2>
+      <p>Everything here applies to the whole queue, with one exception: channel handling can be overridden per clip — see <a href="#channels">Per-Clip Output Channels</a>.</p>
 
       <h3>Output</h3>
       <table class="settings-table">

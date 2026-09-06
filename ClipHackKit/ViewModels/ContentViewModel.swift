@@ -186,6 +186,27 @@ final class ContentViewModel {
         }
     }
 
+    /// Applies a channel override to `ids`, or clears it back to the settings
+    /// panel with nil.
+    ///
+    /// Takes a set rather than one id so the context menu can act on a whole
+    /// selection — the common case is marking several clips from the same
+    /// source mono-left in one go.
+    func setChannelMode(_ mode: ClipChannelMode?, for ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        for index in files.indices where ids.contains(files[index].id) {
+            files[index].channelMode = mode
+        }
+    }
+
+    /// The mode shared by every id in `ids`, or nil when they disagree or
+    /// follow the panel. Drives the checkmark in the context menu.
+    func commonChannelMode(for ids: Set<UUID>) -> ClipChannelMode? {
+        let modes = Set(files.filter { ids.contains($0.id) }.map(\.channelMode))
+        guard modes.count == 1 else { return nil }
+        return modes.first ?? nil
+    }
+
     func removeSelected() {
         cancelAnalysisTasks(for: selectedFileIDs)
         files.removeAll { selectedFileIDs.contains($0.id) }
@@ -988,7 +1009,7 @@ final class ContentViewModel {
             return
         }
 
-        let inputs = processable.map { JobInput(id: $0.id, url: $0.url) }
+        let inputs = processable.map { JobInput(id: $0.id, url: $0.url, channelMode: $0.channelMode) }
         var outputWarnings: [String] = []
         let outputDirectories = inputs.map { input in
             OutputDirectory.clipHackOutputDirectory(for: input.url, settings: settings) { warning in

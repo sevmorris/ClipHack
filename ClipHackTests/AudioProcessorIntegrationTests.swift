@@ -20,6 +20,63 @@ final class AudioProcessorIntegrationTests: XCTestCase {
         try super.tearDownWithError()
     }
 
+    /// The claim per-file overrides make: one batch, one AudioProcessor, two
+    /// clips that come out with different channel counts. If the override were
+    /// still batch-wide these would agree, whatever the panel said.
+    func testOneBatchHonoursDifferentChannelModesPerClip() async throws {
+        let tools = try XCTUnwrap(tools)
+        let stereoSource = try IntegrationFFmpeg.makeSineWAV(
+            ffmpeg: tools.ffmpeg, directory: workDir, name: "a.wav",
+            durationSeconds: 0.3, sampleRate: 44100, channels: 2
+        )
+        let otherSource = try IntegrationFFmpeg.makeSineWAV(
+            ffmpeg: tools.ffmpeg, directory: workDir, name: "b.wav",
+            durationSeconds: 0.3, sampleRate: 44100, channels: 2
+        )
+
+        // The panel says mono-left; one clip overrides to stereo.
+        var settings = ClipHackSettings()
+        settings.loudnormEnabled = false
+        settings.stereoOutput = false
+        settings.channel = .left
+        settings.outputDirectoryPath = workDir.path
+
+        let stereoID = UUID(), monoID = UUID()
+        let batch = try await AudioProcessor(settings: settings).run(inputs: [
+            JobInput(id: stereoID, url: stereoSource, channelMode: .stereo),
+            JobInput(id: monoID, url: otherSource, channelMode: nil),
+        ])
+
+        XCTAssertEqual(batch.failures.count, 0, batch.failures.map(\.message).joined(separator: "; "))
+        let stereoOut = try XCTUnwrap(batch.successes.first { $0.id == stereoID }?.output)
+        let monoOut = try XCTUnwrap(batch.successes.first { $0.id == monoID }?.output)
+
+        XCTAssertEqual(try channelCount(ffprobe: tools.ffprobe, url: stereoOut), 2,
+                       "the clip that overrode to stereo stays stereo")
+        XCTAssertEqual(try channelCount(ffprobe: tools.ffprobe, url: monoOut), 1,
+                       "the clip with no override follows the panel")
+    }
+
+    /// Reads a file's channel count, so the assertions above are about the
+    /// audio that was actually written rather than the arguments we passed.
+    private func channelCount(ffprobe: String, url: URL) throws -> Int {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: ffprobe)
+        process.arguments = [
+            "-v", "error", "-select_streams", "a:0",
+            "-show_entries", "stream=channels",
+            "-of", "csv=p=0", url.path,
+        ]
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return Int(text) ?? -1
+    }
+
     func testProducesNonEmptyWAV() async throws {
         let tools = try XCTUnwrap(tools)
         let input = try IntegrationFFmpeg.makeSineWAV(
