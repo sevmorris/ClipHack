@@ -14,6 +14,9 @@ public struct HelpView: View {
                     broadcast clips (news, promos) that need to sit at a consistent level \
                     before dropping into a podcast or show.
                     """)
+                    text("The full manual covers downloading, sessions and the notes file in more detail:")
+                    Link("sevmorris.github.io/ClipHack/manual",
+                         destination: URL(string: "https://sevmorris.github.io/ClipHack/manual/")!)
                 }
                 section("Presets") {
                     text("Presets save and recall all settings at once. Three built-in presets are included:")
