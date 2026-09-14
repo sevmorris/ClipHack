@@ -2,6 +2,14 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Changed**
+- **The session's notes file records the file name, the cut and the source URL — nothing else.** The person and the notes are no longer written to it. They still go on the clip's row in the file list, and last as long as the row does.
+  The file name is now written every time, including a name you typed yourself. It used to be left out as a repeat of the name just typed, but with the notes gone it is the only line saying which clip a cut belongs to. A side effect: the already-downloaded check now recognises a clip named by hand, which it could not before.
+  The source URL stays because the file is matched on it — re-downloading a link replaces its block rather than adding a second, and a link whose clip is still on disk adds that clip instead of fetching it again.
+  Nothing already in a file is taken out. Blocks an earlier version wrote keep their notes, including when the file is rewritten around a new download: the parser cannot always tell a free-form cut from notes, so stripping notes on the way out would take cuts with them.
+
 ## [1.25.0] — 2026-09-06
 
 **Added**

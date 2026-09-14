@@ -6,12 +6,10 @@ import Foundation
 ///
 /// Blocks are separated by a `---` rule; each block is exactly the body
 /// `ClipNotesFile` already defines, so the element rules — blank line between
-/// elements, filename only when ClipHack chose it, cut on its own line — are
-/// shared rather than duplicated.
+/// elements, empty ones left out, cut on its own line — are shared rather than
+/// duplicated.
 ///
 ///     Aaron_Rupar_-_TRUMP_….m4a
-///
-///     TRUMP — "I should be at 100 percent on the economy"
 ///
 ///     :46 to :17
 ///
@@ -19,8 +17,14 @@ import Foundation
 ///
 ///     ---
 ///
-///     MAMDANI — I continue to support Congressman Jeffries
+///     Mamdani_on_Jeffries.m4a
 ///     …
+///
+/// A download records its filename, the cut when one was entered, and the
+/// source URL — never the person or the notes. Blocks an earlier version wrote
+/// with notes in them still parse, and keep their notes when the file is
+/// rewritten: the parser cannot always tell a free-form cut from notes, so
+/// dropping notes on the way out would eat cuts too.
 ///
 /// Maintained, never appended. ClipHack rewrites the file from what it holds,
 /// so a re-download or an edit replaces a clip's block instead of stacking a

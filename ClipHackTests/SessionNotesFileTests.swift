@@ -63,6 +63,24 @@ final class SessionNotesFileTests: XCTestCase {
         XCTAssertEqual(SessionNotesFile.parse(SessionNotesFile.render(records)), records)
     }
 
+    /// The shape a download writes now: filename, cut, source — no notes.
+    func testABlockWithNoNotesRoundTrips() {
+        let records = [
+            record("A.m4a", notes: "", timestamp: "1:13 to :55", url: "https://a"),
+            record("B.m4a", notes: "", url: "https://b"),
+        ]
+        XCTAssertEqual(SessionNotesFile.parse(SessionNotesFile.render(records)), records)
+    }
+
+    /// A cut the parser can't recognise reads back as notes. Rewriting still
+    /// puts it back where it was — which is why the file keeps every element
+    /// it parses, not only the ones a download writes.
+    func testACutThatDoesNotReadAsOneIsRewrittenInPlace() {
+        let text = "A.m4a\n\n0:05 to end\n\nhttps://a\n"
+        XCTAssertEqual(SessionNotesFile.parse(text).first?.notes, "0:05 to end")
+        XCTAssertEqual(SessionNotesFile.render(SessionNotesFile.parse(text)), text)
+    }
+
     func testAnEmptyFileParsesToNothing() {
         XCTAssertTrue(SessionNotesFile.parse("").isEmpty)
         XCTAssertTrue(SessionNotesFile.parse("\n---\n\n").isEmpty)

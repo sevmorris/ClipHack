@@ -39,16 +39,16 @@ Downloads go straight into the session's folder. The tool does not make a folder
 HT_0379 2026-08-24/clips/
 ├── Some Title.m4a                 ← the download
 ├── Some Title-44knorm-clipped-1dB.wav
-└── HT_0379 2026-08-24.txt         ← the notes for every clip
+└── HT_0379 2026-08-24.txt         ← the session's notes file
 ```
 
 If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
 
 * **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
 * **Person in clip (optional):** Type the name of the person speaking in the clip. The tool writes this name at the start of the clip's notes. If you use a link from X (Twitter), the tool reads the name from the post text and fills the field. The tool leaves the field empty if it cannot read a name. The tool does not use the name of the account that posted the clip. That account is usually not the person in the clip.
-* **Notes (optional):** Type text to keep with the file row. The first line says what the clip is about. That line and the person open the clip's entry in the notes file. The tool keeps the lines below exactly as you type them. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
+* **Notes (optional):** Type text to keep with the file row. The tool does not write the notes to the notes file. The first line says what the clip is about. The person goes in front of that line. The tool keeps the lines below exactly as you type them. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
 * **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55`. The tool writes this on its own line in the notes file.
-* **Save clip notes:** This writes the notes to the session's text file. The session keeps one file for all its clips:
+* **Save clip notes:** This writes a record of each download to the session's text file. The session keeps one file for all its clips:
 
 ```
 HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt
@@ -59,14 +59,12 @@ The tool writes one block for each clip and separates the blocks with a `---` li
 ```
 Some Title.m4a
 
-TRUMP — "I should be at 100 percent on the economy"
-
 1:13 to :55
 
 https://x.com/atrupar/status/2090948085333504072
 ```
 
-The tool writes the file name only when it takes the name from the source. If you type a file name yourself, the tool leaves that line out, because the line repeats the name you typed. The tool still finds the audio, because the text file has the same name as the audio file.
+The tool writes the file name, the cut if you typed one, and the source link. The tool does not write the person or the notes. The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for. Blocks from an earlier version keep the notes that they have.
 
 The tool does not append to this file. The tool writes the file again from what it holds. Thus a second download of the same link replaces that clip's block. The file does not collect old copies.
 

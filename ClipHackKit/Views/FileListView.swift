@@ -159,8 +159,9 @@ struct FileRowView: View {
                 }
             }
 
-            // What the clip actually is, not just what it's called — restored
-            // from the notes file on disk, so it survives across sessions.
+            // What the clip actually is, not just what it's called — typed when
+            // it was downloaded, or restored from notes an earlier version
+            // wrote to disk. Downloads no longer save them.
             if let notes = file.notes, !notes.isEmpty {
                 HStack(alignment: .top, spacing: 4) {
                     Image(systemName: "text.quote")

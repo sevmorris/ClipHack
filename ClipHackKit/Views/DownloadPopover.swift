@@ -52,7 +52,7 @@ struct DownloadPopover: View {
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { viewModel.startDownload() }
                     .disabled(viewModel.isDownloading)
-                    .help("Who is speaking in the clip — the name this clip is recorded under. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
+                    .help("Who is speaking in the clip — it opens the notes shown on the clip's row. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
 
                 TextField("1:13 to :55", text: $viewModel.downloadTimestampField)
                     .textFieldStyle(.roundedBorder)
@@ -68,7 +68,7 @@ struct DownloadPopover: View {
             Toggle("Save clip notes", isOn: $viewModel.clipNotesEnabled)
                 .toggleStyle(.checkbox)
                 .disabled(viewModel.isDownloading)
-                .help("Saves file name, notes, the cut, and source URL to this session's notes file, in the download folder.")
+                .help("Saves the file name, the cut, and the source URL to this session's notes file, in the download folder. The person and notes stay on the clip's row.")
 
             destinationRow
 

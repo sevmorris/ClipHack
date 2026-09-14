@@ -169,9 +169,9 @@ final class ContentViewModel {
     }
 
     private func commitFiles(_ urls: [URL]) {
-        // Notes live on disk beside the audio, so a clip re-added days later —
-        // in a new session, by drag or by folder drop — still arrives with the
-        // text that says what it is.
+        // Notes an earlier version wrote to disk are read back, so a clip it
+        // downloaded, re-added days later — in a new session, by drag or by
+        // folder drop — still arrives with the text that says what it is.
         let records = SessionNotesFile.read(at: sessionNotesURL)
         let newFiles = urls.map { url -> FileItem in
             var item = FileItem(url: url)
@@ -344,9 +344,9 @@ final class ContentViewModel {
     var downloadURLField: String = ""
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
-    /// Optional free-text carried onto the added row and into the notes file.
-    /// Line one becomes this clip's description; anything typed below it is
-    /// scratch (timings) and rides along untouched.
+    /// Optional free-text carried onto the added row — the row only; the notes
+    /// file does not record it. Line one becomes this clip's description;
+    /// anything typed below it is scratch (timings) and rides along untouched.
     var downloadNotesField: String = ""
     /// Who is *in* the clip — the speaker, not whoever posted it. Auto-filled
     /// from the post's own text when a name can be read confidently, left blank
@@ -553,12 +553,14 @@ final class ContentViewModel {
         autoFilledPerson = nil
     }
 
-    /// Notes for a clip being added back to the list.
+    /// Notes for a clip being added back to the list. Only files an earlier
+    /// version wrote have any: a download now records no notes.
     ///
-    /// The session file first, matched on the filename its block recorded — a
-    /// clip named by hand records none, so it cannot be matched that way. Then
-    /// a per-clip file beside the audio, which covers a folder dropped in from
-    /// outside the session and clips written before the session file existed.
+    /// The session file first, matched on the filename its block recorded — an
+    /// older block for a clip named by hand has none, so it cannot be matched
+    /// that way. Then a per-clip file beside the audio, which covers a folder
+    /// dropped in from outside the session and clips written before the
+    /// session file existed.
     private func restoredNotes(
         for url: URL,
         from records: [ClipNotesFile.Record]
@@ -745,8 +747,9 @@ final class ContentViewModel {
     }
 
     /// Feeds a completed download through the existing add-files path, then
-    /// records and selects the row that landed, attaches notes, and writes the
-    /// clip's notes file when enabled. Internal for unit tests.
+    /// records and selects the row that landed, attaches notes to it, and
+    /// records the clip in the session's notes file when enabled. Internal for
+    /// unit tests.
     func finishDownload(sourceURL: String, filePath: String) {
         let fileURL = URL(fileURLWithPath: filePath)
         addFiles([fileURL])
@@ -775,13 +778,15 @@ final class ContentViewModel {
         // Recorded in the session's own notes file, beside the audio.
         if clipNotesEnabled {
             do {
-                // A name typed by hand is already the filename; ClipHack's own
-                // name is recorded, because in one shared file it is what ties
-                // a block back to a clip on disk.
+                // The filename, the cut and the source — not the person or the
+                // notes, which stay on the row. The filename is written even
+                // when it was typed by hand: with no notes beside it, it is the
+                // only line that says which clip a block is. The source is what
+                // the file is matched on, for replacing a block and for the
+                // already-downloaded check.
                 let record = ClipNotesFile.Record(
-                    filename: YtDlpService.sanitizedStem(downloadNameField) == nil
-                        ? fileURL.lastPathComponent : "",
-                    notes: notes,
+                    filename: fileURL.lastPathComponent,
+                    notes: "",
                     timestamp: downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines),
                     sourceURL: sourceURL
                 )
@@ -820,7 +825,8 @@ final class ContentViewModel {
     var sessionNotesURL: URL { sessionNotesURL(for: downloadDirectory) }
 
     /// The clip's audio, when it is still on disk. A block with no filename —
-    /// a clip named by hand — cannot be located.
+    /// one an earlier version wrote for a clip named by hand — cannot be
+    /// located.
     ///
     /// The per-clip subfolder is still searched: downloads land flat now, but
     /// clips fetched before that changed are filed one level down.

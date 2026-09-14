@@ -480,7 +480,7 @@
           <tr>
             <td>Notes</td>
             <td>optional</td>
-            <td>Free text kept with the file row and written to the notes file. The first line says what the clip is about; the lines below it are yours, for timings and scratch, and are kept exactly as typed. Drag the grip in the bottom-right corner to make the box taller — the size is remembered.</td>
+            <td>Free text kept with the file row. It is not written to the notes file. The first line says what the clip is about; the lines below it are yours, for timings and scratch, and are kept exactly as typed. Drag the grip in the bottom-right corner to make the box taller — the size is remembered.</td>
           </tr>
           <tr>
             <td>Save clip notes</td>
@@ -521,7 +521,7 @@
     └── clips/                                  ← downloads and output both land here
         ├── Some Title.m4a                      ← the download
         ├── Some Title-44knorm-clipped-1dB.wav
-        └── HT_0380 2026-09-08.txt              ← notes for every clip in the session</code></pre>
+        └── HT_0380 2026-09-08.txt              ← the session's notes file</code></pre>
 
       <ul>
         <li><strong>Switch session</strong> — points the download folder <em>and</em> the output folder at that episode's <code>clips</code> folder in one step.</li>
@@ -544,11 +544,9 @@
       <p>With <strong>Save clip notes</strong> on, each download is recorded in one text file per session, named after the session and sitting in the same <code>clips</code> folder:</p>
       <pre><code>HT_0380 2026-09-08/clips/HT_0380 2026-09-08.txt</code></pre>
 
-      <p>One block per clip, blocks separated by a <code>---</code> rule. Inside a block, one element per line group with a blank line between them: the file name, the person and what the clip is, the cut, then the source URL.</p>
+      <p>One block per clip, blocks separated by a <code>---</code> rule. Inside a block, one element per line group with a blank line between them: the file name, the cut if you entered one, then the source URL.</p>
 
       <pre><code>Aaron_Rupar_-_TRUMP_….m4a
-
-TRUMP — "I should be at 100 percent on the economy"
 
 :46 to :17
 
@@ -556,10 +554,10 @@ https://x.com/atrupar/status/2090948085333504072
 
 ---
 
-MAMDANI — I continue to support Congressman Jeffries
+Mamdani_on_Jeffries.m4a
 …</code></pre>
 
-      <p>The file name is written only when ClipHack chose it. A name you typed yourself is left out, because the line would only repeat the name you already gave the file.</p>
+      <p>The person and the notes are not written; they stay with the clip's row in the file list. The file name is written every time, including a name you typed yourself — with nothing else in the block, it is what says which clip the cut belongs to. Blocks written by an earlier version keep the notes they already hold.</p>
 
       <div class="callout">
         <strong>Maintained, not appended</strong>
@@ -567,7 +565,7 @@ MAMDANI — I continue to support Congressman Jeffries
       </div>
 
       <h3>Notes in the file list</h3>
-      <p>The file list shows a clip's notes under its file name — point at them to read the full text. Because the notes live on disk rather than in the window, a clip added back later (dropped in, or picked up from a folder) arrives with the text that says what it is, even in a new session days later.</p>
+      <p>The file list shows a clip's notes under its file name — point at them to read the full text. They belong to the row: nothing saves them, so they are gone once the clip leaves the list or ClipHack quits. A clip whose notes an earlier version saved still arrives with them when it is added back.</p>
 
       <h3>Files from an earlier version</h3>
       <p>ClipHack used to write one text file per clip. Those are folded into the session's file the first time you open the session. The originals are left exactly where they are — they are your files — and are simply no longer read.</p>

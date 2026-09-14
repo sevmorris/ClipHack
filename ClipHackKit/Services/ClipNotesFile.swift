@@ -23,7 +23,8 @@ import Foundation
 /// clip (`SessionNotesFile`), and each block in it is exactly the body defined
 /// here — so this type is now the block format plus the reader that folds
 /// pre-existing per-clip files into a session. `write` remains as the authoring
-/// side of that legacy shape.
+/// side of that legacy shape. A download's block in the session file differs
+/// from it in two ways: the filename is always written, and the notes never are.
 enum ClipNotesFile {
     /// Sidecar name for an audio file: same stem, `.txt`.
     static func filename(forAudioFile audioFilename: String) -> String {
