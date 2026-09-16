@@ -10,10 +10,10 @@
 #
 # Reproducible: two runs on the same toolchain produce byte-identical binaries,
 # so anyone can rebuild and check the SHA-256 against the pin in
-# Vendor/ffmpeg-manifest.env. Three things make that true — the fixed working
-# directory below (configure bakes --prefix into the binary), -ffp-contract=off,
-# and -Wl,-no_uuid. Without the last one two runs differ in exactly 48 bytes:
-# the 16-byte linker-generated LC_UUID, plus the 32-byte ad-hoc code-signature
+# Vendor/ffmpeg-manifest.env. We use a fixed working directory and
+# -ffp-contract=off to achieve this. (Note: we previously used -Wl,-no_uuid
+# to ensure bit-for-bit identical builds, but macOS 15 Sequoia strictly requires
+# the LC_UUID load command and instantly SIGABRTs any binary without it).
 # hash in __LINKEDIT that covers it. Nothing else in 21.9 MB varies. Dropping
 # LC_UUID costs only crash symbolication of the bundled binary, which we never
 # do — it runs as a separate process and release.sh re-signs it anyway.
@@ -88,7 +88,7 @@ cd "ffmpeg-${FFMPEG_VERSION}"
     --prefix="$WORK/ffmpeg-install" \
     --cc=/usr/bin/clang --arch=arm64 \
     --extra-cflags="-mmacosx-version-min=${DEPTARGET} -fno-stack-check -ffp-contract=off -I$WORK/lame-install/include" \
-    --extra-ldflags="-mmacosx-version-min=${DEPTARGET} -L$WORK/lame-install/lib -Wl,-no_uuid" \
+    --extra-ldflags="-mmacosx-version-min=${DEPTARGET} -L$WORK/lame-install/lib" \
     --enable-static --disable-shared --pkg-config-flags=--static \
     --enable-libmp3lame \
     --disable-autodetect \
