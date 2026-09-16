@@ -28,13 +28,13 @@ actor YtDlpManager {
         let fm = FileManager.default
 
         if let toolURL = KitBundle.resources.url(forResource: "yt-dlp", withExtension: nil),
-           fm.fileExists(atPath: toolURL.path) {
+           fm.isExecutableFile(atPath: toolURL.path) {
             return toolURL.path
         }
 
         if let resourceURL = KitBundle.resources.resourceURL {
             let toolURL = resourceURL.appendingPathComponent("yt-dlp")
-            if fm.fileExists(atPath: toolURL.path) {
+            if fm.isExecutableFile(atPath: toolURL.path) {
                 return toolURL.path
             }
         }
