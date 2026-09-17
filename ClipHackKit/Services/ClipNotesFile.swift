@@ -25,7 +25,10 @@ import Foundation
 /// pre-existing per-clip files into a session. `write` remains as the authoring
 /// side of that legacy shape. A download's block in the session file differs
 /// from it in two ways: the filename is always written, and the notes never are.
-enum ClipNotesFile {
+///
+/// `nonisolated`: pure text and file handling, and `SessionNotesFile` passes
+/// `parse` around as a plain function value.
+nonisolated enum ClipNotesFile {
     /// Sidecar name for an audio file: same stem, `.txt`.
     static func filename(forAudioFile audioFilename: String) -> String {
         let stem = (audioFilename as NSString).deletingPathExtension

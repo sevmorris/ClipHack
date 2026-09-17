@@ -44,7 +44,9 @@ enum ClipChannelMode: String, CaseIterable, Codable, Sendable {
     /// `.stereo` keeps the panel's channel: it is unused while stereo, and
     /// discarding it would silently rewrite the fallback for a clip later set
     /// back to Follow Settings.
-    static func resolve(
+    ///
+    /// `nonisolated` because AudioProcessor, an actor, calls it per job.
+    nonisolated static func resolve(
         _ override: ClipChannelMode?,
         settings: ClipHackSettings
     ) -> (stereo: Bool, channel: ClipHackSettings.MonoChannel) {

@@ -651,7 +651,7 @@ final class ContentViewModel {
         let file = sessionNotesURL(for: destination)
         // Fold in anything still in per-clip files first, so a link used before
         // the session file existed is still recognised as already downloaded.
-        try? SessionNotesFile.adoptSidecars(in: destination, sessionFile: file)
+        _ = try? SessionNotesFile.adoptSidecars(in: destination, sessionFile: file)
         let records = SessionNotesFile.read(at: file)
         guard let existing = records
             .first(where: { ClipNotesFile.isSameSource($0.sourceURL, url) })
@@ -719,7 +719,9 @@ final class ContentViewModel {
         let stem = YtDlpService.sanitizedStem(downloadNameField)
         downloadState = .downloading(progress: "Starting download…")
 
-        downloadTask = Task {
+        // `[self]` states what the Task already did implicitly: it holds the view
+        // model until the download ends. The progress handler below stays weak.
+        downloadTask = Task { [self] in
             defer { downloadTask = nil }
             do {
                 let path = try await YtDlpService.shared.downloadAudio(url: url, destination: destination, customStem: stem) { [weak self] line in
@@ -931,7 +933,7 @@ final class ContentViewModel {
         // Fold in any per-clip files written before the session file existed,
         // so an old episode reopened today reads as one file. Their originals
         // are left alone; they are simply no longer read.
-        try? SessionNotesFile.adoptSidecars(in: downloadDirectory, sessionFile: sessionNotesURL)
+        _ = try? SessionNotesFile.adoptSidecars(in: downloadDirectory, sessionFile: sessionNotesURL)
         loadSessions()
     }
 
@@ -1050,7 +1052,9 @@ final class ContentViewModel {
             }
         }
 
-        processingTask = Task {
+        // `[self]` states what the Task already did implicitly: it holds the view
+        // model for the whole run. `onFileStarted` below still captures it weakly.
+        processingTask = Task { [self] in
             do {
                 let processor = AudioProcessor(
                     settings: currentSettings,

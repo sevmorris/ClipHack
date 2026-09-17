@@ -2,6 +2,7 @@ import XCTest
 @testable import ClipHackKit
 
 /// FFmpeg integration tests — require bundled binaries (run `./scripts/fetch-ffmpeg.sh` first).
+@MainActor
 final class AudioProcessorIntegrationTests: XCTestCase {
 
     private var tools: (ffmpeg: String, ffprobe: String)?

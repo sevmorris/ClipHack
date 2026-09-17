@@ -4,7 +4,9 @@ import Foundation
 ///
 /// Trash rather than delete: processing is lossy and settings-dependent, so a
 /// bad result has to stay recoverable from the Finder.
-enum OriginalFileTrash {
+///
+/// `nonisolated`: file handling only, and callers inject `trash` as a closure.
+nonisolated enum OriginalFileTrash {
 
     enum Refusal: Equatable, Sendable {
         /// The source is already gone — nothing to do, and not an error.
