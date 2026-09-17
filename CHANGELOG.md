@@ -2,13 +2,13 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
-
-**Changed**
-- **The bundled FFmpeg is repinned to r4: the same machine code as 1.25.3's r3, now rebuildable byte for byte.** r3 restored the `LC_UUID` load command, but its recipe could not reproduce it — the linker folds object-file timestamps into the UUID, so every rebuild differed in 48 bytes. `scripts/build-ffmpeg.sh` now sets `ZERO_AR_DATE=1`, keeping `LC_UUID` and reproducibility both, and refuses a binary without the load command. Parity against r3: 340 gates pass, every null residual at −inf.
+## [1.25.4] — 2026-09-17
 
 **Fixed**
 - **The installer window is back.** The 1.25.2 and 1.25.3 disk images open as a plain folder holding only the app — no background, no layout, and no Applications shortcut to drag it onto. On the Mac they were built on, the Python that runs dmgbuild crashed on its first subprocess (it had been compiled against Xcode 27's macOS 27 SDK, on macOS 26.7), and a fallback added that day built a bare image instead while still reporting a styled one. The fallback is gone. `release.sh` now tests the interpreter before building anything, fails rather than ships an image without its layout, and checks the mounted image for it.
+
+**Developer**
+- **The bundled FFmpeg is repinned to r4: the same machine code as 1.25.3's r3, now rebuildable byte for byte.** r3 restored the `LC_UUID` load command, but its recipe could not reproduce it — the linker folds object-file timestamps into the UUID, so every rebuild differed in 48 bytes. `scripts/build-ffmpeg.sh` now sets `ZERO_AR_DATE=1`, keeping `LC_UUID` and reproducibility both, and refuses a binary without the load command. Parity against r3: 340 gates pass, every null residual at −inf.
 - **`release.sh` can no longer publish half a release.** It checked only this clone's tags, so a version already tagged on GitHub passed, was built, notarized and pushed to `main`, and only then had its tag refused — which is how a second commit for 1.25.2 reached `main` with nothing tagging it. It now fetches the remote's tags first, stops when a local tag disagrees with one or the releases repo already has the version, and pushes the branch and the tag in one atomic push. The version and build-number bump is committed only after notarization and reverted on any earlier failure, where the build number used to be left in the working tree for the next run to trip over. It also checks the notarytool profile up front (`notarytool`, or `NOTARY_PROFILE`), and builds for `generic/platform=macOS`.
 - Builds with Xcode 27 without warnings. Swift 6.4 flags main-actor code reached from `AudioProcessor` and from function values, and the pure helpers involved are now `nonisolated`.
 
