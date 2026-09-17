@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Fixed**
+- **A broken FFmpeg no longer passes itself off as a file with no audio.** Whenever the bundled ffprobe could not run — missing, unlaunchable, crashed or timed out — the file was reported as "No audio stream found — file may be misnamed or unsupported." That is how 1.17.1 through 1.25.2 described every file on macOS 26.7, where the fault was ffprobe being refused at launch, and it sent the first diagnosis after the files. Those cases now say the bundled ffprobe failed to run, give the reason, and say the file was not checked. A file ffprobe reads and finds no audio in is reported as before, without the "FFmpeg failed (-1):" prefix a failed job used to add. Cancelling a batch while a file is being probed now cancels it, instead of recording that file as having no audio.
+
 ## [1.25.4] — 2026-09-17
 
 **Fixed**

@@ -1190,9 +1190,9 @@ final class ContentViewModel {
         let task = Task {
             do {
                 let tools = try await FFmpegManager.shared.ensureTools()
-                guard await AudioStreamProbe.hasAudioStream(ffprobe: tools.ffprobe, url: file.url) else {
+                if let failure = try await AudioStreamProbe.probe(ffprobe: tools.ffprobe, url: file.url).failure {
                     if let currentIndex = files.firstIndex(where: { $0.id == file.id }) {
-                        files[currentIndex].status = .error("No audio stream found — file may be misnamed or unsupported.")
+                        files[currentIndex].status = .error(failure.localizedDescription)
                     }
                     analysisTasks.removeValue(forKey: file.id)
                     return

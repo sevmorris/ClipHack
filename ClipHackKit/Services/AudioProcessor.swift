@@ -105,8 +105,8 @@ actor AudioProcessor {
             throw ProcessingError.invalidInput
         }
 
-        guard await AudioStreamProbe.hasAudioStream(ffprobe: tools.ffprobe, url: input) else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "No audio stream found — file may be misnamed or unsupported.")
+        if let failure = try await AudioStreamProbe.probe(ffprobe: tools.ffprobe, url: input).failure {
+            throw failure
         }
 
         let sr = settings.sampleRate.rawValue
