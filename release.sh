@@ -95,6 +95,13 @@ cleanup() {
     [[ -d "${DERIVED_DATA:-}" ]] && rm -rf -- "$DERIVED_DATA" || true
     [[ -f "${DMG:-}" ]]          && rm -f  -- "$DMG"          || true
 }
+# A zsh EXIT trap does not fire on a signal, so Ctrl-C or a closed terminal
+# during the long notarization wait used to leave the version bump sitting in
+# the working tree — the same stranded-bump state that blocked two releases on
+# 2026-09-16, which the deferred commit only fixed for an ordinary failure.
+# These handlers exit and let the EXIT trap do the cleanup, exactly once.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 trap cleanup EXIT
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
