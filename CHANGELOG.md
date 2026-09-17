@@ -5,6 +5,26 @@ All notable changes to ClipHack are documented here. Version numbers match GitHu
 ## [Unreleased]
 
 **Changed**
+- **The bundled FFmpeg is repinned to r4: the same machine code as 1.25.3's r3, now rebuildable byte for byte.** r3 restored the `LC_UUID` load command, but its recipe could not reproduce it — the linker folds object-file timestamps into the UUID, so every rebuild differed in 48 bytes. `scripts/build-ffmpeg.sh` now sets `ZERO_AR_DATE=1`, keeping `LC_UUID` and reproducibility both, and refuses a binary without the load command. Parity against r3: 340 gates pass, every null residual at −inf.
+
+**Fixed**
+- **The installer window is back.** The 1.25.2 and 1.25.3 disk images open as a plain folder holding only the app — no background, no layout, and no Applications shortcut to drag it onto. On the Mac they were built on, the Python that runs dmgbuild crashed on its first subprocess (it had been compiled against Xcode 27's macOS 27 SDK, on macOS 26.7), and a fallback added that day built a bare image instead while still reporting a styled one. The fallback is gone. `release.sh` now tests the interpreter before building anything, fails rather than ships an image without its layout, and checks the mounted image for it.
+- **`release.sh` can no longer publish half a release.** It checked only this clone's tags, so a version already tagged on GitHub passed, was built, notarized and pushed to `main`, and only then had its tag refused — which is how a second commit for 1.25.2 reached `main` with nothing tagging it. It now fetches the remote's tags first, stops when a local tag disagrees with one or the releases repo already has the version, and pushes the branch and the tag in one atomic push. The version and build-number bump is committed only after notarization and reverted on any earlier failure, where the build number used to be left in the working tree for the next run to trip over. It also checks the notarytool profile up front (`notarytool`, or `NOTARY_PROFILE`), and builds for `generic/platform=macOS`.
+- Builds with Xcode 27 without warnings. Swift 6.4 flags main-actor code reached from `AudioProcessor` and from function values, and the pure helpers involved are now `nonisolated`.
+
+## [1.25.3] — 2026-09-16
+
+**Fixed**
+- **FFmpeg runs on macOS 26.7 again.** From 1.17.1 the bundled `ffmpeg` and `ffprobe` were built without an `LC_UUID` load command — that is what made them reproducible — and dyld on macOS 26.7 refuses to load an executable without one, so processing failed there in every version from 1.17.1 through 1.25.2. The binaries are rebuilt with it (`ffmpeg-deps-8.0-audio-arm64-r3`).
+
+## [1.25.2] — 2026-09-16
+
+**Changed**
+- **A bundled tool that is not executable is no longer run in place.** ClipHack checked only that `ffmpeg`, `ffprobe` and `yt-dlp` existed inside the app. It now requires them to be executable too, and otherwise runs a copy from its temporary folder with the permission set.
+
+## [1.25.1] — 2026-09-13
+
+**Changed**
 - **The session's notes file records the file name, the cut and the source URL — nothing else.** The person and the notes are no longer written to it. They still go on the clip's row in the file list, and last as long as the row does.
   The file name is now written every time, including a name you typed yourself. It used to be left out as a repeat of the name just typed, but with the notes gone it is the only line saying which clip a cut belongs to. A side effect: the already-downloaded check now recognises a clip named by hand, which it could not before.
   The source URL stays because the file is matched on it — re-downloading a link replaces its block rather than adding a second, and a link whose clip is still on disk adds that clip instead of fetching it again.
