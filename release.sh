@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # release.sh — Build, verify, package, and publish a ClipHack release.
 #
-# Usage: ./release.sh <version>
+# Usage: ./release.sh <version> [--generated-notes]
 #   e.g. ./release.sh 1.11.8
 #
 # Requires: xcodebuild, hdiutil, gh (GitHub CLI), git
@@ -18,13 +18,28 @@ RELEASES_REPO="sevmorris/ClipHack-releases" # public — DMG artifacts, updater 
 NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool}"
 
 # ── Args ──────────────────────────────────────────────────────────────────────
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 <version>"
+# One positional argument (the version) plus optional flags in any position.
+# Anything else — including no arguments, or a second positional that isn't a
+# flag — still fails with usage, as it did before the flags existed.
+ALLOW_GENERATED_NOTES=0
+ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --generated-notes) ALLOW_GENERATED_NOTES=1 ;;
+        *)                 ARGS+=("$arg") ;;
+    esac
+done
+
+if [[ ${#ARGS[@]} -ne 1 ]]; then
+    echo "Usage: $0 <version> [--generated-notes]"
     echo "  e.g. $0 1.11.8"
+    echo ""
+    echo "  --generated-notes  Release without a curated release-notes file,"
+    echo "                     generating notes from commit subjects instead."
     exit 1
 fi
 
-VERSION="$1"
+VERSION="${ARGS[1]}"
 TAG="v${VERSION}"
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$SCRIPT_DIR"
@@ -35,6 +50,7 @@ APP_PATH="$DERIVED_DATA/Build/Products/Release/ClipHack.app"
 DMG="/tmp/ClipHack-${TAG}.dmg"
 MOUNT="/tmp/cliphack_verify_${VERSION}"
 MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
+NOTES_FILE="$PROJECT_DIR/release-notes/${TAG}.md"
 
 # Set once project.pbxproj has been rewritten in place and cleared once that
 # rewrite is committed. While it is 1 the working tree carries an uncommitted
@@ -192,6 +208,29 @@ step "Checking shared files against sibling repos"
 "$PROJECT_DIR/scripts/check-shared.sh" \
     || fail "Shared files have drifted from the sibling repos — reconcile them before releasing"
 ok "Shared files in sync"
+
+# ── Release-notes gate ────────────────────────────────────────────────────────
+# The notes are read much later, at the GitHub-release step — by which point the
+# branch and the tag have both been pushed. Failing there would strand a pushed
+# tag with no release behind it, so the absence has to be caught here, while
+# nothing has been mutated and nothing has left the machine.
+#
+# Without this, a forgotten notes file is invisible: the curated path announces
+# itself, the generated path says nothing, and both end on the same "Release
+# published" line. Shipping auto-generated notes becomes a silent default rather
+# than a decision — which is exactly what happened to 1.25.5, published with two
+# commit subjects in place of the changelog entry written for it.
+if [[ -f "$NOTES_FILE" ]]; then
+    ok "Curated notes present: release-notes/${TAG}.md"
+elif (( ALLOW_GENERATED_NOTES )); then
+    echo "\n  ⚠ --generated-notes — publishing $TAG without curated notes" >&2
+    echo "      expected:  release-notes/${TAG}.md" >&2
+    echo "      notes will be generated from commit subjects since the last tag" >&2
+    ok "Generated notes accepted"
+else
+    echo "      expected:  release-notes/${TAG}.md" >&2
+    fail "No curated notes for $TAG — write that file, or re-run with --generated-notes"
+fi
 
 # ── Version bump ──────────────────────────────────────────────────────────────
 step "Bumping version to $VERSION"
@@ -406,26 +445,44 @@ step "Creating GitHub release"
 # App tags only: the ffmpeg-deps-* tags are cut at main's head whenever a
 # deps build is published, and one newer than the last release would
 # silently shorten these notes.
-PREV_TAG=$(git tag --list 'v[0-9]*' --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
-if [[ -n "$PREV_TAG" ]]; then
-    CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
-        | grep -v "^- Bump version" \
-        | grep -v "^- docs: update download link" || true)
-else
-    CHANGES=$(git log --pretty=format:"- %s" \
-        | grep -v "^- Bump version" \
-        | grep -v "^- docs: update download link" || true)
-fi
-[[ -n "$CHANGES" ]] || CHANGES="- Initial release"
-RELEASE_NOTES="### Changes
-${CHANGES}"
+# A curated description at release-notes/v<version>.md wins over the generated
+# commit list. Use it when the release needs prose the log can't produce —
+# licensing notes, a known-gap disclosure, an explanation of what changed and
+# what deliberately didn't. Without one, fall back to subjects since the last tag.
+#
+# NOTES_FILE is defined with the other paths and its absence is gated in
+# preflight, so reaching the generated branch here means --generated-notes was
+# passed deliberately.
+#
 # The releases repo is a separate public repo with no source tree, so target
 # its default branch's HEAD when creating the tag remotely.
-gh release create "$TAG" "$DMG" \
-    --repo "$RELEASES_REPO" \
-    --target main \
-    --title "ClipHack $TAG" \
-    --notes "$RELEASE_NOTES"
+if [[ -f "$NOTES_FILE" ]]; then
+    ok "Using curated notes: release-notes/${TAG}.md"
+    gh release create "$TAG" "$DMG" \
+        --repo "$RELEASES_REPO" \
+        --target main \
+        --title "ClipHack $TAG" \
+        --notes-file "$NOTES_FILE"
+else
+    PREV_TAG=$(git tag --list 'v[0-9]*' --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
+    if [[ -n "$PREV_TAG" ]]; then
+        CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
+            | grep -v "^- Bump version" \
+            | grep -v "^- docs: update download link" || true)
+    else
+        CHANGES=$(git log --pretty=format:"- %s" \
+            | grep -v "^- Bump version" \
+            | grep -v "^- docs: update download link" || true)
+    fi
+    [[ -n "$CHANGES" ]] || CHANGES="- Initial release"
+    RELEASE_NOTES="### Changes
+${CHANGES}"
+    gh release create "$TAG" "$DMG" \
+        --repo "$RELEASES_REPO" \
+        --target main \
+        --title "ClipHack $TAG" \
+        --notes "$RELEASE_NOTES"
+fi
 ok "Release published to $RELEASES_REPO"
 
 # ── Remove old app release pages (keep the ${KEEP_RELEASES} most recent) ─────
