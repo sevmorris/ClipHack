@@ -11,6 +11,12 @@ set -euo pipefail
 SOURCE_REPO="sevmorris/ClipHack"          # public — source, tags
 RELEASES_REPO="sevmorris/ClipHack-releases" # public — DMG artifacts, updater target
 
+# notarytool keychain profile, shared by every sibling release script. A profile
+# cannot be exported, so a new Mac needs it created again under this name:
+#   xcrun notarytool store-credentials notarytool --apple-id <email> --team-id T9RLNAXPWU
+# Set NOTARY_PROFILE to use another (a Mac still holding the old WoWoNotary one).
+NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool}"
+
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <version>"
@@ -28,12 +34,52 @@ DERIVED_DATA="/tmp/cliphack_build_${VERSION}"
 APP_PATH="$DERIVED_DATA/Build/Products/Release/ClipHack.app"
 DMG="/tmp/ClipHack-${TAG}.dmg"
 MOUNT="/tmp/cliphack_verify_${VERSION}"
+MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
+
+# Set once project.pbxproj has been rewritten in place and cleared once that
+# rewrite is committed. While it is 1 the working tree carries an uncommitted
+# version bump, and the EXIT trap reverts it.
+#
+# Until 1.25.3 the build-number bump was written here and committed only with
+# the docs, near the end, so any failure in between left it in the working tree.
+# The dirty-tree preflight then blocked the next run, and twice on 2026-09-16 a
+# stranded bump was swept into an unrelated commit to get past it.
+BUMP_ACTIVE=0
+
+# Same contract for the docs rewrite: set once README and the manual are being
+# rewritten in place and cleared once that rewrite is committed. A separate flag
+# because the two windows are disjoint and revert different files.
+DOCS_ACTIVE=0
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
 ok()    { echo "  ✓ $*"; }
 fail()  { echo "\n  ✗ $*" >&2; exit 1; }
 warn()  { echo "  ! $*" >&2; }
+
+cleanup() {
+    # ${VAR:-} so the trap fires cleanly even if the script exits before the
+    # path variables are defined; a bare (( BUMP_ACTIVE )) would trip `set -u`.
+    #
+    # Reverting the whole file is safe because preflight proved the tree clean
+    # at entry: the script's own seds are the only changes present.
+    if (( ${BUMP_ACTIVE:-0} )); then
+        git -C "${PROJECT_DIR:-.}" checkout -- "${PROJECT:-}/project.pbxproj" 2>/dev/null || true
+    fi
+    # These two paths are exactly the ones the docs commit below stages.
+    if (( ${DOCS_ACTIVE:-0} )); then
+        git -C "${PROJECT_DIR:-.}" checkout -- \
+            "${MANUAL_IDX:-}" "${PROJECT_DIR:-.}/README.md" 2>/dev/null || true
+    fi
+    # A failure between attach and detach leaves the image mounted there.
+    if [[ -d "${MOUNT:-}" ]]; then
+        hdiutil detach "$MOUNT" -quiet 2>/dev/null || true
+        rm -rf -- "$MOUNT" || true
+    fi
+    [[ -d "${DERIVED_DATA:-}" ]] && rm -rf -- "$DERIVED_DATA" || true
+    [[ -f "${DMG:-}" ]]          && rm -f  -- "$DMG"          || true
+}
+trap cleanup EXIT
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 step "Preflight checks"
@@ -42,7 +88,19 @@ for cmd in xcodebuild hdiutil gh git codesign xcrun curl python3; do
 done
 python3 -c "import dmgbuild" 2>/dev/null \
     || fail "python3 module 'dmgbuild' not installed — run: python3 -m pip install dmgbuild"
+# Importing dmgbuild does not prove it can run. On 2026-09-16 a pyenv Python
+# built against Xcode 27's macOS 27 SDK, on macOS 26.7, imported it and then
+# segfaulted on its first subprocess — dmgbuild's hdiutil call — and every DMG
+# that day went out without its installer window.
+python3 -c "import subprocess; subprocess.run(['/usr/bin/true'], check=True)" &>/dev/null \
+    || fail "$(command -v python3) cannot start a subprocess, so dmgbuild would crash — rebuild that Python against an SDK no newer than this macOS"
 ok "Tools present"
+
+# A missing profile used to surface at the notarization step, after a clean
+# build — which is how a new Mac found out. Asking costs one API call.
+xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" &>/dev/null \
+    || fail "notarytool profile '$NOTARY_PROFILE' is missing, rejected or unreachable — create it with: xcrun notarytool store-credentials $NOTARY_PROFILE --apple-id <email> --team-id T9RLNAXPWU"
+ok "notarytool profile '$NOTARY_PROFILE' works"
 
 cd "$PROJECT_DIR"
 
@@ -51,10 +109,43 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 ok "Working tree clean"
 
-if git tag | grep -q "^${TAG}$"; then
+# Resolve the tracked remote/branch so this works from any branch (e.g. a
+# worktree branch whose name differs from its upstream). Fall back to
+# `origin` + current branch when no upstream is configured; `-u` sets it
+# on first push so subsequent runs resolve cleanly.
+if UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null); then
+    REMOTE="${UPSTREAM%%/*}"
+    BRANCH="${UPSTREAM#*/}"
+else
+    REMOTE="origin"
+    BRANCH=$(git branch --show-current)
+fi
+
+# The remote's tags are the record, not this clone's. A clone that has not seen
+# a release — made on another Mac, or one whose tag push failed — passes a
+# local-only check, then builds, notarizes and pushes the branch before the tag
+# is refused. On 2026-09-16 a re-run of 1.25.2 did exactly that: its commit
+# reached main with no tag, and the local v1.25.2 disagreed with the published
+# one. Fetching first lets the checks below see every published tag, and a local
+# tag that disagrees with the remote makes the fetch itself fail.
+git fetch --tags "$REMOTE" \
+    || fail "Could not fetch tags from $REMOTE — a tag reported as rejected above points at different commits here and on $REMOTE"
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
     fail "Tag $TAG already exists — has this version been released?"
 fi
+# The DMGs live in a second repo, which has tags of its own.
+if gh release view "$TAG" --repo "$RELEASES_REPO" &>/dev/null; then
+    fail "$RELEASES_REPO already has a $TAG release — has this version been released?"
+fi
 ok "Tag $TAG is available"
+
+# The push at the end is a fast-forward or nothing, so a remote branch with
+# commits this one lacks would fail it after the notarization. Stop now instead.
+if git rev-parse -q --verify "refs/remotes/$REMOTE/$BRANCH" >/dev/null \
+        && ! git merge-base --is-ancestor "$REMOTE/$BRANCH" HEAD; then
+    fail "$REMOTE/$BRANCH has commits that HEAD lacks — pull before releasing"
+fi
+ok "HEAD contains everything on $REMOTE/$BRANCH"
 
 # ── Version ordering ────────────────────────────────────────────────────────────────────────
 # Nothing here stopped a release going backwards. On 2026-09-03 Magic Backup
@@ -68,7 +159,7 @@ ok "Tag $TAG is available"
 # so they are what this compares against. Set ALLOW_DOWNGRADE=1 to override.
 step "Checking version ordering"
 version_core() { printf '%s' "${1%%[-+]*}"; }
-HIGHEST_TAG=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
+HIGHEST_TAG=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1 | sed 's/^v//')
 if [[ -n "$HIGHEST_TAG" ]]; then
     NEW_CORE=$(version_core "$VERSION")
     REF_CORE=$(version_core "$HIGHEST_TAG")
@@ -104,7 +195,21 @@ ok "Shared files in sync"
 
 # ── Version bump ──────────────────────────────────────────────────────────────
 step "Bumping version to $VERSION"
+# project.pbxproj carries MARKETING_VERSION once per build configuration, across
+# the app, ClipHackKit and the tests. Taking head -1 is only safe if they all
+# agree — otherwise the bump rewrites only the ones matching the first.
+VERSION_VALUES=$(grep -o 'MARKETING_VERSION = [^;]*;' "$PROJECT/project.pbxproj" | sort -u)
+VERSION_COUNT=$(printf '%s\n' "$VERSION_VALUES" | grep -c .)
+if [[ "$VERSION_COUNT" -ne 1 ]]; then
+    echo "$VERSION_VALUES" >&2
+    fail "MARKETING_VERSION disagrees across build configurations (${VERSION_COUNT} distinct values) — reconcile before releasing"
+fi
+ok "MARKETING_VERSION agrees across all $(grep -c 'MARKETING_VERSION' "$PROJECT/project.pbxproj") occurrences"
+
 CURRENT=$(grep MARKETING_VERSION "$PROJECT/project.pbxproj" | head -1 | grep -o '[0-9][0-9.]*')
+# Armed before the first mutation, not after the last: under `set -o pipefail`
+# the build-number pipeline below can abort with a sed's edit already on disk.
+BUMP_ACTIVE=1
 if [[ "$CURRENT" == "$VERSION" ]]; then
     ok "Already at $VERSION"
 else
@@ -112,10 +217,7 @@ else
     ESC_VERSION=$(printf '%s'  "$VERSION" | sed 's/[.[\*^$]/\\&/g')
     sed -i '' "s/MARKETING_VERSION = ${ESC_CURRENT};/MARKETING_VERSION = ${ESC_VERSION};/g" \
         "$PROJECT/project.pbxproj"
-    ok "Bumped $CURRENT → $VERSION"
-    git add "$PROJECT/project.pbxproj"
-    git commit -m "Bump version to $VERSION"
-    ok "Committed version bump"
+    ok "Bumped $CURRENT → $VERSION (commit deferred until after notarization)"
 fi
 
 step "Bumping build number"
@@ -123,7 +225,7 @@ BUILD_NUM=$(grep 'CURRENT_PROJECT_VERSION = ' "$PROJECT/project.pbxproj" | head 
 NEXT_BUILD=$((BUILD_NUM + 1))
 sed -i '' "s/CURRENT_PROJECT_VERSION = ${BUILD_NUM};/CURRENT_PROJECT_VERSION = ${NEXT_BUILD};/g" \
     "$PROJECT/project.pbxproj"
-ok "Build number ${BUILD_NUM} → ${NEXT_BUILD}"
+ok "Build number ${BUILD_NUM} → ${NEXT_BUILD} (commit deferred until after notarization)"
 
 step "Fetching FFmpeg binaries"
 chmod +x "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
@@ -140,11 +242,16 @@ step "Building (clean, Release)"
 rm -rf "$DERIVED_DATA"
 rm -rf ~/Library/Caches/com.apple.dt.Xcode*(N) 2>/dev/null || true
 rm -rf ~/Library/Developer/Xcode/DerivedData/ModuleCache*(N) 2>/dev/null || true
+# -destination 'generic/platform=macOS' ("Any Mac"): without it xcodebuild picks
+# the first matching run destination, warns about it on every release, and builds
+# for that destination's arch alone. With it, ARCHS decides — arm64, the only
+# arch the bundled FFmpeg has.
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
+    -destination 'generic/platform=macOS' \
     -quiet
 [[ -d "$APP_PATH" ]] || fail "Build did not produce $APP_PATH"
 ok "Build complete"
@@ -190,28 +297,34 @@ ok "App reports $BUILT_VERSION"
 #   * /bin is prepended for the child, because dmgbuild shells out to bare
 #     `sync` and a personal ~/bin/sync would otherwise shadow the system one
 #     and abort the build.
+#
+# There is no fallback to bare hdiutil, deliberately. One was added on
+# 2026-09-16 for what looked like dmgbuild crashing on a new Mac; the crash was
+# the Python interpreter (see preflight), and the fallback shipped that day's
+# DMGs without their installer window while still reporting a styled one.
+# A DMG without its window is a failed release, not a degraded one.
 step "Creating DMG"
 rm -f "$DMG"
 DMG_BACKGROUND="$PROJECT_DIR/tools/dmg/dmg-background-cliphack.png"
 [[ -f "$DMG_BACKGROUND" ]] \
     || fail "Missing DMG background: ${DMG_BACKGROUND#$PROJECT_DIR/} — regenerate with tools/dmg/make-background.py"
 PY_BIN=$(command -v python3)
-if ! PATH="/bin:/usr/bin:$PATH" "$PY_BIN" -m dmgbuild \
+PATH="/bin:/usr/bin:$PATH" "$PY_BIN" -m dmgbuild \
     -s "$PROJECT_DIR/tools/dmg/dmg-settings.py" \
     -D app="$APP_PATH" \
     -D background="$DMG_BACKGROUND" \
     "Install ClipHack" \
-    "$DMG" >/dev/null 2>&1; then
-    warn "dmgbuild failed or crashed (known issue on macOS 15). Falling back to basic hdiutil..."
-    rm -f "$DMG"
-    hdiutil create -volname "Install ClipHack" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG" >/dev/null
-fi
-[[ -f "$DMG" ]] || fail "Failed to produce $DMG"
+    "$DMG" >/dev/null \
+    || fail "dmgbuild failed (exit $?) — no DMG was built"
+[[ -f "$DMG" ]] || fail "dmgbuild did not produce $DMG"
 ok "Created $(du -sh $DMG | cut -f1) styled DMG"
 
 # ── Notarize ──────────────────────────────────────────────────────────────────
 step "Notarizing DMG"
-xcrun notarytool submit "$DMG" --wait --keychain-profile "notarytool"
+# NOTARY_PROFILE is defined at the top and proven usable in preflight. The
+# version-number changes are reverted by the EXIT trap if this fails.
+xcrun notarytool submit "$DMG" --wait --keychain-profile "$NOTARY_PROFILE" \
+    || fail "Notarization failed — version changes in project.pbxproj have been reverted"
 xcrun stapler staple "$DMG"
 ok "Notarization complete"
 
@@ -221,10 +334,30 @@ rm -rf "$MOUNT"
 mkdir "$MOUNT"
 hdiutil attach "$DMG" -mountpoint "$MOUNT" -quiet -nobrowse
 DMG_VERSION=$(defaults read "$MOUNT/ClipHack.app/Contents/Info.plist" CFBundleShortVersionString)
+# The installer window is these two files: the .DS_Store carrying the layout and
+# the background art it points at. Without them the image opens as a plain folder.
+DMG_DSSTORE=( "$MOUNT"/.DS_Store(N) )
+DMG_BGART=( "$MOUNT"/.background.*(N) )
 hdiutil detach "$MOUNT" -quiet
 [[ "$DMG_VERSION" == "$VERSION" ]] || \
     fail "DMG version mismatch: expected $VERSION, got $DMG_VERSION"
-ok "DMG contains $DMG_VERSION"
+(( ${#DMG_DSSTORE} && ${#DMG_BGART} )) || \
+    fail "DMG has no installer window layout (.DS_Store and .background.* are not both present)"
+ok "DMG contains $DMG_VERSION, with its installer window layout"
+
+# ── Commit version and build-number bump ──────────────────────────────────────
+# Deferred until here so a failed build or notarization never strands a bump,
+# committed or not. Notarization succeeded above, so it is safe to commit.
+step "Committing version and build number bump"
+if [[ -n "$(git status --short -- "$PROJECT/project.pbxproj")" ]]; then
+    git add "$PROJECT/project.pbxproj"
+    git commit -m "Bump version to $VERSION"
+    ok "Committed version bump ($CURRENT → $VERSION, build $BUILD_NUM → $NEXT_BUILD)"
+else
+    ok "project.pbxproj unchanged — nothing to commit"
+fi
+# Disarm after the `fi`, so a failing `git add`/`git commit` leaves the trap armed.
+BUMP_ACTIVE=0
 
 # ── Update README download link ──────────────────────────────────────────────
 step "Updating docs to ${TAG}"
@@ -232,7 +365,9 @@ step "Updating docs to ${TAG}"
 # to v1.12.0 — seven minor versions — with a download button pointing at
 # sevmorris/ClipHack, which has never hosted the DMGs, so it 404'd. Anything
 # that names a version or a download URL belongs in this list.
-MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
+#
+# Armed before the first sed, so a failure part-way through restores all of them.
+DOCS_ACTIVE=1
 sed -i '' "s|ClipHack-v[0-9][0-9.]*\.dmg|ClipHack-${TAG}.dmg|g" "$PROJECT_DIR/README.md" "$MANUAL_IDX"
 sed -i '' "s|>Download v[0-9][0-9.]*<|>Download ${TAG}<|g" "$MANUAL_IDX"
 sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
@@ -245,36 +380,33 @@ if grep -E "ClipHack-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$PROJECT_DIR/README.md" "$MA
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
-    # Pick up the build-number bump from the pbxproj so it actually lands in the
-    # repo (otherwise the build bump stays uncommitted across runs).
-    git add "$PROJECT/project.pbxproj" "$PROJECT_DIR/README.md" "$MANUAL_IDX"
+    git add "$PROJECT_DIR/README.md" "$MANUAL_IDX"
     git commit -m "docs: update download link to ${TAG}"
     ok "README and manual point to ${TAG}"
 else
     ok "README already up to date"
 fi
+DOCS_ACTIVE=0
 
 # ── Tag and push ──────────────────────────────────────────────────────────────
 step "Tagging and pushing"
 git tag "$TAG"
-# Resolve the tracked remote/branch so this works from any branch (e.g. a
-# worktree branch whose name differs from its upstream). Fall back to
-# `origin` + current branch when no upstream is configured; `-u` sets it
-# on first push so subsequent runs resolve cleanly.
-if UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null); then
-    REMOTE="${UPSTREAM%%/*}"
-    BRANCH="${UPSTREAM#*/}"
-else
-    REMOTE="origin"
-    BRANCH=$(git branch --show-current)
+# REMOTE and BRANCH were resolved in preflight. One atomic push: the branch and
+# the tag land together or not at all. As two pushes, a refused tag left the
+# release commit on the branch with nothing tagging it. On failure nothing has
+# been published, so the tag made just above is removed and a re-run starts clean.
+if ! git push --atomic -u "$REMOTE" "HEAD:refs/heads/$BRANCH" "refs/tags/$TAG"; then
+    git tag -d "$TAG" >/dev/null
+    fail "Push to $REMOTE failed and nothing was published — the local $TAG tag has been removed"
 fi
-git push -u "$REMOTE" "HEAD:$BRANCH"
-git push "$REMOTE" "$TAG"
 ok "Pushed $TAG to $REMOTE/$BRANCH"
 
 # ── GitHub release ────────────────────────────────────────────────────────────
 step "Creating GitHub release"
-PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
+# App tags only: the ffmpeg-deps-* tags are cut at main's head whenever a
+# deps build is published, and one newer than the last release would
+# silently shorten these notes.
+PREV_TAG=$(git tag --list 'v[0-9]*' --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
 if [[ -n "$PREV_TAG" ]]; then
     CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
         | grep -v "^- Bump version" \
@@ -296,17 +428,23 @@ gh release create "$TAG" "$DMG" \
     --notes "$RELEASE_NOTES"
 ok "Release published to $RELEASES_REPO"
 
-# ── Remove old app releases (keep the ${KEEP_RELEASES} most recent v* tags) ───
+# ── Remove old app release pages (keep the ${KEEP_RELEASES} most recent) ─────
+# Prunes the release page and its DMG, not the tag — the convention every
+# sibling repo follows. The tags that matter live in $SOURCE_REPO and nothing
+# here touches those; the ones in $RELEASES_REPO are kept too, so each old
+# version still names the point its page was published from. The in-app updater
+# reads release pages, not tags, so a tag without a page is invisible to it.
+# The `^v[0-9]` filter keeps the ffmpeg-deps-* releases out of scope.
 KEEP_RELEASES=5
-step "Removing old app releases (keeping ${KEEP_RELEASES} most recent v* tags)"
+step "Removing old app release pages (keeping ${KEEP_RELEASES} most recent v* releases)"
 OLD_TAGS=$(gh release list --repo "$RELEASES_REPO" --limit 100 --json tagName \
     --jq '.[].tagName' | grep -E '^v[0-9]' | tail -n +$((KEEP_RELEASES + 1)) || true)
 if [[ -z "$OLD_TAGS" ]]; then
-    ok "No old releases to remove"
+    ok "No old release pages to remove"
 else
     while IFS= read -r old_tag; do
-        gh release delete "$old_tag" --repo "$RELEASES_REPO" --yes --cleanup-tag 2>/dev/null || true
-        ok "Removed $old_tag from $RELEASES_REPO"
+        gh release delete "$old_tag" --repo "$RELEASES_REPO" --yes 2>/dev/null || true
+        ok "Pruned release page for $old_tag from $RELEASES_REPO (tag kept)"
     done <<< "$OLD_TAGS"
 fi
 
