@@ -588,13 +588,22 @@ final class ContentViewModel {
     /// Folder name shown in the download popover's Destination row.
     var downloadDirectoryDisplayName: String {
         guard let path = settings.downloadDirectoryPath, !path.isEmpty else { return "Music/ClipHack" }
+        return Self.folderDisplayName(path)
+    }
+
+    /// A chosen folder as the Destination row and OUTPUT DIR name it.
+    ///
+    /// Inside a session the leaf is always `clips`, which alone doesn't say
+    /// whose — and the episode's name alone reads as the episode folder — so
+    /// the two are shown together: `HT_0382 2026-09-22/clips`. One rule for
+    /// both rows, so a session that points both at one folder reads the same
+    /// in each.
+    static func folderDisplayName(_ path: String) -> String {
         let url = URL(fileURLWithPath: path)
-        // Inside a session the leaf is always "clips", which names nothing —
-        // show the episode that folder belongs to instead.
-        if url.lastPathComponent == ClipSessionStore.clipsSubfolder {
-            return url.deletingLastPathComponent().lastPathComponent
+        guard url.lastPathComponent == ClipSessionStore.clipsSubfolder else {
+            return url.lastPathComponent
         }
-        return url.lastPathComponent
+        return url.deletingLastPathComponent().lastPathComponent + "/" + url.lastPathComponent
     }
 
     /// Full destination path, for the Destination row's tooltip.
@@ -919,14 +928,18 @@ final class ContentViewModel {
         savedSessions = ClipSessionStore.sessions(inRoot: root)
     }
 
-    /// Points downloads and processed output at `session`.
+    /// Points downloads and processed output at `session`'s clips folder.
     ///
     /// Both folders, deliberately. An episode's source audio, its notes and its
     /// finished WAVs belong in one place: that is what keeps an episode's notes
     /// file its own instead of a scratch folder's shared by every show, and
     /// what leaves an old episode still browsable months later.
+    ///
+    /// The clips folder is looked up again rather than taken from `session`,
+    /// which the menu read when it built its list — possibly before the
+    /// episode's `clips` folder existed.
     func openSession(_ session: ClipSession) {
-        let path = session.clipsFolder.path
+        let path = ClipSessionStore.currentClipsFolder(for: session).path
         settings.downloadDirectoryPath = path
         settings.outputDirectoryPath = path
         adoptSessionRootIfNeeded()

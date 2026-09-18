@@ -158,7 +158,9 @@ struct DownloadPopover: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .help(viewModel.downloadDirectoryDisplayPath)
-            Spacer()
+            // No minimum gap: a session's name runs `HT_0382 2026-09-22/clips`,
+            // and the default one truncated it.
+            Spacer(minLength: 0)
             Button("Change…") { viewModel.chooseDownloadDirectory() }
                 .controlSize(.small)
             if viewModel.settings.downloadDirectoryPath != nil {

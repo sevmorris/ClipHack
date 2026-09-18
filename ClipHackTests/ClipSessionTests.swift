@@ -64,6 +64,31 @@ final class ClipSessionTests: XCTestCase {
         XCTAssertTrue(ClipSessionStore.sessions(inRoot: root).isEmpty)
     }
 
+    // MARK: - Reading a listed session again
+
+    func testAClipsFolderMadeAfterListingIsPickedUp() throws {
+        let folder = try makeEpisode("HT_0383 2026-09-29", withClipsFolder: false)
+        let listed = try XCTUnwrap(ClipSessionStore.sessions(inRoot: root).first)
+        let clips = folder.appendingPathComponent("clips", isDirectory: true)
+        try FileManager.default.createDirectory(at: clips, withIntermediateDirectories: true)
+
+        XCTAssertEqual(
+            ClipSessionStore.currentClipsFolder(for: listed).standardizedFileURL.path,
+            clips.standardizedFileURL.path
+        )
+    }
+
+    func testAClipsFolderRemovedAfterListingIsKept() throws {
+        let folder = try makeEpisode("HT_0381 2026-09-15")
+        let listed = try XCTUnwrap(ClipSessionStore.sessions(inRoot: root).first)
+        try FileManager.default.removeItem(at: folder.appendingPathComponent("clips"))
+
+        XCTAssertEqual(
+            ClipSessionStore.currentClipsFolder(for: listed).lastPathComponent, "clips",
+            "a missing clips folder is reported where it is used, not swapped for the episode folder"
+        )
+    }
+
     // MARK: - Reading a session back from a path
 
     func testSessionIsReadBackFromAClipsFolder() {

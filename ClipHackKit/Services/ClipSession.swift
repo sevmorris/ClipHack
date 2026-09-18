@@ -67,6 +67,20 @@ enum ClipSessionStore {
         return isDirectory(nested) ? nested : episodeFolder
     }
 
+    /// Where `session` files clips as the disk stands now: its `clips` folder
+    /// when one exists at this moment, otherwise the folder it was read with.
+    ///
+    /// A session is read when the menu's list is, and an episode folder made
+    /// in the Finder usually gets its `clips` folder after that — a session
+    /// read in between names the episode folder itself. The correction runs
+    /// one way only: a session that already names a `clips` folder since
+    /// removed keeps it, so the missing folder is reported where it is used
+    /// rather than quietly swapped for the episode folder above it.
+    static func currentClipsFolder(for session: ClipSession) -> URL {
+        let nested = session.folder.appendingPathComponent(clipsSubfolder, isDirectory: true)
+        return isDirectory(nested) ? nested : session.clipsFolder
+    }
+
     /// The session a download folder belongs to, read back from the path.
     ///
     /// A folder named `clips` is the nested case, so its parent is the episode;

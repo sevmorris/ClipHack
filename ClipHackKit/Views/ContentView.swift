@@ -84,6 +84,12 @@ public struct ContentView: View {
         } message: {
             Text("Renames the file on disk. The extension is kept.")
         }
+        // Episode folders are made in the Finder, so the session menu is read
+        // again whenever ClipHack comes forward — one made while it was in the
+        // background is listed without a relaunch.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            viewModel.loadSessions()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             viewModel.cancelProcessing()
             // Terminates the yt-dlp child (cancellation handlers run

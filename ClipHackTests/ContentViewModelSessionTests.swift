@@ -68,6 +68,64 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(records.first?.sourceURL, "https://a")
     }
 
+    /// Listings of the temporary folder can spell it /private/var;
+    /// standardizing drops that, as the store's own tests do.
+    private func standardized(_ path: String?) -> String? {
+        path.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+    }
+
+    /// The weekly shape: the episode folder is made in the Finder, the menu's
+    /// list is read, and only then does the episode get its clips folder.
+    func testASessionListedBeforeItsClipsFolderExistedOpensIntoIt() throws {
+        let episode = root.appendingPathComponent("HT_0383 2026-09-29", isDirectory: true)
+        try FileManager.default.createDirectory(at: episode, withIntermediateDirectories: true)
+        let vm = makeViewModel()
+        vm.loadSessions()
+        let listed = try XCTUnwrap(vm.savedSessions.first)
+
+        let clips = episode.appendingPathComponent("clips", isDirectory: true)
+        try FileManager.default.createDirectory(at: clips, withIntermediateDirectories: true)
+        vm.openSession(listed)
+
+        XCTAssertEqual(standardized(vm.settings.downloadDirectoryPath), clips.standardizedFileURL.path)
+        XCTAssertEqual(standardized(vm.settings.outputDirectoryPath), clips.standardizedFileURL.path,
+                       "both folders, not the episode folder the menu read")
+    }
+
+    /// A published episode has had its subfolders cleared out. Opening one
+    /// files into the episode folder, as it always has, and makes nothing.
+    func testAnEpisodeWithNoClipsFolderIsOpenedAsItIs() throws {
+        let episode = root.appendingPathComponent("HT_0381 2026-09-15", isDirectory: true)
+        try FileManager.default.createDirectory(at: episode, withIntermediateDirectories: true)
+        let vm = makeViewModel()
+        vm.loadSessions()
+
+        vm.openSession(try XCTUnwrap(vm.savedSessions.first))
+
+        XCTAssertEqual(standardized(vm.settings.outputDirectoryPath), episode.standardizedFileURL.path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: episode.appendingPathComponent("clips").path),
+                       "opening a session never creates its clips folder")
+    }
+
+    // MARK: - Naming the folders
+
+    func testBothFolderRowsNameTheSessionsClipsFolder() throws {
+        let session = try ClipSessionStore.create(title: "HT_0382 2026-09-22", inRoot: root)
+        let vm = makeViewModel()
+        vm.openSession(session)
+
+        XCTAssertEqual(vm.downloadDirectoryDisplayName, "HT_0382 2026-09-22/clips")
+        XCTAssertEqual(ContentViewModel.folderDisplayName(try XCTUnwrap(vm.settings.outputDirectoryPath)),
+                       "HT_0382 2026-09-22/clips",
+                       "OUTPUT DIR read just \"clips\", the same for every session")
+    }
+
+    func testAFolderOutsideASessionIsNamedByItself() {
+        XCTAssertEqual(ContentViewModel.folderDisplayName("/Users/example/Music/Renders"), "Renders")
+        XCTAssertEqual(ContentViewModel.folderDisplayName("/Users/example/Show/HT_0381 2026-09-15"),
+                       "HT_0381 2026-09-15")
+    }
+
     // MARK: - Creating
 
     func testCreatingASessionMakesTheFolderAndSwitchesToIt() {

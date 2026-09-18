@@ -110,7 +110,7 @@ struct SettingsView: View {
                         .foregroundStyle(.tertiary)
                         .kerning(0.4)
                     if let path = viewModel.settings.outputDirectoryPath {
-                        Text(URL(fileURLWithPath: path).lastPathComponent)
+                        Text(ContentViewModel.folderDisplayName(path))
                             .font(.system(size: 11))
                             .lineLimit(2)
                             .truncationMode(.middle)
