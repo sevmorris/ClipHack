@@ -2,6 +2,15 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.25.6] — 2026-09-17
+
+**Fixed**
+- **Picking a session files into its clips folder, even one that arrived after the menu was built.** The session menu recorded each episode's clips folder when it built its list — at launch, or after the last switch. An episode folder made in the Finder usually gets its `clips` folder a moment later, and a session listed in between opened into the episode folder itself, so downloads and processed audio landed beside `clips` rather than in it. The folder is now looked up when you pick the session.
+- **An episode folder made while ClipHack is open appears in the session menu.** It used to wait for a relaunch or a session switch. The menu is now read again whenever ClipHack comes to the front.
+
+**Changed**
+- **OUTPUT DIR and the download Destination name the session's clips folder the same way: `HT_0382 2026-09-22/clips`.** OUTPUT DIR showed just "clips", the same for every session, so switching sessions looked like it changed nothing. Destination showed only the episode, which reads as the episode folder rather than its clips folder.
+
 ## [1.25.5] — 2026-09-17
 
 **Fixed**
