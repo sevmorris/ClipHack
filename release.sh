@@ -369,6 +369,15 @@ ok "Created $(du -sh $DMG | cut -f1) styled DMG"
 step "Notarizing DMG"
 # NOTARY_PROFILE is defined at the top and proven usable in preflight. The
 # version-number changes are reverted by the EXIT trap if this fails.
+
+# The image itself is signed, not only the app inside it. An unsigned DMG
+# reports "no usable signature" to spctl even with a valid ticket stapled, so
+# the wrapper can never be assessed — a download that looks unsigned to
+# Gatekeeper while the app within it is perfectly notarized. Signing has to
+# precede submission; stapling afterwards leaves the signature intact.
+codesign --force --timestamp --sign "$IDENTITY" "$DMG" \
+    || fail "Signing the DMG failed"
+
 xcrun notarytool submit "$DMG" --wait --keychain-profile "$NOTARY_PROFILE" \
     || fail "Notarization failed — version changes in project.pbxproj have been reverted"
 xcrun stapler staple "$DMG"
