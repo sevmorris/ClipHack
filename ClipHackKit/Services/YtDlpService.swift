@@ -75,7 +75,7 @@ final class YtDlpService {
     /// Filesystem-safe stem from a user-entered name, or nil when the input
     /// is blank (nil means: keep yt-dlp's default %(title)s naming).
     /// --restrict-filenames does NOT sanitize literal -o template text
-    /// (verified against 2026.06.09), so this is ClipHack's job: newlines and
+    /// (verified against 2026.08.19), so this is ClipHack's job: newlines and
     /// whitespace runs collapse to single spaces, "/" and ":" become "-"
     /// (path separator; Finder renders ":" as "/"), NUL is dropped, leading
     /// dots (hidden files) and trailing dots are trimmed, and the result is

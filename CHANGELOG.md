@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.25.8] — 2026-09-23
+
+**Changed**
+- **The bundled yt-dlp is updated from 2026.06.09 to 2026.08.19.** Both releases in between carry YouTube fixes, and yt-dlp only reaches ClipHack with a ClipHack release — 2026.06.09 had begun printing its own warning that it was more than 90 days old. 2026.07.04 also fixed CVE-2026-55404, a command injection through `--write-link` output; ClipHack never passes that option, so it was not exposed. The new binary's checksum file carries a good signature from yt-dlp's signing key, the same key as before, and ClipHack's own download arguments produce the same file with it as with the old one.
+
 ## [1.25.7] — 2026-09-23
 
 **Fixed**
