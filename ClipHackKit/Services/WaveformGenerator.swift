@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import Accelerate
 
 struct WaveformData: Sendable, Equatable {
     let peaks: [Float]           // Mixed-down peak values per bucket
@@ -63,21 +64,33 @@ enum WaveformGenerator {
                 throw ProcessingError.analysisError("Could not access channel data")
             }
 
+            // Walk the chunk one bucket-sized run at a time and take each run's
+            // peak with vDSP_maxmgv (max |x|, NEON-vectorized) instead of a
+            // per-sample loop. A max is exact, so the result is identical.
             let frames = Int(buffer.frameLength)
-            for frame in 0..<frames {
-                let bucketIndex = (globalFrame + frame) / samplesPerBucket
+            var offset = 0
+            while offset < frames {
+                let bucketIndex = (globalFrame + offset) / samplesPerBucket
                 guard bucketIndex < actualBuckets else { break }
+                let runEnd = min(frames, (bucketIndex + 1) * samplesPerBucket - globalFrame)
+                let runLength = runEnd - offset
 
-                var framePeak: Float = 0
                 for channel in 0..<channels {
-                    let absSample = abs(channelData[channel][frame])
-                    framePeak = max(framePeak, absSample)
-                    channelBucketPeaks[channel][bucketIndex] = max(channelBucketPeaks[channel][bucketIndex], absSample)
+                    var runPeak: Float = 0
+                    vDSP_maxmgv(channelData[channel] + offset, 1, &runPeak, vDSP_Length(runLength))
+                    channelBucketPeaks[channel][bucketIndex] = max(channelBucketPeaks[channel][bucketIndex], runPeak)
                 }
-                bucketPeaks[bucketIndex] = max(bucketPeaks[bucketIndex], framePeak)
+                offset = runEnd
             }
 
             globalFrame += frames
+        }
+
+        // The mixed-down peak of a bucket is the loudest channel's peak.
+        for channel in 0..<channels {
+            for bucketIndex in 0..<actualBuckets {
+                bucketPeaks[bucketIndex] = max(bucketPeaks[bucketIndex], channelBucketPeaks[channel][bucketIndex])
+            }
         }
 
         return WaveformData(peaks: bucketPeaks, channelPeaks: channelBucketPeaks, channelCount: channels)
