@@ -495,7 +495,7 @@
 				ARCHS = arm64;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -510,7 +510,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.25.7;
+				MARKETING_VERSION = 1.25.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackKit;
 				PRODUCT_NAME = ClipHackKit;
 				SKIP_INSTALL = YES;
@@ -530,7 +530,7 @@
 				ARCHS = arm64;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -545,7 +545,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.25.7;
+				MARKETING_VERSION = 1.25.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackKit;
 				PRODUCT_NAME = ClipHackKit;
 				SKIP_INSTALL = YES;
@@ -566,7 +566,7 @@
 				CODE_SIGN_ENTITLEMENTS = ClipHack/ClipHack.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				ENABLE_APP_SANDBOX = NO;
 				EXCLUDED_ARCHS = x86_64;
 				ENABLE_PREVIEWS = YES;
@@ -578,7 +578,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.25.7;
+				MARKETING_VERSION = 1.25.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHack;
 				PRODUCT_NAME = ClipHack;
 				REGISTER_APP_GROUPS = YES;
@@ -600,7 +600,7 @@
 				CODE_SIGN_ENTITLEMENTS = ClipHack/ClipHack.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				ENABLE_APP_SANDBOX = NO;
 				EXCLUDED_ARCHS = x86_64;
 				ENABLE_PREVIEWS = YES;
@@ -612,7 +612,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.25.7;
+				MARKETING_VERSION = 1.25.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHack;
 				PRODUCT_NAME = ClipHack;
 				REGISTER_APP_GROUPS = YES;
@@ -629,7 +629,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -637,7 +637,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.25.7;
+				MARKETING_VERSION = 1.25.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -651,7 +651,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -659,7 +659,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.25.7;
+				MARKETING_VERSION = 1.25.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.ClipHackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
