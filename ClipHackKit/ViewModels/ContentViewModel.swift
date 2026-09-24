@@ -172,7 +172,7 @@ final class ContentViewModel {
         // Notes an earlier version wrote to disk are read back, so a clip it
         // downloaded, re-added days later — in a new session, by drag or by
         // folder drop — still arrives with the text that says what it is.
-        let records = SessionNotesFile.read(at: sessionNotesURL)
+        let records = downloadNotesFile.map { SessionNotesFile.read(at: $0) } ?? []
         let newFiles = urls.map { url -> FileItem in
             var item = FileItem(url: url)
             if let notes = restoredNotes(for: url, from: records) { item.notes = notes }
@@ -587,6 +587,7 @@ final class ContentViewModel {
 
     /// Folder name shown in the download popover's Destination row.
     var downloadDirectoryDisplayName: String {
+        if isTemporarySession { return temporarySessionFolder.lastPathComponent }
         guard let path = settings.downloadDirectoryPath, !path.isEmpty else { return "Music/ClipHack" }
         return Self.folderDisplayName(path)
     }
@@ -655,8 +656,13 @@ final class ContentViewModel {
     /// put that file in the list and select it instead of fetching a second
     /// copy under a `-2` name. Returns true when it took over the download.
     ///
+    /// Never in a temporary session. It keeps no notes file, and the fold
+    /// below would make one — a `Desktop.txt` gathered from whatever notes
+    /// files happen to be lying on the Desktop.
+    ///
     /// Internal for unit tests.
     func adoptAlreadyDownloadedClip(for url: String, in destination: URL) -> Bool {
+        guard !isTemporarySession else { return false }
         let file = sessionNotesURL(for: destination)
         // Fold in anything still in per-clip files first, so a link used before
         // the session file existed is still recognised as already downloaded.
@@ -702,15 +708,20 @@ final class ContentViewModel {
 
         // A custom download folder can vanish (moved, deleted, drive unmounted).
         // Re-prompt for one rather than failing or silently using the default;
-        // if the user cancels, don't proceed.
-        if YtDlpService.customDownloadDirectoryMissing(settings.downloadDirectoryPath) {
+        // if the user cancels, don't proceed. A temporary session isn't using
+        // the saved folder, so a missing one is no reason to stop it.
+        if !isTemporarySession,
+           YtDlpService.customDownloadDirectoryMissing(settings.downloadDirectoryPath) {
             guard chooseDownloadDirectory() else {
                 downloadState = .failed("Choose a destination folder to download.")
                 return
             }
         }
 
-        let destination = YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
+        let destination = downloadDirectory
+        // Read now, not when the download finishes, so switching session while
+        // it runs can't file its block in another session's notes.
+        let notesFile = downloadNotesFile
 
         // The row-level dedupe above only knows about this session. Clip prep
         // runs over days, so also ask the destination itself — the notes files
@@ -719,9 +730,11 @@ final class ContentViewModel {
         // For a custom folder, prepare it in-app (correct permission attribution)
         // and surface a clear message if it isn't writable, before yt-dlp runs.
         // The default (~/Music/ClipHack) is created on demand inside downloadAudio.
-        if settings.downloadDirectoryPath != nil,
+        if isTemporarySession || settings.downloadDirectoryPath != nil,
            !YtDlpService.prepareWritableDirectory(destination) {
-            downloadState = .failed("ClipHack can't write to \"\(destination.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders, or choose another folder.")
+            downloadState = .failed(isTemporarySession
+                ? temporarySessionRefusal
+                : "ClipHack can't write to \"\(destination.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders, or choose another folder.")
             return
         }
 
@@ -742,7 +755,7 @@ final class ContentViewModel {
                         self.downloadState = .downloading(progress: line)
                     }
                 }
-                finishDownload(sourceURL: url, filePath: path)
+                finishDownload(sourceURL: url, filePath: path, notesFile: notesFile)
             } catch is CancellationError {
                 downloadState = .idle
             } catch YtDlpError.cancelled {
@@ -757,11 +770,17 @@ final class ContentViewModel {
         downloadTask?.cancel()
     }
 
+    /// `finishDownload(sourceURL:filePath:notesFile:)` for a download started
+    /// now. Internal for unit tests.
+    func finishDownload(sourceURL: String, filePath: String) {
+        finishDownload(sourceURL: sourceURL, filePath: filePath, notesFile: downloadNotesFile)
+    }
+
     /// Feeds a completed download through the existing add-files path, then
     /// records and selects the row that landed, attaches notes to it, and
-    /// records the clip in the session's notes file when enabled. Internal for
-    /// unit tests.
-    func finishDownload(sourceURL: String, filePath: String) {
+    /// records the clip in `notesFile` when enabled — the notes file of the
+    /// session the download was started in, nil when that was a temporary one.
+    func finishDownload(sourceURL: String, filePath: String, notesFile: URL?) {
         let fileURL = URL(fileURLWithPath: filePath)
         addFiles([fileURL])
         // addFiles can reject (unsupported extension) or defer to the
@@ -787,7 +806,7 @@ final class ContentViewModel {
         }
 
         // Recorded in the session's own notes file, beside the audio.
-        if clipNotesEnabled {
+        if clipNotesEnabled, let notesFile {
             do {
                 // The filename, the cut and the source — not the person or the
                 // notes, which stay on the row. The filename is written even
@@ -804,7 +823,7 @@ final class ContentViewModel {
                 // The session's folder is the configured destination, not something
                 // walked up from the file — a download that was not filed into a
                 // folder of its own would land two levels too high.
-                try SessionNotesFile.upsert(record, at: sessionNotesURL)
+                try SessionNotesFile.upsert(record, at: notesFile)
             } catch {
                 alertTitle = "Notice"
                 alertMessage = "Downloaded, but the clip notes could not be written: \(error.localizedDescription)"
@@ -821,8 +840,10 @@ final class ContentViewModel {
     /// The folder a download lands in, which is where its notes are recorded.
     /// The session picker points this at an episode's own `clips` folder, so an
     /// episode's audio and its notes stay together with nothing else to set.
+    /// A temporary session swaps its own folder in without saving it.
     var downloadDirectory: URL {
-        YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
+        if isTemporarySession { return temporarySessionFolder }
+        return YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
     }
 
     /// The session's one notes file, named after the session.
@@ -834,6 +855,10 @@ final class ContentViewModel {
     }
 
     var sessionNotesURL: URL { sessionNotesURL(for: downloadDirectory) }
+
+    /// The notes file downloads are recorded in and read back from: the
+    /// session's own, or nil in a temporary session, which keeps none.
+    var downloadNotesFile: URL? { isTemporarySession ? nil : sessionNotesURL }
 
     /// The clip's audio, when it is still on disk. A block with no filename —
     /// one an earlier version wrote for a clip named by hand — cannot be
@@ -877,20 +902,27 @@ final class ContentViewModel {
     /// copy of that fact to fall out of date.
     ///
     /// nil while downloads go to the default location, which is not an episode
-    /// of anything.
+    /// of anything, and while a temporary session is open, which is not one
+    /// either.
     var currentSession: ClipSession? {
-        guard let path = settings.downloadDirectoryPath, !path.isEmpty else { return nil }
+        guard !isTemporarySession,
+              let path = settings.downloadDirectoryPath, !path.isEmpty else { return nil }
         return ClipSessionStore.session(
             forClipsFolder: URL(fileURLWithPath: path, isDirectory: true)
         )
     }
 
     /// Window title: the session, or the app name before one is chosen.
-    var sessionTitle: String { currentSession?.title ?? "ClipHack" }
+    var sessionTitle: String {
+        if isTemporarySession { return Self.temporarySessionTitle }
+        return currentSession?.title ?? "ClipHack"
+    }
 
-    /// Shown under the window title — which show the open session belongs to.
-    /// Empty when no session is open, which hides the subtitle entirely.
+    /// Shown under the window title — which show the open session belongs to,
+    /// or the folder a temporary session files into. Empty when no session is
+    /// open, which hides the subtitle entirely.
     var sessionSubtitle: String {
+        if isTemporarySession { return temporarySessionFolder.lastPathComponent }
         guard currentSession != nil, let root = sessionRoot else { return "" }
         return root.lastPathComponent
     }
@@ -938,7 +970,10 @@ final class ContentViewModel {
     /// The clips folder is looked up again rather than taken from `session`,
     /// which the menu read when it built its list — possibly before the
     /// episode's `clips` folder existed.
+    ///
+    /// Opening an episode ends a temporary session.
     func openSession(_ session: ClipSession) {
+        isTemporarySession = false
         let path = ClipSessionStore.currentClipsFolder(for: session).path
         settings.downloadDirectoryPath = path
         settings.outputDirectoryPath = path
@@ -1012,6 +1047,63 @@ final class ContentViewModel {
         ).path
     }
 
+    // MARK: - Temporary session
+
+    static let temporarySessionTitle = "Temporary Session"
+
+    /// Where a temporary session files downloads and processed audio.
+    /// Injectable so tests never write to the real Desktop.
+    var temporarySessionFolder: URL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Desktop", isDirectory: true)
+
+    /// A session that is not an episode: downloads and processed audio go to
+    /// `temporarySessionFolder`, and no notes file is kept.
+    ///
+    /// In memory only, and never written into `settings`. Those paths *are*
+    /// the episode — pointing them at the Desktop would reopen there after a
+    /// relaunch, adopt the home folder as the show, and start a `Desktop.txt`
+    /// notes file — so the folder is swapped in wherever it is read instead,
+    /// and a run gets it on its copy of the settings. Relaunching, or opening
+    /// any episode, finds the one that was open exactly as it was left.
+    private(set) var isTemporarySession = false
+
+    /// Starts a temporary session. Returns false, with an alert, when its
+    /// folder can't be written.
+    ///
+    /// The write is tried here, by the app itself: on a Mac where ClipHack has
+    /// not yet been let into the Desktop, macOS asks now, naming ClipHack,
+    /// instead of when ffmpeg or yt-dlp first writes there mid-job.
+    @discardableResult
+    func openTemporarySession() -> Bool {
+        guard YtDlpService.prepareWritableDirectory(temporarySessionFolder) else {
+            alertTitle = "Temporary Session Unavailable"
+            alertMessage = temporarySessionRefusal
+            return false
+        }
+        isTemporarySession = true
+        return true
+    }
+
+    /// Goes back to the episode that was open before, which nothing in the
+    /// meantime has touched.
+    func closeTemporarySession() {
+        isTemporarySession = false
+    }
+
+    private var temporarySessionRefusal: String {
+        "ClipHack can't write to \"\(temporarySessionFolder.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders."
+    }
+
+    /// The settings a run processes with: the saved ones, with a temporary
+    /// session's folder standing in for the output folder. A copy, never saved.
+    var processingSettings: ClipHackSettings {
+        var copy = settings
+        if isTemporarySession {
+            copy.outputDirectoryPath = temporarySessionFolder.path
+        }
+        return copy
+    }
+
     // MARK: - Processing
 
     func process() {
@@ -1023,17 +1115,30 @@ final class ContentViewModel {
         }
         guard !processable.isEmpty else { return }
 
-        if let customPath = settings.outputDirectoryPath,
-           !FileManager.default.isWritableFile(atPath: customPath) {
-            alertTitle = "Error"
-            alertMessage = "Output directory is not writable: \(customPath)"
-            return
+        // Taken once, so the checks below and the run itself agree on where
+        // output goes — a temporary session's folder included.
+        let runSettings = processingSettings
+
+        if let customPath = runSettings.outputDirectoryPath {
+            // A temporary session's folder is the Desktop, where what decides
+            // is macOS's privacy setting, so it is asked with a real write —
+            // the same one that let the session start.
+            let writable = isTemporarySession
+                ? YtDlpService.prepareWritableDirectory(URL(fileURLWithPath: customPath, isDirectory: true))
+                : FileManager.default.isWritableFile(atPath: customPath)
+            if !writable {
+                alertTitle = "Error"
+                alertMessage = isTemporarySession
+                    ? temporarySessionRefusal
+                    : "Output directory is not writable: \(customPath)"
+                return
+            }
         }
 
         let inputs = processable.map { JobInput(id: $0.id, url: $0.url, channelMode: $0.channelMode) }
         var outputWarnings: [String] = []
         let outputDirectories = inputs.map { input in
-            OutputDirectory.clipHackOutputDirectory(for: input.url, settings: settings) { warning in
+            OutputDirectory.clipHackOutputDirectory(for: input.url, settings: runSettings) { warning in
                 if !outputWarnings.contains(warning) {
                     outputWarnings.append(warning)
                 }
@@ -1057,8 +1162,6 @@ final class ContentViewModel {
         isProcessing = true
         processingCancelled = false
 
-        let currentSettings = settings
-
         for i in files.indices {
             if case .ready(let stats) = files[i].status {
                 files[i].analysisStats = stats
@@ -1070,7 +1173,7 @@ final class ContentViewModel {
         processingTask = Task { [self] in
             do {
                 let processor = AudioProcessor(
-                    settings: currentSettings,
+                    settings: runSettings,
                     onFileStarted: { [weak self] id in
                         Task { @MainActor [weak self] in
                             guard let self, !self.processingCancelled else { return }

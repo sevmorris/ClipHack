@@ -490,7 +490,7 @@
           <tr>
             <td>Destination</td>
             <td>—</td>
-            <td>Where downloads land. Defaults to <code>~/Music/ClipHack</code>; <em>Change…</em> picks another folder and <em>Reset</em> returns to the default. Opening a session points this at that episode instead.</td>
+            <td>Where downloads land. Defaults to <code>~/Music/ClipHack</code>; <em>Change…</em> picks another folder and <em>Reset</em> returns to the default. Opening a session points this at that episode instead, and a <a href="#temporary-session">temporary session</a> at the Desktop.</td>
           </tr>
         </tbody>
       </table>
@@ -526,6 +526,7 @@
       <ul>
         <li><strong>Switch session</strong> — points the download folder <em>and</em> the output folder at that episode's <code>clips</code> folder in one step.</li>
         <li><strong>New Session…</strong> — reads the highest episode number already in the show folder and suggests the next one with today's date. Edit the name if you like; ClipHack then creates <code>&lt;episode&gt;/clips</code> and switches to it.</li>
+        <li><strong>Temporary Session</strong> — for a file that isn't for an episode. See <a href="#temporary-session">Temporary sessions</a>.</li>
         <li><strong>Choose Show Folder…</strong> — the folder your episode folders live in. Normally there is nothing to set: it is chosen for you the first time you pick a session folder, by taking the folder above the episode.</li>
       </ul>
 
@@ -536,6 +537,17 @@
 
       <p>A show folder usually holds more than episodes — templates, shared assets, incoming audio. Numbered episodes come first in the menu, highest number at the top, and everything else follows below them.</p>
       <p>Nothing about a session is stored. It is read back from the folder path, so renaming or moving a folder in the Finder cannot leave anything stale, and an episode folder you create by hand shows up in the menu on its own.</p>
+
+      <h3 id="temporary-session">Temporary sessions</h3>
+      <p>Sometimes a file has nothing to do with an episode: you just want it processed and on the Desktop. Choose <strong>Temporary Session</strong> from the session menu. The window title reads <em>Temporary Session</em>, with <em>Desktop</em> under it, and until you leave:</p>
+      <ul>
+        <li>Downloads and processed audio both go to the Desktop.</li>
+        <li>No notes file is written. <strong>Save clip notes</strong> is off; notes you type still show on the clip's row.</li>
+        <li>The Destination and Output Directory controls are off, because they would change your episode's folders.</li>
+      </ul>
+      <p>Your episode is left exactly as it was: its folders, its notes file and the show folder are not touched. To leave, choose <strong>Temporary Session</strong> again, or pick any episode. Quitting leaves it too, so ClipHack always opens on your episode.</p>
+      <p>The first time ClipHack writes to the Desktop, macOS may ask whether to allow it. If access was refused, the temporary session will not start; allow ClipHack in System Settings ▸ Privacy &amp; Security ▸ Files and Folders.</p>
+      <p><strong>Trash Originals</strong> still applies: with it on, a file you drag in goes to the Trash once its processed copy is on the Desktop.</p>
     </section>
 
     <!-- NOTES -->
@@ -724,7 +736,7 @@ Mamdani_on_Jeffries.m4a
       </table>
 
       <h3>Output Directory</h3>
-      <p>By default, processed files are saved in the same directory as the source file. Use <strong>Choose…</strong> to set a custom output folder. Click <strong>Reset</strong> to return to the default behavior.</p>
+      <p>By default, processed files are saved in the same directory as the source file. Use <strong>Choose…</strong> to set a custom output folder. Click <strong>Reset</strong> to return to the default behavior. In a <a href="#temporary-session">temporary session</a> this reads <em>Desktop</em> and cannot be changed.</p>
     </section>
 
     <!-- OUTPUT NAMING -->

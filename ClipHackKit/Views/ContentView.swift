@@ -215,13 +215,37 @@ public struct ContentView: View {
             }
             .disabled(viewModel.sessionRoot == nil)
 
+            // Checked like an episode while it is open, and choosing it again
+            // goes back to the episode that was open before.
+            Button {
+                if viewModel.isTemporarySession {
+                    viewModel.closeTemporarySession()
+                } else {
+                    viewModel.openTemporarySession()
+                }
+            } label: {
+                if viewModel.isTemporarySession {
+                    Label(ContentViewModel.temporarySessionTitle, systemImage: "checkmark")
+                } else {
+                    Text(ContentViewModel.temporarySessionTitle)
+                }
+            }
+
             Button("Choose Show Folder…") { viewModel.chooseSessionRoot() }
         } label: {
-            Label(viewModel.sessionTitle, systemImage: "calendar")
+            Label(viewModel.sessionTitle,
+                  systemImage: viewModel.isTemporarySession ? "desktopcomputer" : "calendar")
         }
         .fixedSize()
-        .help(viewModel.currentSession.map { "Session folder: \($0.folder.path)" }
-              ?? "No session — downloads go to the default folder")
+        .help(sessionMenuHelp)
+    }
+
+    private var sessionMenuHelp: String {
+        if viewModel.isTemporarySession {
+            return "Temporary session — downloads and processed audio go to \(viewModel.temporarySessionFolder.path). Your episode is left as it was."
+        }
+        return viewModel.currentSession.map { "Session folder: \($0.folder.path)" }
+            ?? "No session — downloads go to the default folder"
     }
 
     private var draggableDivider: some View {

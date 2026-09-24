@@ -65,10 +65,12 @@ struct DownloadPopover: View {
 
             notesEditor
 
-            Toggle("Save clip notes", isOn: $viewModel.clipNotesEnabled)
+            Toggle("Save clip notes", isOn: clipNotesBinding)
                 .toggleStyle(.checkbox)
-                .disabled(viewModel.isDownloading)
-                .help("Saves the file name, the cut, and the source URL to this session's notes file, in the download folder. The person and notes stay on the clip's row.")
+                .disabled(viewModel.isDownloading || viewModel.isTemporarySession)
+                .help(viewModel.isTemporarySession
+                      ? "A temporary session keeps no notes file. The person and notes stay on the clip's row."
+                      : "Saves the file name, the cut, and the source URL to this session's notes file, in the download folder. The person and notes stay on the clip's row.")
 
             destinationRow
 
@@ -81,6 +83,15 @@ struct DownloadPopover: View {
         }
         .padding()
         .onAppear { viewModel.prefillDownloadFromPasteboard() }
+    }
+
+    /// Unchecked in a temporary session, which saves nothing, without
+    /// clearing the preference the episodes use.
+    private var clipNotesBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.clipNotesEnabled && !viewModel.isTemporarySession },
+            set: { viewModel.clipNotesEnabled = $0 }
+        )
     }
 
     /// A TextEditor rather than a TextField so the box can be dragged taller —
@@ -161,9 +172,12 @@ struct DownloadPopover: View {
             // No minimum gap: a session's name runs `HT_0382 2026-09-22/clips`,
             // and the default one truncated it.
             Spacer(minLength: 0)
+            // Both change the episode's saved folder, so neither is offered
+            // from inside a temporary session.
             Button("Change…") { viewModel.chooseDownloadDirectory() }
                 .controlSize(.small)
-            if viewModel.settings.downloadDirectoryPath != nil {
+                .disabled(viewModel.isTemporarySession)
+            if !viewModel.isTemporarySession, viewModel.settings.downloadDirectoryPath != nil {
                 Button("Reset") { viewModel.resetDownloadDirectory() }
                     .controlSize(.small)
             }
@@ -176,7 +190,9 @@ struct DownloadPopover: View {
     private var statusLine: some View {
         switch viewModel.downloadState {
         case .idle:
-            Text("Downloads land in this folder. Video sources are saved as audio only.")
+            Text(viewModel.isTemporarySession
+                 ? "Temporary session: downloads land in this folder and no notes file is kept. Video sources are saved as audio only."
+                 : "Downloads land in this folder. Video sources are saved as audio only.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: Self.fieldWidth, alignment: .leading)

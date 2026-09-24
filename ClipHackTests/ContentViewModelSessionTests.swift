@@ -300,6 +300,27 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(records.first?.sourceURL, "https://x.com/a/status/1")
     }
 
+    /// A download is recorded in the notes of the session it was started in,
+    /// which is where its audio went — not whichever is open when it ends.
+    func testADownloadFinishedAfterSwitchingIsRecordedWhereItStarted() throws {
+        let started = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
+        let switched = try ClipSessionStore.create(title: "HT_0381 2026-09-07", inRoot: root)
+        let audio = started.clipsFolder.appendingPathComponent("Some Title.m4a")
+        try Data("audio".utf8).write(to: audio)
+
+        let vm = makeViewModel()
+        vm.clipNotesEnabled = true
+        vm.openSession(started)
+        let notesFile = vm.downloadNotesFile
+        vm.openSession(switched)
+        vm.finishDownload(sourceURL: "https://a", filePath: audio.path, notesFile: notesFile)
+
+        let startedFile = SessionNotesFile.url(inClipsFolder: started.clipsFolder, title: started.title)
+        let switchedFile = SessionNotesFile.url(inClipsFolder: switched.clipsFolder, title: switched.title)
+        XCTAssertEqual(SessionNotesFile.read(at: startedFile).map(\.filename), ["Some Title.m4a"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: switchedFile.path))
+    }
+
     func testAClipAlreadyInTheSessionIsAdoptedRatherThanRefetched() throws {
         let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
         let clipDir = session.clipsFolder.appendingPathComponent("Some Title", isDirectory: true)

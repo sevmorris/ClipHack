@@ -109,7 +109,9 @@ struct SettingsView: View {
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .kerning(0.4)
-                    if let path = viewModel.settings.outputDirectoryPath {
+                    // Where output goes, which in a temporary session is not
+                    // the saved folder.
+                    if let path = viewModel.processingSettings.outputDirectoryPath {
                         Text(ContentViewModel.folderDisplayName(path))
                             .font(.system(size: 11))
                             .lineLimit(2)
@@ -132,7 +134,10 @@ struct SettingsView: View {
                             }
                         }
                         .controlSize(.small)
-                        if viewModel.settings.outputDirectoryPath != nil {
+                        // Either would change the episode's saved folder from
+                        // inside a temporary session.
+                        .disabled(viewModel.isTemporarySession)
+                        if !viewModel.isTemporarySession, viewModel.settings.outputDirectoryPath != nil {
                             Button("Reset") {
                                 viewModel.settings.outputDirectoryPath = nil
                             }
