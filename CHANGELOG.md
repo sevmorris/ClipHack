@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.27.0] — 2026-09-24
 
 **Added**
 - **Temporary Session, for a file that isn't for an episode.** Choose it from the session menu and downloads and processed audio go to the Desktop, with no notes file written. The window reads *Temporary Session* over *Desktop*. Your episode is left exactly as it was: the mode is held in memory, never in the saved folders, so the show folder, the episode's folders and its notes file are untouched, and ClipHack opens on the episode again after a relaunch. Choose Temporary Session again, or pick any episode, to leave. While it is on, the Destination and Output Directory controls are off, since both would change the episode's folders. ClipHack writes a test file to the Desktop as the session starts, so on a Mac where it has not yet been allowed into the Desktop, macOS asks then, naming ClipHack, instead of refusing ffmpeg or yt-dlp partway through a job.
