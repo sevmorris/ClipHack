@@ -13,7 +13,7 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
     private var desk: URL!
 
     override func setUpWithError() throws {
-        ScratchDefaults.install()
+        try ScratchDefaults.install()
         let scratch = FileManager.default.temporaryDirectory
             .appendingPathComponent("temp-session-tests-\(UUID().uuidString)", isDirectory: true)
         root = scratch.appendingPathComponent("Hacks on Tap", isDirectory: true)

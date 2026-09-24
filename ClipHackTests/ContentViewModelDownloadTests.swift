@@ -6,9 +6,9 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
     // These tests construct real view models and assign settings, which persist
     // on every change — without this they rewrite the user's actual folders.
-    override func setUp() {
-        super.setUp()
-        ScratchDefaults.install()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try ScratchDefaults.install()
     }
 
     override func tearDown() {
