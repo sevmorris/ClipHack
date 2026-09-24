@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.25.9] — 2026-09-23
+
+**Changed**
+- **The bundled FFmpeg is 8.0.3**, the third point release on the 8.0 branch, up from 8.0. It carries about 500 fixes, many of them hardening the file readers a downloaded or third-party clip goes through — MOV/MP4, Matroska, WAV and AAC — against overflows, out-of-bounds reads and use-after-frees on malformed files. Processing is unchanged: run through ClipHack's real multi-pass pipeline, the new build's output is bit-identical to the old one's (340 parity gates pass, every null residual at −inf). The source verified against FFmpeg's release signing key, the licence files are unchanged, and the build is still ClipHack's own reproducible, LGPL, audio-only recipe (`ffmpeg-deps-8.0.3-audio-arm64-r4`).
+
 ## [1.25.8] — 2026-09-23
 
 **Changed**

@@ -137,7 +137,7 @@ The tool does not save a session record. It reads the session from the folder pa
 * **Boundary integrity:** The tool uses custom mirror-padding logic for dynamic leveling. This stops gain changes at the start and the end of the file.
 * **Batch processing:** The tool processes multiple files at the same time. It tracks the progress for each file independently.
 * **Environment:** You must use macOS 14.0 (Sonoma) or newer on an Apple Silicon (arm64) processor.
-* **Dependencies:** The tool includes FFmpeg 8.0 (arm64) and yt-dlp (universal2). You do not need to install external software.
+* **Dependencies:** The tool includes FFmpeg 8.0.3 (arm64) and yt-dlp (universal2). You do not need to install external software.
 
 > **Security warning:** The App Sandbox is disabled. This lets ClipHack operate the included `ffmpeg`, `ffprobe`, and `yt-dlp` files. Only download the software from the [official releases](https://github.com/sevmorris/ClipHack-releases/releases) page.
 
@@ -153,7 +153,7 @@ cd ClipHack
 open ClipHack.xcodeproj
 ```
 
-The scripts download the FFmpeg files (arm64 only) from the [ClipHack dependencies release](https://github.com/sevmorris/ClipHack-releases/releases/tag/ffmpeg-deps-8.0-audio-arm64-r4). They download the yt-dlp file from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases). The tool records the correct versions and checksums in the `Vendor/ffmpeg-manifest.env` and `Vendor/ytdlp-manifest.env` files. Xcode operates both fetch scripts before it builds the software.
+The scripts download the FFmpeg files (arm64 only) from the [ClipHack dependencies release](https://github.com/sevmorris/ClipHack-releases/releases/tag/ffmpeg-deps-8.0.3-audio-arm64-r4). They download the yt-dlp file from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases). The tool records the correct versions and checksums in the `Vendor/ffmpeg-manifest.env` and `Vendor/ytdlp-manifest.env` files. Xcode operates both fetch scripts before it builds the software.
 
 To read the release history, look at the [CHANGELOG.md](CHANGELOG.md) file.
 
@@ -165,7 +165,7 @@ The release binaries are pre-built. To build them again from source, use this co
 ./scripts/build-ffmpeg.sh
 ```
 
-The script downloads FFmpeg 8.0 and LAME 3.100. It verifies the SHA-256 checksum of each file. Then it builds the audio-only binaries. The script stops with an error if the result uses a GPL option, links a library that is not part of the system, or does not agree with the deployment target. This script is the Corresponding Source recipe for the included binaries.
+The script downloads FFmpeg 8.0.3 and LAME 3.100. It verifies the SHA-256 checksum of each file. Then it builds the audio-only binaries. The script stops with an error if the result uses a GPL option, links a library that is not part of the system, or does not agree with the deployment target. This script is the Corresponding Source recipe for the included binaries.
 
 ### Check DSP Parity
 
@@ -205,8 +205,8 @@ This software is a personal tool. It is supplied "as-is". It is not a commercial
 
 ClipHack includes these programs. It does not change them.
 
-* **FFmpeg 8.0 (arm64):** ClipHack uses FFmpeg for all audio processing. This is an audio-only build. It does not use the `--enable-gpl`, `--enable-nonfree`, or `--enable-version3` options, and it includes no video or image libraries. The only external library is libmp3lame (LAME 3.100). The FFmpeg core is supplied under the GNU Lesser General Public License v2.1 or later. LAME is supplied under the LGPL v2.0 or later. The `arnndn` filter is supplied under the BSD 2-Clause License. No GPL components are included.
-  * FFmpeg source code: [ffmpeg-8.0.tar.xz](https://ffmpeg.org/releases/ffmpeg-8.0.tar.xz) ([signature](https://ffmpeg.org/releases/ffmpeg-8.0.tar.xz.asc))
+* **FFmpeg 8.0.3 (arm64):** ClipHack uses FFmpeg for all audio processing. This is an audio-only build. It does not use the `--enable-gpl`, `--enable-nonfree`, or `--enable-version3` options, and it includes no video or image libraries. The only external library is libmp3lame (LAME 3.100). The FFmpeg core is supplied under the GNU Lesser General Public License v2.1 or later. LAME is supplied under the LGPL v2.0 or later. The `arnndn` filter is supplied under the BSD 2-Clause License. No GPL components are included.
+  * FFmpeg source code: [ffmpeg-8.0.3.tar.xz](https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz) ([signature](https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz.asc))
   * LAME source code: [lame-3.100.tar.gz](https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz)
   * Build recipe: `scripts/build-ffmpeg.sh` in this repository. It rebuilds the shipped binaries byte for byte, so the checksums in `Vendor/ffmpeg-manifest.env` are independently verifiable. To see the build configuration of the included binary, run `ffmpeg -version`.
 * **yt-dlp 2026.08.19 (universal2):** ClipHack uses yt-dlp to download audio from web links. It is public domain software (the Unlicense). Get the yt-dlp source code from [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp).
