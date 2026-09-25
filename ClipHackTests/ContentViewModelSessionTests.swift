@@ -7,7 +7,7 @@ final class ContentViewModelSessionTests: XCTestCase {
     private var root: URL!
 
     override func setUpWithError() throws {
-        ScratchDefaults.install()
+        try ScratchDefaults.install()
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("session-vm-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

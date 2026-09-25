@@ -5,6 +5,16 @@ import XCTest
 @MainActor
 final class ContentViewModelChannelModeTests: XCTestCase {
 
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try ScratchDefaults.install()
+    }
+
+    override func tearDown() {
+        ScratchDefaults.uninstall()
+        super.tearDown()
+    }
+
     private func makeViewModel(count: Int) -> ContentViewModel {
         let vm = ContentViewModel()
         vm.files = (0..<count).map { FileItem(url: URL(fileURLWithPath: "/tmp/clips/\($0).wav")) }

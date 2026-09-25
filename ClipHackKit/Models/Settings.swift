@@ -100,8 +100,9 @@ struct ClipHackSettings: Codable, Equatable, Sendable {
     /// Overridable because the view model writes on every change (`settings`
     /// has a saving `didSet`), so any test that constructs one and touches a
     /// setting would otherwise rewrite the real user's folders. Tests point
-    /// this at a scratch suite; the app never reassigns it.
-    static var store: UserDefaults = .standard
+    /// this at a scratch suite of their own (`ScratchDefaults`); the app never
+    /// reassigns it.
+    static var store: UserDefaults = .app
 
     static func load() -> ClipHackSettings {
         guard let data = store.data(forKey: storageKey),
@@ -116,6 +117,30 @@ struct ClipHackSettings: Codable, Equatable, Sendable {
         guard let data = try? JSONEncoder().encode(self) else { return }
         Self.store.set(data, forKey: Self.storageKey)
     }
+}
+
+extension UserDefaults {
+    /// Where ClipHack keeps its preferences: the app's own domain — except in a
+    /// test run, where a scratch suite takes its place, so a test that forgets
+    /// `ScratchDefaults` still cannot reach a real one. Nothing names
+    /// `.standard`; it goes through here, by way of `ClipHackSettings.store`.
+    ///
+    /// The tests run host-less, in the xctest runner, where `.standard` is the
+    /// runner's own domain, shared by every host-less test bundle on the Mac.
+    /// Hosted by the app, as they were until July 2026, it would be the
+    /// developer's own settings. XCTest is loaded in any test run and never
+    /// linked into the app; the session identifier is Xcode's own mark of a
+    /// test launch.
+    ///
+    /// The scratch suite is named by a path in the temporary folder, which
+    /// keeps its file out of ~/Library/Preferences, where Magic Backup
+    /// Machine's App Preferences source backs up io.github.sevmorris.*.
+    nonisolated static let app: UserDefaults =
+        NSClassFromString("XCTestCase") != nil
+            || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
+        ? UserDefaults(suiteName: FileManager.default.temporaryDirectory
+            .appendingPathComponent("io.github.sevmorris.ClipHack.tests").path)!
+        : .standard
 }
 
 // Custom decoder lives in an extension so the synthesized memberwise initializer

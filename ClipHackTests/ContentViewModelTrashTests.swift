@@ -9,6 +9,16 @@ final class ContentViewModelTrashTests: XCTestCase {
     private let input = URL(fileURLWithPath: "/tmp/clips/take.wav")
     private let output = URL(fileURLWithPath: "/tmp/clips/take-44kclipped-1dB.wav")
 
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try ScratchDefaults.install()
+    }
+
+    override func tearDown() {
+        ScratchDefaults.uninstall()
+        super.tearDown()
+    }
+
     private func makeViewModel(files: [FileItem]) -> ContentViewModel {
         let vm = ContentViewModel()
         vm.files = files
@@ -108,20 +118,16 @@ final class ContentViewModelTrashTests: XCTestCase {
 
     /// The preference ships on. `UserDefaults.bool(forKey:)` returns false when a
     /// key is absent, so reading it that way would silently invert this default.
+    ///
+    /// These two used to save, clear and restore the key in
+    /// `UserDefaults.standard`. The scratch suite starts empty, so there is
+    /// nothing to clear and nothing to put back.
     func testTrashOriginalsDefaultsToOnWhenNeverSet() {
-        let key = "trashOriginalsAfterProcessing"
-        let saved = UserDefaults.standard.object(forKey: key)
-        defer { UserDefaults.standard.set(saved, forKey: key) }
-
-        UserDefaults.standard.removeObject(forKey: key)
+        XCTAssertNil(ClipHackSettings.store.object(forKey: "trashOriginalsAfterProcessing"))
         XCTAssertTrue(ContentViewModel().trashOriginalsEnabled)
     }
 
     func testTrashOriginalsPreferenceSurvivesAReload() {
-        let key = "trashOriginalsAfterProcessing"
-        let saved = UserDefaults.standard.object(forKey: key)
-        defer { UserDefaults.standard.set(saved, forKey: key) }
-
         let vm = ContentViewModel()
         vm.trashOriginalsEnabled = false
         XCTAssertFalse(ContentViewModel().trashOriginalsEnabled)

@@ -7,6 +7,7 @@ final class ContentViewModelRenameTests: XCTestCase {
     private var tempDir: URL!
 
     override func setUpWithError() throws {
+        try ScratchDefaults.install()
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("rename-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -14,6 +15,7 @@ final class ContentViewModelRenameTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tempDir)
+        ScratchDefaults.uninstall()
     }
 
     private func makeFile(_ name: String) throws -> URL {
