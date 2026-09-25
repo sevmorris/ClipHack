@@ -12,6 +12,9 @@
 		CA71E00D2EC99001003A770D /* ClipHackKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CA71E0112EC99001003A7711 /* ClipHackKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; };
 		CA71E0132EC99001003A7713 /* ClipHackKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CA71E0012EC99001003A7701 /* ClipHackKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CA71E0172EC99001003A7717 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = CA71E0142EC99001003A7714 /* ffmpeg */; };
+		CA71E0182EC99001003A7718 /* ffprobe in Resources */ = {isa = PBXBuildFile; fileRef = CA71E0152EC99001003A7715 /* ffprobe */; };
+		CA71E0192EC99001003A7719 /* yt-dlp in Resources */ = {isa = PBXBuildFile; fileRef = CA71E0162EC99001003A7716 /* yt-dlp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,7 +64,22 @@
 		E1F2CH142EC99001003A77D7 /* ClipHackTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipHackTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1F2CH082EC99001003A77D7 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		CA71E0012EC99001003A7701 /* ClipHackKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ClipHackKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA71E0142EC99001003A7714 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = ffmpeg; path = ClipHackKit/ffmpeg; sourceTree = SOURCE_ROOT; };
+		CA71E0152EC99001003A7715 /* ffprobe */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = ffprobe; path = ClipHackKit/ffprobe; sourceTree = SOURCE_ROOT; };
+		CA71E0162EC99001003A7716 /* yt-dlp */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = "yt-dlp"; path = "ClipHackKit/yt-dlp"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CA71E01B2EC99001003A771B /* Exceptions for "ClipHackKit" folder in "ClipHackKit" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ffmpeg,
+				ffprobe,
+				"yt-dlp",
+			);
+			target = CA71E0032EC99001003A7703 /* ClipHackKit */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C6DEF13A2EC98B05003A77C7 /* ClipHack */ = {
@@ -71,6 +89,9 @@
 		};
 		CA71E0022EC99001003A7702 /* ClipHackKit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CA71E01B2EC99001003A771B /* Exceptions for "ClipHackKit" folder in "ClipHackKit" target */,
+			);
 			path = ClipHackKit;
 			sourceTree = "<group>";
 		};
@@ -115,9 +136,20 @@
 				C6DEF13A2EC98B05003A77C7 /* ClipHack */,
 				CA71E0022EC99001003A7702 /* ClipHackKit */,
 				E1F2CH132EC99001003A77D7 /* ClipHackTests */,
+				CA71E01A2EC99001003A771A /* Vendored Binaries */,
 				C6DEF1392EC98B05003A77C7 /* Products */,
 				E1F2CH062EC99001003A77D7 /* Frameworks */,
 			);
+			sourceTree = "<group>";
+		};
+		CA71E01A2EC99001003A771A /* Vendored Binaries */ = {
+			isa = PBXGroup;
+			children = (
+				CA71E0142EC99001003A7714 /* ffmpeg */,
+				CA71E0152EC99001003A7715 /* ffprobe */,
+				CA71E0162EC99001003A7716 /* yt-dlp */,
+			);
+			name = "Vendored Binaries";
 			sourceTree = "<group>";
 		};
 		E1F2CH062EC99001003A77D7 /* Frameworks */ = {
@@ -279,6 +311,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CA71E0172EC99001003A7717 /* ffmpeg in Resources */,
+				CA71E0182EC99001003A7718 /* ffprobe in Resources */,
+				CA71E0192EC99001003A7719 /* yt-dlp in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
