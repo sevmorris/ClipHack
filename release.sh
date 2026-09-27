@@ -4,7 +4,8 @@
 # Usage: ./release.sh <version> [--generated-notes]
 #   e.g. ./release.sh 1.11.8
 #
-# Requires: xcodebuild, hdiutil, gh (GitHub CLI), git
+# Requires: xcodebuild, hdiutil, gh (GitHub CLI), git, codesign, xcrun, curl,
+#   and python3 with dmgbuild; preflight checks each.
 
 set -euo pipefail
 
