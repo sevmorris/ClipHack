@@ -2,6 +2,14 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.28.0] — 2026-10-04
+
+**Changed**
+- **ClipHack now requires macOS 15 (Sequoia) or later.** It ran on macOS 14 until now. GitHub no longer offers macOS 14 to test on, so nothing could check ClipHack there any more. On an older Mac, keep 1.27.1: from that version on, the update check sees that this release needs macOS 15 and doesn't offer it.
+
+**Developer**
+- The deployment target is 15.0 in every configuration, and the README says macOS 15 (Sequoia) or later. The bundled FFmpeg is still built for 14 and later; its next rebuild targets 15.
+
 ## [1.27.1] — 2026-10-04
 
 **Changed**
