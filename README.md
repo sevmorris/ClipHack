@@ -4,9 +4,9 @@
 <p align="center">
   <strong>Broadcast and Clip Normalization Tool</strong>
   <br />
-  <strong>Version:</strong> 1.27.1
+  <strong>Version:</strong> 1.28.0
   <br />
-  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.27.1.dmg"><strong>Download</strong></a>
+  <a href="https://github.com/sevmorris/ClipHack-releases/releases/latest/download/ClipHack-v1.28.0.dmg"><strong>Download</strong></a>
   &nbsp;&middot;&nbsp;
   <a href="https://sevmorris.github.io/ClipHack/manual/"><strong>Manual</strong></a>
 </p>
