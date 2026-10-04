@@ -8,15 +8,23 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    # macos-26 because a build that passes on 15 can still fail on 26: FFmpeg
+    # binaries without LC_UUID abort at launch under macOS 26.7's dyld, and a
+    # macos-15 job stays green. The integration tests exec the bundled ffmpeg
+    # and yt-dlp, so that class of failure turns this leg red.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          # Latest Xcode on the macos-15 image (build 17C529), matching the
-          # local toolchain. The project needs Xcode 26-era Swift (nonisolated
+          # Latest Xcode on the macos-15 image (build 17C529), and on
+          # macos-26 too. The project needs Xcode 26-era Swift (nonisolated
           # deinit, SWIFT_DEFAULT_ACTOR_ISOLATION) that 16.x rejects; 26.1.1
           # hung launching the GUI test host on the runner, 26.3 does not.
           xcode-version: '26.3'
