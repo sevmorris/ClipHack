@@ -1,10 +1,13 @@
 import AppKit
+import ClipHackKit
 
 actor UpdateChecker {
 
     enum Result {
         case upToDate(version: String)
         case available(version: String, downloadURL: URL, releaseURL: URL)
+        /// Newer than this build, but it needs a newer macOS than this Mac has.
+        case needsNewerMacOS(version: String, minimum: String, installed: String)
         case error(String)
     }
 
@@ -12,6 +15,8 @@ actor UpdateChecker {
         let tagName: String
         let htmlUrl: String
         let assets: [Asset]
+        /// The release notes, which carry the minimum-macos marker.
+        let body: String?
 
         struct Asset: Decodable {
             let name: String
@@ -26,6 +31,7 @@ actor UpdateChecker {
             case tagName = "tag_name"
             case htmlUrl = "html_url"
             case assets
+            case body
         }
     }
 
@@ -55,6 +61,13 @@ actor UpdateChecker {
                 ?? releaseURL
 
             if latestVersion.compare(currentVersion, options: .numeric) == .orderedDescending {
+                // A release this Mac cannot run is not an update for it: its DMG
+                // would replace a working app with one that will not open.
+                if let minimum = ReleaseRequirement.minimumMacOS(inReleaseNotes: release.body),
+                   !ReleaseRequirement.runs(on: ProcessInfo.processInfo.operatingSystemVersion, given: minimum) {
+                    return .needsNewerMacOS(version: latestVersion, minimum: ReleaseRequirement.describe(minimum),
+                                            installed: currentVersion)
+                }
                 return .available(version: latestVersion, downloadURL: downloadURL, releaseURL: releaseURL)
             } else {
                 return .upToDate(version: currentVersion)
@@ -134,6 +147,16 @@ func checkForUpdates(silent: Bool = false) async {
         } else if response == .alertSecondButtonReturn {
             NSWorkspace.shared.open(releaseURL)
         }
+
+    case .needsNewerMacOS(let version, let minimum, let installed):
+        // Nothing this Mac can install, so the check at launch says nothing.
+        guard !silent else { return }
+        let alert = NSAlert()
+        alert.messageText = "ClipHack \(version) needs macOS \(minimum)"
+        alert.informativeText = "This Mac has macOS \(ReleaseRequirement.describe(ProcessInfo.processInfo.operatingSystemVersion)), "
+            + "so ClipHack \(installed) is the newest version it can run."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
 
     case .error(let message):
         guard !silent else { return }
