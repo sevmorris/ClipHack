@@ -2,6 +2,20 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.27.1] — 2026-10-04
+
+**Changed**
+- **Check for Updates won't offer a version this Mac can't run.** From this release on, every ClipHack release says which macOS it needs, and the update check reads it. When a newer version needs a newer macOS than this Mac has, Check for Updates… says which macOS that is instead of offering the download, and the check at launch says nothing. This is in place before any release needs macOS 15: without it, an older Mac would be offered that release, and dragging the app into Applications would replace the working copy with one that does not open.
+
+**Developer**
+- `release.sh` runs the test suite before the version bump, with the Xcode that builds the release. CI tests with Xcode 26.3, and its Xcode 27 leg is a preview. `--skip-tests` skips it for an emergency release. FFmpeg and yt-dlp are now fetched before the tests, since the integration tests run both.
+- `release.sh` reads the minimum macOS from the built app's `LSMinimumSystemVersion` and ends every release's notes with it: a "Requires macOS" line, and a `<!-- minimum-macos: … -->` marker that the update check reads and GitHub does not show.
+- `release.sh` releases only from `main`, and its header lists every tool its preflight checks.
+- CI tests on `macos-26` as well as `macos-15`. CI also builds and tests on GitHub's `xcode-27` runner, macOS 27 with Xcode 27.0, which is the toolchain releases are built with.
+- A fresh clone's first build bundles FFmpeg and yt-dlp. Before, the build planned its files before the fetch script had run, so the first build left them out.
+- The tests never touch your own ClipHack settings: each test's settings go to a scratch store in a temporary folder.
+- `scripts/check-shared.sh` looks for the sibling repos beside the main checkout, so a release from a worktree compares the shared files, and Barkeep is now one of the siblings.
+
 ## [1.27.0] — 2026-09-24
 
 **Added**
