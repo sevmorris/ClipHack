@@ -32,17 +32,16 @@ final class SessionNotesFileTests: XCTestCase {
 
     // MARK: - Shape
 
-    /// Laid out to work from while editing: a summary, then each clip's file
-    /// name flush left with its cut right under it and the link last.
-    func testTheFileReadsAsASummaryThenOneBlockPerClip() {
+    /// Laid out to work from while editing: each clip's file name flush left
+    /// with its cut right under it and the link last, and nothing above the
+    /// first clip.
+    func testTheFileIsOneBlockPerClip() {
         let text = SessionNotesFile.render([
             record("CSPAN_-_Trump.m4a", notes: "", url: "https://x.com/cspan/status/2109039198422405195?s=43"),
             record("This_Week_-_Hamilton.m4a", notes: "", timestamp: "1:23 to :52",
                    url: "https://x.com/thisweekabc/status/2109318964635730038?s=43"),
-        ], title: "HT_0385 2026-10-13")
+        ])
         XCTAssertEqual(text, """
-        HT_0385 2026-10-13 · 2 clips · 1 cut
-
         CSPAN_-_Trump.m4a
             https://x.com/cspan/status/2109039198422405195
 
@@ -59,8 +58,6 @@ final class SessionNotesFileTests: XCTestCase {
             record(notes: "MAMDANI — two", url: "https://b"),
         ])
         XCTAssertEqual(text, """
-        2 clips · 1 cut
-
         A.m4a
             CUT  :30 to :12
             TRUMP — one
@@ -73,17 +70,11 @@ final class SessionNotesFileTests: XCTestCase {
         """)
     }
 
-    func testTheSummaryLeavesOffCutsWhenThereAreNone() {
-        XCTAssertEqual(
-            SessionNotesFile.summary(of: [record("A.m4a", notes: "", url: "https://a")], title: "HT_0385 2026-10-13"),
-            "HT_0385 2026-10-13 · 1 clip"
-        )
-    }
-
-    func testWritingTitlesTheSummaryAfterTheSession() throws {
+    /// No count line: the file is already named after the session, and
+    /// nothing reads the counts.
+    func testTheWrittenFileStartsWithItsFirstClip() throws {
         try SessionNotesFile.write([record("A.m4a", notes: "", url: "https://a")], to: file)
-        let text = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertTrue(text.hasPrefix("HT_0379 2026-08-24 · 1 clip\n"), text)
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "A.m4a\n    https://a\n")
     }
 
     func testXLinksAreWrittenWithoutTheirTrackingQuery() {
@@ -167,18 +158,54 @@ final class SessionNotesFileTests: XCTestCase {
         XCTAssertEqual(records, [record("A.m4a", notes: "", timestamp: "1:13 to :55", url: "https://a")])
     }
 
-    func testDeletingTheSummaryLineLosesNothing() {
-        let records = [record("A.m4a", notes: "", timestamp: "1:13 to :55", url: "https://a")]
-        let text = SessionNotesFile.render(records)
-        let withoutSummary = text.components(separatedBy: "\n").dropFirst().joined(separator: "\n")
-        XCTAssertEqual(SessionNotesFile.parse(withoutSummary), records)
+    /// 1.29.0 headed the file with counts, here ones that no longer match the
+    /// clips below them. The line is not read as a clip, and the next save
+    /// leaves it out.
+    func testA129FileLosesItsCountLineTheNextTimeItIsSaved() throws {
+        try Data("""
+        HT_0379 2026-08-24 · 2 clips · 2 cuts
+
+        CSPAN_-_Trump.m4a
+            https://x.com/cspan/status/2109039198422405195
+
+        Talarico.wav
+
+        """.utf8).write(to: file)
+        XCTAssertEqual(
+            SessionNotesFile.read(at: file),
+            [record("CSPAN_-_Trump.m4a", notes: "", url: "https://x.com/cspan/status/2109039198422405195"),
+             record("Talarico.wav", notes: "", url: "")],
+            "the count line is not read as a clip"
+        )
+
+        try SessionNotesFile.recordAddedFiles(named: ["Collins.wav"], at: file)
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), """
+        CSPAN_-_Trump.m4a
+            https://x.com/cspan/status/2109039198422405195
+
+        Talarico.wav
+
+        Collins.wav
+
+        """)
+    }
+
+    /// Clips added by hand have nothing indented, so in a 1.29.0 file of only
+    /// those the count line is all that marks the layout. Saved once, the file
+    /// reads the same without it.
+    func testA129FileOfNamesOnlyReadsTheSameOnceSaved() throws {
+        try Data("HT_0379 2026-08-24 · 2 clips\n\nA.wav\n\nB.wav\n".utf8).write(to: file)
+        let records = SessionNotesFile.read(at: file)
+        XCTAssertEqual(records.map(\.filename), ["A.wav", "B.wav"])
+
+        try SessionNotesFile.write(records, to: file)
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "A.wav\n\nB.wav\n")
+        XCTAssertEqual(SessionNotesFile.read(at: file), records)
     }
 
     /// A cut typed into the file by hand, without the label or the indent.
     func testAHandTypedCutStillCounts() {
         let records = SessionNotesFile.parse("""
-        2 clips
-
         A.m4a
             1:13 to :55
             https://a
@@ -239,12 +266,7 @@ final class SessionNotesFileTests: XCTestCase {
 
     func testAFileAddedByHandIsListedByName() throws {
         XCTAssertEqual(try SessionNotesFile.recordAddedFiles(named: ["Talarico.wav"], at: file), 1)
-        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), """
-        HT_0379 2026-08-24 · 1 clip
-
-        Talarico.wav
-
-        """)
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "Talarico.wav\n")
         XCTAssertEqual(SessionNotesFile.read(at: file), [record("Talarico.wav", notes: "", url: "")])
     }
 
@@ -286,7 +308,7 @@ final class SessionNotesFileTests: XCTestCase {
 
     /// Clips added by hand have no links, so a file of only those has nothing
     /// indented and no rule; it must not be taken for the earlier layout.
-    func testAFileOfNamesOnlyStillReadsWithoutItsSummary() {
+    func testAFileOfNamesOnlyIsNotTakenForTheEarlierLayout() {
         let records = SessionNotesFile.parse("A.wav\n\nB.wav\n")
         XCTAssertEqual(records.map(\.filename), ["A.wav", "B.wav"])
     }

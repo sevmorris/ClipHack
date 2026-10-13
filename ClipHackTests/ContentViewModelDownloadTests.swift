@@ -164,7 +164,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         )
 
         let content = try String(contentsOf: vm.sessionNotesURL, encoding: .utf8)
-        XCTAssertEqual(content, "\(sessionTitle(vm)) · 1 clip\n\nTitle.m4a\n    https://example.com/watch?v=abc\n",
+        XCTAssertEqual(content, "Title.m4a\n    https://example.com/watch?v=abc\n",
                        "the file records the clip, not its notes")
         XCTAssertEqual(vm.files[0].notes, "the good part", "the notes stay on the row")
     }
@@ -187,7 +187,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            "\(sessionTitle(vm)) · 1 clip · 1 cut\n\nTitle.m4a\n    CUT  1:13 to :55\n    https://example.com/watch?v=abc\n",
+            "Title.m4a\n    CUT  1:13 to :55\n    https://example.com/watch?v=abc\n",
             "with no notes in the block, the name is the only thing saying which clip it is"
         )
     }
@@ -209,7 +209,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            "\(sessionTitle(vm)) · 1 clip · 1 cut\n\nTitle.m4a\n    CUT  1:13 to :55\n    https://example.com/watch?v=abc\n"
+            "Title.m4a\n    CUT  1:13 to :55\n    https://example.com/watch?v=abc\n"
         )
         let record = try XCTUnwrap(SessionNotesFile.read(at: vm.sessionNotesURL).first)
         XCTAssertEqual(record.notes, "")
@@ -239,8 +239,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
             """
-            \(sessionTitle(vm)) · 2 clips · 1 cut
-
             Old.m4a
                 CUT  :30 to :12
                 TRUMP — said it
@@ -251,12 +249,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
             """
         )
-    }
-
-    /// The summary line is headed by the session's name — here, the stand-in
-    /// clip folder's.
-    private func sessionTitle(_ vm: ContentViewModel) -> String {
-        vm.sessionNotesURL.deletingPathExtension().lastPathComponent
     }
 
     // MARK: - Clips added from disk, and cuts
@@ -278,7 +270,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            "\(sessionTitle(vm)) · 1 clip\n\nTalarico for TX Senate.wav\n"
+            "Talarico for TX Senate.wav\n"
         )
     }
 
@@ -313,7 +305,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(vm.files.first?.cut, ":18 to end")
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            "\(sessionTitle(vm)) · 1 clip · 1 cut\n\nCollins.wav\n    CUT  :18 to end\n"
+            "Collins.wav\n    CUT  :18 to end\n"
         )
 
         vm.setCut("", for: id)

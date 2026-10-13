@@ -1,12 +1,10 @@
 import Foundation
 
 /// One notes file per session, holding every clip in it, laid out to work from
-/// while editing the clips: a summary line, then a short block per clip with
-/// the file name flush left, its cut right under it, and the source link last.
+/// while editing the clips: a short block per clip with the file name flush
+/// left, its cut right under it, and the source link last.
 ///
 ///     HT_0385 2026-10-13/clips/HT_0385 2026-10-13.txt
-///
-///     HT_0385 2026-10-13 · 2 clips · 1 cut
 ///
 ///     CSPAN_-_President_Trump_….m4a
 ///         https://x.com/cspan/status/2109039198422405195
@@ -19,6 +17,12 @@ import Foundation
 /// That is what the eye scans for, and what the parser keys on: a flush-left
 /// line is the next clip, an indented `CUT` line its cut, an indented link its
 /// source, and anything else indented its notes.
+///
+/// 1.29.0 headed the file with a line counting its clips and cuts
+/// ("HT_0385 2026-10-13 · 20 clips · 2 cuts"). Nothing read the counts, so
+/// the line is no longer written; the file is already named after the
+/// session. One still at the top of a file is skipped when reading, and gone
+/// the next time the file is written.
 ///
 /// A download records its filename, the cut when one was entered, and the
 /// source URL — never the person or the notes. Blocks an earlier version wrote
@@ -57,24 +61,9 @@ enum SessionNotesFile {
 
     // MARK: - Rendering
 
-    /// The whole file. `title`, the session's name, heads the summary line.
-    static func render(_ records: [ClipNotesFile.Record], title: String? = nil) -> String {
-        var lines = [summary(of: records, title: title)]
-        for record in records {
-            lines.append("")
-            lines.append(contentsOf: block(for: record))
-        }
-        return lines.joined(separator: "\n") + "\n"
-    }
-
-    /// "HT_0385 2026-10-13 · 13 clips · 1 cut". The cut count is left off when
-    /// there are none.
-    static func summary(of records: [ClipNotesFile.Record], title: String?) -> String {
-        let cuts = records.filter { !trimmed($0.timestamp).isEmpty }.count
-        var parts = [count(records.count, "clip")]
-        if cuts > 0 { parts.append(count(cuts, "cut")) }
-        if let title, !trimmed(title).isEmpty { parts.insert(trimmed(title), at: 0) }
-        return parts.joined(separator: " · ")
+    /// The whole file: the clips' blocks, a blank line between each.
+    static func render(_ records: [ClipNotesFile.Record]) -> String {
+        records.map { block(for: $0).joined(separator: "\n") }.joined(separator: "\n\n") + "\n"
     }
 
     private static func block(for record: ClipNotesFile.Record) -> [String] {
@@ -114,14 +103,14 @@ enum SessionNotesFile {
         isEarlierLayout(text) ? parseEarlierLayout(text) : parseBlocks(text)
     }
 
-    /// The layout before this one has no summary line and nothing indented,
-    /// with clips between `---` rules, and every block ends in its link. A
-    /// one-clip file of that shape has no rule at all, so it shows itself by a
-    /// link at the left edge. A file of clips added by hand — names alone, no
-    /// links — is this layout even with its summary line deleted.
+    /// The layout before this one has nothing indented, with clips between
+    /// `---` rules, and every block ends in its link. A one-clip file of that
+    /// shape has no rule at all, so it shows itself by a link at the left edge.
+    /// A file of clips added by hand — names alone, no links — is the current
+    /// layout, and so is any file headed by 1.29.0's count line.
     static func isEarlierLayout(_ text: String) -> Bool {
         let lines = text.components(separatedBy: "\n")
-        if let first = lines.first(where: { !trimmed($0).isEmpty }), isSummary(first) { return false }
+        if let first = lines.first(where: { !trimmed($0).isEmpty }), isCountLine(first) { return false }
         if lines.contains(where: { trimmed($0) == separator }) { return true }
         return !lines.contains(where: isIndented)
             && lines.contains(where: { !isIndented($0) && isLink(trimmed($0)) })
@@ -150,7 +139,7 @@ enum SessionNotesFile {
             let line = trimmed(raw)
             if line.isEmpty {
                 if name != nil { body.append("") }
-            } else if name == nil, records.isEmpty, isSummary(line) {
+            } else if name == nil, records.isEmpty, isCountLine(line) {
                 continue
             } else if isIndented(raw) || (name != nil && belongsToTheClipAbove(line)) {
                 if name == nil { name = "" }
@@ -211,7 +200,8 @@ enum SessionNotesFile {
         cutValue(line) != nil || isLink(line) || ClipNotesFile.isTimestamp(line)
     }
 
-    private static func isSummary(_ line: String) -> Bool {
+    /// The line 1.29.0 wrote at the top: "HT_0385 2026-10-13 · 20 clips · 2 cuts".
+    private static func isCountLine(_ line: String) -> Bool {
         trimmed(line).range(
             of: #"^(?:.+ · )?\d+ clips?(?: · \d+ cuts?)?$"#, options: .regularExpression
         ) != nil
@@ -223,10 +213,6 @@ enum SessionNotesFile {
 
     private static func isIndented(_ line: String) -> Bool {
         (line.first == " " || line.first == "\t") && !trimmed(line).isEmpty
-    }
-
-    private static func count(_ n: Int, _ noun: String) -> String {
-        "\(n) \(noun)\(n == 1 ? "" : "s")"
     }
 
     private static func trimmed(_ text: String) -> String {
@@ -246,8 +232,7 @@ enum SessionNotesFile {
             try? FileManager.default.removeItem(at: url)
             return
         }
-        let title = url.deletingPathExtension().lastPathComponent
-        try Data(render(records, title: title).utf8).write(to: url, options: .atomic)
+        try Data(render(records).utf8).write(to: url, options: .atomic)
     }
 
     /// Replaces the block for `record`'s source, or appends it when the clip is

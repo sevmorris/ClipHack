@@ -54,11 +54,9 @@ If a clip with the same name is already there, the tool stops and tells you. Typ
 HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt
 ```
 
-The file starts with a summary line. The line shows the session, the number of clips, and the number of clips that have a cut. Then the tool writes one short block for each clip. The file name starts the block at the left edge. The cut and the source link are indented under it. The tool writes the cut only when you typed one:
+The tool writes one short block for each clip. The file name starts the block at the left edge. The cut and the source link are indented under it. The tool writes the cut only when you typed one:
 
 ```
-HT_0379 2026-08-24 · 2 clips · 1 cut
-
 Some Title.m4a
     CUT  1:13 to :55
     https://x.com/atrupar/status/2090948085333504072
@@ -67,7 +65,7 @@ Another Title.m4a
     https://x.com/atrupar/status/2091901792632062410
 ```
 
-Thus you can find a clip by its file name and see its cut immediately. The tool removes the tracking part (`?s=43`) from X (Twitter) links. If you type a cut into the file yourself, the tool reads it as the cut, also without the `CUT` label. The tool reads files in the earlier layout, with `---` lines between the clips. The next time that the tool saves the file, it writes the file in the new layout.
+Thus you can find a clip by its file name and see its cut immediately. The tool removes the tracking part (`?s=43`) from X (Twitter) links. If you type a cut into the file yourself, the tool reads it as the cut, also without the `CUT` label. The tool reads files in the earlier layout, with `---` lines between the clips. The next time that the tool saves the file, it writes the file in the new layout. Version 1.29.0 started the file with a line that counted the clips and the cuts. The tool does not write that line now. The next time that the tool saves the file, it removes the line.
 
 For a download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name (see below). The tool does not write the person or the notes. The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for. Blocks from an earlier version keep the notes that they have.
 
