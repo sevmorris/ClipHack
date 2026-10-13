@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.29.0] — 2026-10-12
 
 **Added**
 - **Clips you add from disk are listed in the notes file, and any clip can have a cut.** A file you drag in or open while an episode is open goes in the session's notes file by its name, so the notes list every clip of the episode, not only the downloads. Right-click a row and choose **Set Cut…** to record the part to keep, such as `1:13 to :55` or `:18 to end`: it goes under the clip's name, marked `CUT`, and shows on the row. It works for downloaded clips too, so a cut can be changed after the download. A ClipHack output added to be processed again is not listed, and nothing is written in a temporary session or with Save clip notes off.
