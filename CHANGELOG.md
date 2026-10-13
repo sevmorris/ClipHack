@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.29.2] — 2026-10-13
+
+**Developer**
+- Builds with Xcode 27 without warnings again. The notes-file code 1.29.0 introduced passes three of its own helpers to `contains`, `lastIndex` and `map` as function values, and under main-actor default isolation Swift 6.4 warned on each; Swift 6 mode makes them errors. That code is pure text and file handling, so it is `nonisolated` now, as `ClipNotesFile` already was. ClipHack behaves exactly as in 1.29.1.
+
 ## [1.29.1] — 2026-10-13
 
 **Changed**
