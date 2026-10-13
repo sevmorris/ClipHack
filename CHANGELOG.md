@@ -4,6 +4,12 @@ All notable changes to ClipHack are documented here. Version numbers match GitHu
 
 ## [Unreleased]
 
+**Added**
+- **Clips you add from disk are listed in the notes file, and any clip can have a cut.** A file you drag in or open while an episode is open goes in the session's notes file by its name, so the notes list every clip of the episode, not only the downloads. Right-click a row and choose **Set Cut…** to record the part to keep, such as `1:13 to :55` or `:18 to end`: it goes under the clip's name, marked `CUT`, and shows on the row. It works for downloaded clips too, so a cut can be changed after the download. A ClipHack output added to be processed again is not listed, and nothing is written in a temporary session or with Save clip notes off.
+
+**Changed**
+- **The notes file is laid out to work from while you edit the clips.** It opens with a summary line: the session, how many clips, how many have a cut. Then each clip gets a short block: the file name at the left edge, the cut right under it marked `CUT`, and the source link indented below. A week's clips take about a third of the lines they did, and a clip's cut is easy to find. X links are written without their tracking query (`?s=43`). A cut ending in "end" (`:18 to end`) now counts as a cut, and so does one you type into the file yourself, with or without the label. Files in the earlier layout still read, and switch to this one the next time ClipHack saves them.
+
 **Fixed**
 - **Other text files in the clips folder no longer end up in the notes file.** ClipHack folds older per-clip notes files into the session's notes file, and it took any multi-line `.txt` in the clips folder, or in a folder inside it, for one. So a running order or a page of transcripts kept there (`clips/docs/Clip_List.txt`) was pasted into the notes as a "clip", and pasted again each time its last line changed. A file is now taken in only when it ends with its source link, or sits in its clip's own folder or beside its audio. Older notes files that lost their link still come in.
 

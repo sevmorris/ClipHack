@@ -113,7 +113,9 @@ final class ContentViewModel {
         return found.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
     }
 
-    func addFiles(_ urls: [URL]) {
+    /// `listInNotes` is false for a download, which records its own block
+    /// with its link; a file added from disk is listed by name.
+    func addFiles(_ urls: [URL], listInNotes: Bool = true) {
         let fileURLs = urls.filter(\.isFileURL)
         let loose = fileURLs.filter { !$0.hasDirectoryPath }
         let folders = fileURLs.filter(\.hasDirectoryPath)
@@ -153,7 +155,7 @@ final class ContentViewModel {
             return
         }
 
-        commitFiles(valid)
+        commitFiles(valid, listInNotes: listInNotes)
     }
 
     func confirmReprocessWarning() {
@@ -168,21 +170,45 @@ final class ContentViewModel {
         showReprocessWarning = false
     }
 
-    private func commitFiles(_ urls: [URL]) {
+    private func commitFiles(_ urls: [URL], listInNotes: Bool = true) {
         // Notes an earlier version wrote to disk are read back, so a clip it
         // downloaded, re-added days later — in a new session, by drag or by
-        // folder drop — still arrives with the text that says what it is.
+        // folder drop — still arrives with the text that says what it is,
+        // and with its cut.
         let records = downloadNotesFile.map { SessionNotesFile.read(at: $0) } ?? []
         let newFiles = urls.map { url -> FileItem in
             var item = FileItem(url: url)
             if let notes = restoredNotes(for: url, from: records) { item.notes = notes }
+            if let cut = records.first(where: { $0.filename == url.lastPathComponent })?.timestamp,
+               !cut.isEmpty {
+                item.cut = cut
+            }
             return item
         }
         files.append(contentsOf: newFiles)
+        if listInNotes { listAddedFilesInNotes(urls) }
 
         for file in newFiles {
             analyzeFile(file)
             generateWaveform(file)
+        }
+    }
+
+    /// A file added from disk goes in the session's notes file too, by name,
+    /// so the notes list every clip of the episode and not only the downloaded
+    /// ones, and its cut can be set. A ClipHack output added to be processed
+    /// again is left out: it is a generation of a clip, not a clip.
+    private func listAddedFilesInNotes(_ urls: [URL]) {
+        guard clipNotesEnabled, let notesFile = downloadNotesFile else { return }
+        let names = urls
+            .filter { !ClipHackOutputNaming.looksLikeClipHackOutput($0) }
+            .map(\.lastPathComponent)
+        guard !names.isEmpty else { return }
+        do {
+            try SessionNotesFile.recordAddedFiles(named: names, at: notesFile)
+        } catch {
+            alertTitle = "Notice"
+            alertMessage = "Added, but the clip notes could not be written: \(error.localizedDescription)"
         }
     }
 
@@ -295,6 +321,53 @@ final class ContentViewModel {
         if let failure {
             alertTitle = "Rename Failed"
             alertMessage = failure
+        }
+    }
+
+    // MARK: - Cuts
+
+    /// Row whose cut is being set; non-nil drives the Set Cut alert.
+    var cutTargetID: UUID?
+    var cutField: String = ""
+
+    /// A cut is kept in the session's notes file, so there has to be one: not
+    /// in a temporary session, nor with Save clip notes off.
+    var canSetCut: Bool { clipNotesEnabled && downloadNotesFile != nil }
+
+    func beginCut(_ id: UUID) {
+        guard canSetCut, let file = files.first(where: { $0.id == id }) else { return }
+        cutField = file.cut ?? ""
+        cutTargetID = id
+    }
+
+    func cancelCut() {
+        cutTargetID = nil
+        cutField = ""
+    }
+
+    func confirmCut() {
+        guard let id = cutTargetID else { return }
+        setCut(cutField, for: id)
+        cancelCut()
+    }
+
+    /// Records `rawCut` for a row's clip in the session's notes file and shows
+    /// it on the row; an empty cut removes it. A clip downloaded in this run
+    /// is found by its link, anything else by its file name — so a clip that
+    /// was renamed after an earlier run's download gets a block of its own.
+    func setCut(_ rawCut: String, for id: UUID) {
+        guard clipNotesEnabled, let notesFile = downloadNotesFile,
+              let index = files.firstIndex(where: { $0.id == id }) else { return }
+        let cut = rawCut.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = downloadedURLToFileID.first(where: { $0.value == id })?.key
+        do {
+            try SessionNotesFile.setCut(
+                cut, filename: files[index].url.lastPathComponent, source: source, at: notesFile
+            )
+            files[index].cut = cut.isEmpty ? nil : cut
+        } catch {
+            alertTitle = "Notice"
+            alertMessage = "The cut could not be written to the clip notes: \(error.localizedDescription)"
         }
     }
 
@@ -679,7 +752,7 @@ final class ContentViewModel {
         if let row = files.first(where: { Self.fileIdentity($0.url) == identity }) {
             selectedFileIDs = [row.id]
         } else {
-            addFiles([existing])
+            addFiles([existing], listInNotes: false)
             guard let row = files.last(where: { Self.fileIdentity($0.url) == identity }) else {
                 return false
             }
@@ -782,7 +855,7 @@ final class ContentViewModel {
     /// session the download was started in, nil when that was a temporary one.
     func finishDownload(sourceURL: String, filePath: String, notesFile: URL?) {
         let fileURL = URL(fileURLWithPath: filePath)
-        addFiles([fileURL])
+        addFiles([fileURL], listInNotes: false)
         // addFiles can reject (unsupported extension) or defer to the
         // reprocess warning — only record and select a row that landed.
         let identity = Self.fileIdentity(fileURL)
@@ -803,6 +876,10 @@ final class ContentViewModel {
         )
         if !notes.isEmpty {
             files[index].notes = notes
+        }
+        let cut = downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cut.isEmpty {
+            files[index].cut = cut
         }
 
         // Recorded in the session's own notes file, beside the audio.

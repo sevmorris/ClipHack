@@ -84,6 +84,13 @@ public struct ContentView: View {
         } message: {
             Text("Renames the file on disk. The extension is kept.")
         }
+        .alert("Set Cut", isPresented: cutBinding) {
+            TextField("1:13 to :55", text: $viewModel.cutField)
+            Button("Cancel", role: .cancel) { viewModel.cancelCut() }
+            Button("Set") { viewModel.confirmCut() }
+        } message: {
+            Text("The part of the clip to keep, such as 1:13 to :55 or :18 to end. It's written under the clip's name in the session's notes file. Leave it empty to remove the cut.")
+        }
         // Episode folders are made in the Finder, so the session menu is read
         // again whenever ClipHack comes forward — one made while it was in the
         // background is listed without a relaunch.
@@ -321,6 +328,13 @@ public struct ContentView: View {
         Binding(
             get: { viewModel.renameTargetID != nil },
             set: { if !$0 { viewModel.cancelRename() } }
+        )
+    }
+
+    private var cutBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.cutTargetID != nil },
+            set: { if !$0 { viewModel.cancelCut() } }
         )
     }
 }

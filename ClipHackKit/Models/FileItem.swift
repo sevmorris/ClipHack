@@ -52,6 +52,9 @@ struct FileItem: Identifiable, Equatable {
     var outputFileInfo: FileInfo?
     /// Free-text from the download popover; nil for dropped files.
     var notes: String?
+    /// The part of the clip to keep, "1:13 to :55", as the session's notes file
+    /// records it. nil when none was entered.
+    var cut: String?
     /// Set once the source file has been moved to the Trash after processing.
     /// `url` still names where it used to be, so the row keeps its identity.
     var originalTrashed: Bool = false
