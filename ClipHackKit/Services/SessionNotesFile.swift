@@ -39,7 +39,11 @@ import Foundation
 /// second one after it. That is the whole reason the per-clip files replaced
 /// the daily appending log this returns to: an append-only file grows a history
 /// and then has to be pruned by hand.
-enum SessionNotesFile {
+///
+/// `nonisolated`: pure text and file handling, like `ClipNotesFile`, and it
+/// passes its own helpers (`isIndented`, `isLink`, `trimmed`) to `contains`,
+/// `lastIndex` and `map` as plain function values.
+nonisolated enum SessionNotesFile {
 
     /// Rule between clips in the layout before this one. Still read.
     static let separator = "---"
