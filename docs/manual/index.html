@@ -553,21 +553,19 @@
     <!-- NOTES -->
     <section id="notes">
       <h2>Clip Notes</h2>
-      <p>With <strong>Save clip notes</strong> on, each download is recorded in one text file per session, named after the session and sitting in the same <code>clips</code> folder:</p>
+      <p>With <strong>Save clip notes</strong> on, the session's clips are recorded in one text file, named after the session and sitting in the same <code>clips</code> folder: each download, and each file you drag in or open while an episode is open.</p>
       <pre><code>HT_0380 2026-09-08/clips/HT_0380 2026-09-08.txt</code></pre>
 
-      <p>One block per clip, blocks separated by a <code>---</code> rule. Inside a block, one element per line group with a blank line between them: the file name, the cut if you entered one, then the source URL.</p>
+      <p>One short block per clip, with a blank line between blocks: the file name at the left edge, then, indented under it, the cut marked <code>CUT</code> if there is one, and the source link. A file added from disk has no link, so its block is the name and any cut.</p>
 
       <pre><code>Aaron_Rupar_-_TRUMP_….m4a
-
-:46 to :17
-
-https://x.com/atrupar/status/2090948085333504072
-
----
+    CUT  :46 to :17
+    https://x.com/atrupar/status/2090948085333504072
 
 Mamdani_on_Jeffries.m4a
 …</code></pre>
+
+      <p>To set or change a clip's cut later, right-click its row and choose <strong>Set Cut…</strong>. A cut typed into the file by hand counts too, with or without the <code>CUT</code> label. X links are written without their tracking query (<code>?s=43</code>).</p>
 
       <p>The person and the notes are not written; they stay with the clip's row in the file list. The file name is written every time, including a name you typed yourself — with nothing else in the block, it is what says which clip the cut belongs to. Blocks written by an earlier version keep the notes they already hold.</p>
 
@@ -581,6 +579,7 @@ Mamdani_on_Jeffries.m4a
 
       <h3>Files from an earlier version</h3>
       <p>ClipHack used to write one text file per clip. Those are folded into the session's file the first time you open the session. The originals are left exactly where they are — they are your files — and are simply no longer read.</p>
+      <p>A session file in an earlier layout, with its clips between <code>---</code> rules, still reads, and switches to this one the next time ClipHack saves it. So does one that 1.29.0 headed with a count of its clips and cuts; the count line is left out.</p>
     </section>
 
     <!-- PER-CLIP CHANNELS -->
