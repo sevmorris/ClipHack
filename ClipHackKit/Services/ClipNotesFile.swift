@@ -217,13 +217,11 @@ nonisolated enum ClipNotesFile {
     static func entries(in directory: URL) -> [Entry] {
         let found: [(entry: Entry, added: Date)] = sidecarURLs(in: directory).compactMap { url in
             guard let record = readSidecar(at: url) else { return nil }
+            let audio = audioFile(for: record, sidecar: url)
+            guard isSidecar(url, record: record, audio: audio) else { return nil }
             let added = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
                 ?? Date.distantPast
-            let entry = Entry(
-                sidecar: url,
-                record: record,
-                audio: audioFile(for: record, sidecar: url)
-            )
+            let entry = Entry(sidecar: url, record: record, audio: audio)
             return (entry, added)
         }
         return found.sorted { lhs, rhs in
@@ -231,6 +229,22 @@ nonisolated enum ClipNotesFile {
             return lhs.entry.sidecar.lastPathComponent
                 .localizedStandardCompare(rhs.entry.sidecar.lastPathComponent) == .orderedAscending
         }.map(\.entry)
+    }
+
+    /// Whether a text file in the download folder is a clip's notes rather than
+    /// some other document kept beside the clips — a running order, a page of
+    /// transcripts. Almost any multi-line text parses as a record, so parsing
+    /// alone can't tell: without this, `clips/docs/Clip_List.txt` folds into the
+    /// session file as a "clip" whose source is its last line, and comes back
+    /// every time that last line changes.
+    ///
+    /// A sidecar ends with its source link. One that lost its link still sits
+    /// in its clip's own folder (`Title/Title.txt`) or beside its audio.
+    private static func isSidecar(_ url: URL, record: Record, audio: URL?) -> Bool {
+        if record.sourceURL.contains("://") { return true }
+        let stem = url.deletingPathExtension().lastPathComponent
+        if url.deletingLastPathComponent().lastPathComponent == stem { return true }
+        return audio != nil
     }
 
     /// Sidecars in `directory` and in each of its immediate subfolders.

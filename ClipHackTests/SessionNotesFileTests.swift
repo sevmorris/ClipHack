@@ -242,4 +242,42 @@ final class SessionNotesFileTests: XCTestCase {
         XCTAssertEqual(record.sourceURL, ":46 to :17")
         XCTAssertEqual(record.notes, "TRUMP — \"I should be at 100 percent on the economy\"\n\nAUDIENCE: 😬")
     }
+
+    /// Hacks on Tap keeps its running order and transcripts in `clips/docs/`.
+    /// Both parse as records, but neither is a clip: folding them in pasted the
+    /// whole clip list into the session file, again each time it grew.
+    func testOtherTextFilesInTheClipsFolderAreNotFoldedIn() throws {
+        let docs = folder.appendingPathComponent("docs", isDirectory: true)
+        try FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+        try Data("""
+        OHIO SENATE
+        1 - ANTI-HUSTED AD - blocked Epstein files release
+
+        TRUMP
+        2 - TRUMP - blame me if we lose
+        """.utf8).write(to: docs.appendingPathComponent("Clip_List.txt"))
+        try Data("""
+        1 - ANTI-HUSTED AD - blocked Epstein files release
+        Seen these ads? They're a complete lie.
+
+        2 - TRUMP - blame me if we lose
+        If we don't win the midterms, they're going to blame me.
+        """.utf8).write(to: docs.appendingPathComponent("All_Transcriptions.txt"))
+
+        XCTAssertEqual(try SessionNotesFile.adoptSidecars(in: folder, sessionFile: file), 0)
+        XCTAssertTrue(SessionNotesFile.read(at: file).isEmpty)
+    }
+
+    /// Skipping those must not shut out a real sidecar that lost its link but
+    /// still sits beside its audio in the clips folder itself.
+    func testASidecarBesideItsAudioFoldsInWithoutALink() throws {
+        try Data("audio".utf8).write(to: folder.appendingPathComponent("Rupar.m4a"))
+        try Data("""
+        RUPAR — "a line worth keeping"
+
+        :12 to end
+        """.utf8).write(to: folder.appendingPathComponent("Rupar.txt"))
+
+        XCTAssertEqual(try SessionNotesFile.adoptSidecars(in: folder, sessionFile: file), 1)
+    }
 }

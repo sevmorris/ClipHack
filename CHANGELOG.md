@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Fixed**
+- **Other text files in the clips folder no longer end up in the notes file.** ClipHack folds older per-clip notes files into the session's notes file, and it took any multi-line `.txt` in the clips folder, or in a folder inside it, for one. So a running order or a page of transcripts kept there (`clips/docs/Clip_List.txt`) was pasted into the notes as a "clip", and pasted again each time its last line changed. A file is now taken in only when it ends with its source link, or sits in its clip's own folder or beside its audio. Older notes files that lost their link still come in.
+
 ## [1.28.0] — 2026-10-04
 
 **Changed**
