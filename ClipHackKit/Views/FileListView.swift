@@ -55,6 +55,13 @@ struct FileListView: View {
                         }
                         .disabled(!viewModel.isRenamable(file))
 
+                        Button {
+                            viewModel.beginCut(file.id)
+                        } label: {
+                            Label(file.cut == nil ? "Set Cut…" : "Change Cut…", systemImage: "scissors")
+                        }
+                        .disabled(!viewModel.canSetCut)
+
                         // Row menus cover clicks on rows; keep the list-level
                         // action reachable here too.
                         if viewModel.files.contains(where: { $0.isProcessed }) {
@@ -157,6 +164,19 @@ struct FileRowView: View {
                         .help("Reveal in Finder")
                     }
                 }
+            }
+
+            // The part to keep, as the session's notes file has it.
+            if let cut = file.cut, !cut.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "scissors")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text("Cut \(cut)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .help("The cut in the session's notes file. Right-click to change it.")
             }
 
             // What the clip actually is, not just what it's called — typed when

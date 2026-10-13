@@ -59,7 +59,7 @@ struct DownloadPopover: View {
                     .frame(width: 110)
                     .onSubmit { viewModel.startDownload() }
                     .disabled(viewModel.isDownloading)
-                    .help("The cut to make. Written on its own line in the session's notes file.")
+                    .help("The cut to make. Written under the clip's file name in the session's notes file, marked CUT.")
             }
             .frame(width: Self.fieldWidth)
 

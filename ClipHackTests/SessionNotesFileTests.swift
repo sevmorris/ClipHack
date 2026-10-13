@@ -32,27 +32,70 @@ final class SessionNotesFileTests: XCTestCase {
 
     // MARK: - Shape
 
-    func testClipsAreSeparatedByARule() {
+    /// Laid out to work from while editing: a summary, then each clip's file
+    /// name flush left with its cut right under it and the link last.
+    func testTheFileReadsAsASummaryThenOneBlockPerClip() {
+        let text = SessionNotesFile.render([
+            record("CSPAN_-_Trump.m4a", notes: "", url: "https://x.com/cspan/status/2109039198422405195?s=43"),
+            record("This_Week_-_Hamilton.m4a", notes: "", timestamp: "1:23 to :52",
+                   url: "https://x.com/thisweekabc/status/2109318964635730038?s=43"),
+        ], title: "HT_0385 2026-10-13")
+        XCTAssertEqual(text, """
+        HT_0385 2026-10-13 · 2 clips · 1 cut
+
+        CSPAN_-_Trump.m4a
+            https://x.com/cspan/status/2109039198422405195
+
+        This_Week_-_Hamilton.m4a
+            CUT  1:23 to :52
+            https://x.com/thisweekabc/status/2109318964635730038
+
+        """)
+    }
+
+    func testOldNotesSitBetweenTheCutAndTheLink() {
         let text = SessionNotesFile.render([
             record("A.m4a", notes: "TRUMP — one", timestamp: ":30 to :12", url: "https://a"),
             record(notes: "MAMDANI — two", url: "https://b"),
         ])
         XCTAssertEqual(text, """
+        2 clips · 1 cut
+
         A.m4a
+            CUT  :30 to :12
+            TRUMP — one
+            https://a
 
-        TRUMP — one
-
-        :30 to :12
-
-        https://a
-
-        ---
-
-        MAMDANI — two
-
-        https://b
+        (no file name)
+            MAMDANI — two
+            https://b
 
         """)
+    }
+
+    func testTheSummaryLeavesOffCutsWhenThereAreNone() {
+        XCTAssertEqual(
+            SessionNotesFile.summary(of: [record("A.m4a", notes: "", url: "https://a")], title: "HT_0385 2026-10-13"),
+            "HT_0385 2026-10-13 · 1 clip"
+        )
+    }
+
+    func testWritingTitlesTheSummaryAfterTheSession() throws {
+        try SessionNotesFile.write([record("A.m4a", notes: "", url: "https://a")], to: file)
+        let text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(text.hasPrefix("HT_0379 2026-08-24 · 1 clip\n"), text)
+    }
+
+    func testXLinksAreWrittenWithoutTheirTrackingQuery() {
+        XCTAssertEqual(
+            SessionNotesFile.tidied("https://x.com/acyn/status/2109406640567161167?s=43"),
+            "https://x.com/acyn/status/2109406640567161167"
+        )
+        XCTAssertEqual(
+            SessionNotesFile.tidied("https://youtube.com/watch?v=aaa"),
+            "https://youtube.com/watch?v=aaa",
+            "a YouTube video's id lives in its query"
+        )
     }
 
     func testRenderAndParseRoundTrip() {
@@ -72,18 +115,87 @@ final class SessionNotesFileTests: XCTestCase {
         XCTAssertEqual(SessionNotesFile.parse(SessionNotesFile.render(records)), records)
     }
 
-    /// A cut the parser can't recognise reads back as notes. Rewriting still
-    /// puts it back where it was — which is why the file keeps every element
-    /// it parses, not only the ones a download writes.
-    func testACutThatDoesNotReadAsOneIsRewrittenInPlace() {
-        let text = "A.m4a\n\n0:05 to end\n\nhttps://a\n"
-        XCTAssertEqual(SessionNotesFile.parse(text).first?.notes, "0:05 to end")
-        XCTAssertEqual(SessionNotesFile.render(SessionNotesFile.parse(text)), text)
+    /// Text in an old block that doesn't read as a cut stays notes, and comes
+    /// back as notes after a rewrite — which is why the file keeps every
+    /// element it parses, not only the ones a download writes.
+    func testNotesThatAreNotACutSurviveARewrite() {
+        let records = SessionNotesFile.parse("A.m4a\n\nfirst twenty seconds\n\nhttps://a\n")
+        XCTAssertEqual(records.first?.notes, "first twenty seconds")
+        XCTAssertEqual(SessionNotesFile.parse(SessionNotesFile.render(records)), records)
+    }
+
+    /// The form the show uses most: an in point, then "end".
+    func testACutToTheEndIsACut() {
+        let old = SessionNotesFile.parse("A.m4a\n\n0:05 to end\n\nhttps://a\n")
+        XCTAssertEqual(old.first?.timestamp, "0:05 to end")
+        XCTAssertEqual(old.first?.notes, "")
     }
 
     func testAnEmptyFileParsesToNothing() {
         XCTAssertTrue(SessionNotesFile.parse("").isEmpty)
         XCTAssertTrue(SessionNotesFile.parse("\n---\n\n").isEmpty)
+        XCTAssertTrue(SessionNotesFile.parse("HT_0385 2026-10-13 · 0 clips\n").isEmpty)
+    }
+
+    // MARK: - Reading what's on disk
+
+    /// Every session file written before this layout.
+    func testAFileInTheEarlierLayoutStillReads() {
+        let records = SessionNotesFile.parse("""
+        This_Week_-_Hamilton.m4a
+
+        1:23 to :52
+
+        https://x.com/thisweekabc/status/2109318964635730038?s=43
+
+        ---
+
+        That_Gay_Guy_-_Collins.m4a
+
+        to :03
+
+        https://x.com/gayguycandleco/status/2107636372991541253?s=43
+
+        """)
+        XCTAssertEqual(records.map(\.filename), ["This_Week_-_Hamilton.m4a", "That_Gay_Guy_-_Collins.m4a"])
+        XCTAssertEqual(records.map(\.timestamp), ["1:23 to :52", "to :03"])
+    }
+
+    /// One clip in the earlier layout has no `---` rule to give it away.
+    func testAOneClipFileInTheEarlierLayoutStillReads() {
+        let records = SessionNotesFile.parse("A.m4a\n\n1:13 to :55\n\nhttps://a\n")
+        XCTAssertEqual(records, [record("A.m4a", notes: "", timestamp: "1:13 to :55", url: "https://a")])
+    }
+
+    func testDeletingTheSummaryLineLosesNothing() {
+        let records = [record("A.m4a", notes: "", timestamp: "1:13 to :55", url: "https://a")]
+        let text = SessionNotesFile.render(records)
+        let withoutSummary = text.components(separatedBy: "\n").dropFirst().joined(separator: "\n")
+        XCTAssertEqual(SessionNotesFile.parse(withoutSummary), records)
+    }
+
+    /// A cut typed into the file by hand, without the label or the indent.
+    func testAHandTypedCutStillCounts() {
+        let records = SessionNotesFile.parse("""
+        2 clips
+
+        A.m4a
+            1:13 to :55
+            https://a
+
+        B.m4a
+        :18 to end
+            https://b
+
+        """)
+        XCTAssertEqual(records.map(\.timestamp), ["1:13 to :55", ":18 to end"])
+        XCTAssertEqual(records.map(\.filename), ["A.m4a", "B.m4a"], "a cut never reads as the next clip")
+    }
+
+    func testNotesStartingWithCutAreNotACut() {
+        let records = SessionNotesFile.parse("A.m4a\n    Cut the crap, he said\n    https://a\n")
+        XCTAssertEqual(records.first?.timestamp, "")
+        XCTAssertEqual(records.first?.notes, "Cut the crap, he said")
     }
 
     // MARK: - Maintained, not appended
@@ -121,6 +233,62 @@ final class SessionNotesFileTests: XCTestCase {
         try SessionNotesFile.write([], to: file)
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path),
                        "an emptied session leaves no stale file")
+    }
+
+    // MARK: - Clips added by hand, and their cuts
+
+    func testAFileAddedByHandIsListedByName() throws {
+        XCTAssertEqual(try SessionNotesFile.recordAddedFiles(named: ["Talarico.wav"], at: file), 1)
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), """
+        HT_0379 2026-08-24 · 1 clip
+
+        Talarico.wav
+
+        """)
+        XCTAssertEqual(SessionNotesFile.read(at: file), [record("Talarico.wav", notes: "", url: "")])
+    }
+
+    func testAFileAlreadyListedIsNotAddedAgain() throws {
+        try SessionNotesFile.upsert(record("Rupar.m4a", notes: "", url: "https://x.com/acyn/status/2109406640567161167"), at: file)
+        XCTAssertEqual(try SessionNotesFile.recordAddedFiles(named: ["Rupar.m4a", "Rupar.m4a"], at: file), 0)
+        XCTAssertEqual(SessionNotesFile.read(at: file).count, 1)
+    }
+
+    func testACutIsSetOnADownloadByItsLink() throws {
+        try SessionNotesFile.upsert(record("Old name.m4a", notes: "", url: "https://x.com/acyn/status/2109406640567161167"), at: file)
+        try SessionNotesFile.setCut(":18 to end", filename: "Renamed.m4a", source: "https://x.com/acyn/status/2109406640567161167?s=43", at: file)
+        let records = SessionNotesFile.read(at: file)
+        XCTAssertEqual(records.map(\.timestamp), [":18 to end"], "found by its link despite the rename")
+    }
+
+    func testACutIsSetOnAFileAddedByHandByItsName() throws {
+        try SessionNotesFile.recordAddedFiles(named: ["Talarico.wav"], at: file)
+        try SessionNotesFile.setCut("1:23 to :52", filename: "Talarico.wav", at: file)
+        XCTAssertTrue(try String(contentsOf: file, encoding: .utf8)
+            .contains("Talarico.wav\n    CUT  1:23 to :52\n"))
+        XCTAssertEqual(SessionNotesFile.read(at: file).first?.timestamp, "1:23 to :52")
+    }
+
+    func testACutForAnUnlistedFileListsIt() throws {
+        try SessionNotesFile.setCut("to :03", filename: "Collins.wav", at: file)
+        XCTAssertEqual(SessionNotesFile.read(at: file),
+                       [record("Collins.wav", notes: "", timestamp: "to :03", url: "")])
+    }
+
+    func testAnEmptyCutRemovesItAndAddsNothing() throws {
+        try SessionNotesFile.setCut("", filename: "Nothing.wav", at: file)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+
+        try SessionNotesFile.setCut("1:13 to :55", filename: "A.wav", at: file)
+        try SessionNotesFile.setCut("  ", filename: "A.wav", at: file)
+        XCTAssertEqual(SessionNotesFile.read(at: file), [record("A.wav", notes: "", url: "")])
+    }
+
+    /// Clips added by hand have no links, so a file of only those has nothing
+    /// indented and no rule; it must not be taken for the earlier layout.
+    func testAFileOfNamesOnlyStillReadsWithoutItsSummary() {
+        let records = SessionNotesFile.parse("A.wav\n\nB.wav\n")
+        XCTAssertEqual(records.map(\.filename), ["A.wav", "B.wav"])
     }
 
     // MARK: - Folding in the per-clip files that came before
@@ -241,5 +409,43 @@ final class SessionNotesFileTests: XCTestCase {
         let record = try XCTUnwrap(SessionNotesFile.read(at: file).first)
         XCTAssertEqual(record.sourceURL, ":46 to :17")
         XCTAssertEqual(record.notes, "TRUMP — \"I should be at 100 percent on the economy\"\n\nAUDIENCE: 😬")
+    }
+
+    /// Hacks on Tap keeps its running order and transcripts in `clips/docs/`.
+    /// Both parse as records, but neither is a clip: folding them in pasted the
+    /// whole clip list into the session file, again each time it grew.
+    func testOtherTextFilesInTheClipsFolderAreNotFoldedIn() throws {
+        let docs = folder.appendingPathComponent("docs", isDirectory: true)
+        try FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+        try Data("""
+        OHIO SENATE
+        1 - ANTI-HUSTED AD - blocked Epstein files release
+
+        TRUMP
+        2 - TRUMP - blame me if we lose
+        """.utf8).write(to: docs.appendingPathComponent("Clip_List.txt"))
+        try Data("""
+        1 - ANTI-HUSTED AD - blocked Epstein files release
+        Seen these ads? They're a complete lie.
+
+        2 - TRUMP - blame me if we lose
+        If we don't win the midterms, they're going to blame me.
+        """.utf8).write(to: docs.appendingPathComponent("All_Transcriptions.txt"))
+
+        XCTAssertEqual(try SessionNotesFile.adoptSidecars(in: folder, sessionFile: file), 0)
+        XCTAssertTrue(SessionNotesFile.read(at: file).isEmpty)
+    }
+
+    /// Skipping those must not shut out a real sidecar that lost its link but
+    /// still sits beside its audio in the clips folder itself.
+    func testASidecarBesideItsAudioFoldsInWithoutALink() throws {
+        try Data("audio".utf8).write(to: folder.appendingPathComponent("Rupar.m4a"))
+        try Data("""
+        RUPAR — "a line worth keeping"
+
+        :12 to end
+        """.utf8).write(to: folder.appendingPathComponent("Rupar.txt"))
+
+        XCTAssertEqual(try SessionNotesFile.adoptSidecars(in: folder, sessionFile: file), 1)
     }
 }
