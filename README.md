@@ -45,31 +45,21 @@ HT_0379 2026-08-24/clips/
 If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
 
 * **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
-* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool adds the cut to the end of the downloaded file's name. A file name cannot contain a colon, thus the tool writes each colon as a period: `Some Title 1.13 to .55.m4a`. You make the cut before you process the clip, thus the processed clip does not have the cut in its name: `Some Title-44knorm-clipped-1dB.wav`. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. In the notes file, the cut has its colons.
-* **Save clip notes:** This writes a record of each download to the session's text file. The session keeps one file for all its clips:
+* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool adds the cut to the end of the downloaded file's name. A file name cannot contain a colon, thus the tool writes each colon as a period: `Some Title 1.13 to .55.m4a`. You make the cut before you process the clip, thus the processed clip does not have the cut in its name: `Some Title-44knorm-clipped-1dB.wav`. The tool also writes the cut, with its colons, in the session's [notes file](#the-notes-file).
+### The notes file
+
+The tool keeps its own record of the episode's clips in one text file:
 
 ```
 HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt
 ```
 
-The tool writes one short block for each clip. The file name starts the block at the left edge. The cut and the source link are indented under it. The tool writes the cut only when you typed one:
+For each download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name and the cut only when you set a cut. You do not need to open this file. The tool uses it for two things:
 
-```
-Some Title 1.13 to .55.m4a
-    CUT  1:13 to :55
-    https://x.com/atrupar/status/2090948085333504072
+* To recognise a link that you use a second time (see below).
+* To give a clip its cut when you add it to the list again. The processed clip is named without that cut.
 
-Another Title.m4a
-    https://x.com/atrupar/status/2091901792632062410
-```
-
-Thus you can find a clip by its file name and see its cut immediately. The tool removes the tracking part (`?s=43`) from X (Twitter) links. If you type a cut into the file yourself, the tool reads it as the cut, also without the `CUT` label. If you type other lines into a block, the tool keeps them.
-
-For a download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name (see below). The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for.
-
-The tool does not append to this file. The tool writes the file again from what it holds. Thus a second download of the same link replaces that clip's block. The file does not collect old copies.
-
-The record shows the download at the time it occurred. If you rename a file later, the tool does not change the record. This is the correct function.
+The tool does not append to this file. The tool writes the file again from what it holds. Thus a second download of the same link replaces that clip's block. In a temporary session, the tool does not write a notes file.
 
 If you use a link a second time, the tool reads the session's notes file. If the clip's file is still in the folder with the name that it had when you downloaded it, the tool adds that file to the list and tells you. It does not download the clip again. If the file is not there now, the tool tells you and asks. For example, you processed the clip and the original went to the Trash, or the clip skill renamed the clip and moved it. To download the clip again, select **Download Again**.
 
@@ -103,9 +93,7 @@ To rename a file in the list, do one of these steps:
 
 The tool renames the file on your disk. You can only change the name stem. The file extension does not change.
 
-When you drop or open a file while an episode is open, the tool writes the file name in the session's notes file. Thus the notes file shows all the clips of the episode, not only the downloads. The block for this file has no link. The tool does not write a ClipHack output that you add again to process it again.
-
-To record the cut of a clip, right-click the row and select **Set Cut…**. Type the part of the clip that you want, for example `1:13 to :55` or `:18 to end`. The tool renames the file on your disk: the cut goes on the end of the file name, with a period for each colon. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. The row shows the cut below the file name. When you process the clip, the processed file does not have the cut in its name. To change the cut, select **Change Cut…**. The new cut replaces the old cut in the file name. To remove the cut, select **Change Cut…** and delete the text. You can use **Set Cut…** for a downloaded clip too. You cannot set a cut while the tool analyzes or processes the clip. In a temporary session, or when **Save clip notes** is off, the tool puts the cut in the file name only.
+To record the cut of a clip, right-click the row and select **Set Cut…**. Type the part of the clip that you want, for example `1:13 to :55` or `:18 to end`. The tool renames the file on your disk: the cut goes on the end of the file name, with a period for each colon. The tool also writes the cut in the notes file. The row shows the cut below the file name. When you process the clip, the processed file does not have the cut in its name. To change the cut, select **Change Cut…**. The new cut replaces the old cut in the file name. To remove the cut, select **Change Cut…** and delete the text. You can use **Set Cut…** for a downloaded clip too. You cannot set a cut while the tool analyzes or processes the clip. In a temporary session, the tool puts the cut in the file name only.
 
 ## Sessions
 

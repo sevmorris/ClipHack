@@ -43,13 +43,6 @@ struct DownloadPopover: View {
                 .disabled(viewModel.isDownloading)
                 .help("The cut to make. It ends the file name, colons written as periods (1.13 to .55), and is written under the clip's file name in the session's notes file, marked CUT.")
 
-            Toggle("Save clip notes", isOn: clipNotesBinding)
-                .toggleStyle(.checkbox)
-                .disabled(viewModel.isDownloading || viewModel.isTemporarySession)
-                .help(viewModel.isTemporarySession
-                      ? "A temporary session keeps no notes file."
-                      : "Saves the file name, the cut, and the source URL to this session's notes file, in the download folder.")
-
             destinationRow
 
             statusLine
@@ -61,15 +54,6 @@ struct DownloadPopover: View {
         }
         .padding()
         .onAppear { viewModel.prefillDownloadFromPasteboard() }
-    }
-
-    /// Unchecked in a temporary session, which saves nothing, without
-    /// clearing the preference the episodes use.
-    private var clipNotesBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.clipNotesEnabled && !viewModel.isTemporarySession },
-            set: { viewModel.clipNotesEnabled = $0 }
-        )
     }
 
     private var destinationRow: some View {

@@ -131,10 +131,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let dir = try makeClipFolder()
 
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
@@ -147,10 +144,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
     func testAHandTypedNameIsStillRecorded() throws {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
         vm.downloadNameField = "Title"          // named by hand
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(
@@ -168,10 +162,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
     func testTheCutGoesOnItsOwnLine() throws {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
@@ -183,22 +174,18 @@ final class ContentViewModelDownloadTests: XCTestCase {
             "Title.m4a\n    CUT  1:13 to :55\n    https://example.com/watch?v=abc\n"
         )
         let record = try XCTUnwrap(SessionNotesFile.read(at: vm.sessionNotesURL).first)
-        XCTAssertEqual(record.notes, "")
         XCTAssertEqual(record.timestamp, "1:13 to :55", "the cut is kept on its own line")
         XCTAssertEqual(record.sourceURL, "https://example.com/watch?v=abc")
     }
 
-    /// A line typed into a clip's block by hand is neither its cut nor its
-    /// link. The next download rewrites the file, and must not take it out.
-    func testALineTypedIntoTheFileSurvivesTheNextDownload() throws {
+    /// The next download rewrites the file, and keeps every earlier clip's
+    /// name, cut and link as they were.
+    func testEarlierClipsSurviveTheNextDownload() throws {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
-        let typed = "Old.m4a\n    CUT  :30 to :12\n    check the levels\n    https://example.com/old\n"
-        try Data(typed.utf8).write(to: vm.sessionNotesURL)
+        let earlier = "Old 0.30 to .12.m4a\n    CUT  :30 to :12\n    https://example.com/old\n"
+        try Data(earlier.utf8).write(to: vm.sessionNotesURL)
 
         vm.finishDownload(
             sourceURL: "https://example.com/new",
@@ -207,31 +194,28 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            typed + "\nNew.m4a\n    https://example.com/new\n"
+            earlier + "\nNew.m4a\n    https://example.com/new\n"
         )
     }
 
     // MARK: - Clips added from disk, and cuts
 
-    /// A view model whose session is a fresh clip folder, with Save clip notes on.
+    /// A view model whose session is a fresh clip folder.
     private func makeSessionViewModel() throws -> (ContentViewModel, URL) {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        addTeardownBlock { @MainActor in vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
         return (vm, dir)
     }
 
-    func testAFileAddedFromDiskIsListedInTheNotes() throws {
+    /// The notes file records downloads, and cuts; a file added from disk
+    /// with neither has nothing in it.
+    func testAFileAddedFromDiskIsNotListed() throws {
         let (vm, dir) = try makeSessionViewModel()
         vm.addFiles([dir.appendingPathComponent("Talarico for TX Senate.wav")])
 
-        XCTAssertEqual(
-            try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            "Talarico for TX Senate.wav\n"
-        )
+        XCTAssertEqual(vm.files.count, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: vm.sessionNotesURL.path))
     }
 
     func testAClipHackOutputAddedAgainIsNotListed() throws {
@@ -294,8 +278,8 @@ final class ContentViewModelDownloadTests: XCTestCase {
         vm.setCut("", for: id)
         XCTAssertNil(vm.files.first?.cut)
         XCTAssertEqual(try names(in: dir), ["Collins.wav"], "removing the cut takes it out of the name")
-        XCTAssertEqual(SessionNotesFile.read(at: vm.sessionNotesURL),
-                       [ClipRecord(filename: "Collins.wav", notes: "", timestamp: "", sourceURL: "")])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: vm.sessionNotesURL.path),
+                       "with its cut gone, a clip added from disk has nothing left to record")
     }
 
     func testChangingADownloadsCutReplacesItInTheNameAndKeepsItsLink() throws {
@@ -341,8 +325,8 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNil(vm.files.first?.cut)
         XCTAssertEqual(vm.files.first?.url.lastPathComponent, "Collins.wav")
         XCTAssertEqual(vm.alertTitle, "Cut Not Set")
-        XCTAssertEqual(SessionNotesFile.read(at: vm.sessionNotesURL).map(\.timestamp), [""],
-                       "the notes don't record a cut the name couldn't take")
+        XCTAssertTrue(SessionNotesFile.read(at: vm.sessionNotesURL).isEmpty,
+                      "the notes don't record a cut the name couldn't take")
     }
 
     /// Renaming under a running ffprobe would pull the file out from under it.
@@ -360,19 +344,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNil(vm.files.first?.cut)
     }
 
-    func testWithSaveClipNotesOffACutStillGoesInTheName() throws {
-        let (vm, dir) = try makeSessionViewModel()
-        vm.clipNotesEnabled = false
-        vm.addFiles([try makeAudio("Collins.wav", in: dir)])
-        settle(vm)
-        let id = try XCTUnwrap(vm.files.first?.id)
-
-        vm.setCut("1:13 to :55", for: id)
-        XCTAssertEqual(vm.files.first?.cut, "1:13 to :55")
-        XCTAssertEqual(try names(in: dir), ["Collins 1.13 to .55.wav"])
-        XCTAssertFalse(FileManager.default.fileExists(atPath: vm.sessionNotesURL.path))
-    }
-
     func testARestoredClipArrivesWithItsCut() throws {
         let (vm, dir) = try makeSessionViewModel()
         try SessionNotesFile.setCut("1:23 to :52", filename: "Hamilton.wav", at: vm.sessionNotesURL)
@@ -388,10 +359,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         try Data("audio".utf8).write(to: audio)
 
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
         vm.downloadNameField = "Title"          // named by hand
         vm.finishDownload(sourceURL: "https://example.com/watch?v=abc", filePath: audio.path)
 
@@ -401,31 +369,11 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(later.files.count, 1)
     }
 
-    func testClipNotesSkippedWhenDisabled() throws {
-        let dir = try makeClipFolder()
-
-        let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
-        vm.clipNotesEnabled = false
-        vm.finishDownload(
-            sourceURL: "https://example.com/watch?v=abc",
-            filePath: dir.appendingPathComponent("Title.m4a").path
-        )
-
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: dir.appendingPathComponent("Title.txt").path)
-        )
-    }
-
     func testDuplicateURLWritesNoClipNotes() throws {
         let dir = try makeClipFolder()
 
         let vm = makeViewModel()
-        let wasEnabled = vm.clipNotesEnabled
-        defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
-        vm.clipNotesEnabled = true
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
@@ -489,7 +437,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
     /// The session's notes file records `filename` as downloaded from `link`.
     private func recordDownload(_ filename: String, from link: String, in dir: URL, vm: ContentViewModel) throws {
         try SessionNotesFile.upsert(
-            ClipRecord(filename: filename, notes: "", sourceURL: link),
+            ClipRecord(filename: filename, sourceURL: link),
             at: vm.sessionNotesURL(for: dir)
         )
     }

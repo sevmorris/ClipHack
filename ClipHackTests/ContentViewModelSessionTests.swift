@@ -191,7 +191,6 @@ final class ContentViewModelSessionTests: XCTestCase {
 
         let vm = makeViewModel()
         vm.openSession(session)
-        vm.clipNotesEnabled = true
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path)
 
@@ -199,7 +198,6 @@ final class ContentViewModelSessionTests: XCTestCase {
         let records = SessionNotesFile.read(at: file)
         XCTAssertEqual(records.count, 1)
         XCTAssertEqual(records.first?.filename, "Some Title 1.13 to .55.m4a")
-        XCTAssertEqual(records.first?.notes, "")
         XCTAssertEqual(records.first?.timestamp, "1:13 to :55")
         XCTAssertEqual(records.first?.sourceURL, "https://x.com/a/status/1")
     }
@@ -213,7 +211,6 @@ final class ContentViewModelSessionTests: XCTestCase {
         try Data("audio".utf8).write(to: audio)
 
         let vm = makeViewModel()
-        vm.clipNotesEnabled = true
         vm.openSession(started)
         let notesFile = vm.downloadNotesFile
         vm.openSession(switched)
@@ -232,7 +229,7 @@ final class ContentViewModelSessionTests: XCTestCase {
 
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
         try SessionNotesFile.write([
-            ClipRecord(filename: "Some Title.m4a", notes: "", sourceURL: "https://x.com/a/status/1"),
+            ClipRecord(filename: "Some Title.m4a", sourceURL: "https://x.com/a/status/1"),
         ], to: file)
 
         let vm = makeViewModel()
@@ -249,7 +246,7 @@ final class ContentViewModelSessionTests: XCTestCase {
         let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
         try SessionNotesFile.write([
-            ClipRecord(filename: "Gone.m4a", notes: "", sourceURL: "https://x.com/a/status/1"),
+            ClipRecord(filename: "Gone.m4a", sourceURL: "https://x.com/a/status/1"),
         ], to: file)
         let vm = makeViewModel()
         vm.openSession(session)
@@ -269,7 +266,7 @@ final class ContentViewModelSessionTests: XCTestCase {
         let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
         try SessionNotesFile.write([
-            ClipRecord(filename: "Gone.m4a", notes: "", sourceURL: "https://a"),
+            ClipRecord(filename: "Gone.m4a", sourceURL: "https://a"),
         ], to: file)
         let vm = makeViewModel()
         vm.openSession(session)
@@ -284,7 +281,7 @@ final class ContentViewModelSessionTests: XCTestCase {
     func testTypingAnotherLinkTakesTheQuestionAway() throws {
         let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
-        try SessionNotesFile.write([ClipRecord(filename: "Gone.m4a", notes: "", sourceURL: "https://a")], to: file)
+        try SessionNotesFile.write([ClipRecord(filename: "Gone.m4a", sourceURL: "https://a")], to: file)
         let vm = makeViewModel()
         vm.openSession(session)
         vm.downloadURLField = "https://a"

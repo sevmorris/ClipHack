@@ -2,6 +2,15 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Changed**
+- **The notes file holds only what ClipHack itself uses.** Nobody reads it by hand, and the clip skill no longer reads it at all, so it now records each download's file name, cut and link, and the cut of a clip added from disk. A link pasted again is matched against it, and a clip added back gets its cut from it, which is what its processed copy is named without. It is read only as ClipHack writes it: a line typed into it by hand is ignored, and a cut has to carry its `CUT` label.
+- **Every episode keeps its notes file.** The download popover's **Save clip notes** checkbox is gone: with it off, a link pasted again was downloaded again, and a clip added back lost its cut and kept it in its processed name. A temporary session still keeps none.
+
+**Removed**
+- **Listing clips added from disk.** A file you drag in or open is no longer written into the notes file by name. One gets a block when you give it a cut, and loses it when the cut is taken out.
+
 ## [1.30.0] — 2026-10-16
 
 **Changed**

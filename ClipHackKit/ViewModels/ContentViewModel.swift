@@ -31,7 +31,6 @@ final class ContentViewModel {
 
     init() {
         self.settings = ClipHackSettings.load()
-        self.clipNotesEnabled = ClipHackSettings.store.bool(forKey: Self.clipNotesKey)
         // Defaults to on, so `bool(forKey:)`'s false-when-absent is wrong here.
         self.trashOriginalsEnabled =
             ClipHackSettings.store.object(forKey: Self.trashOriginalsKey) as? Bool ?? true
@@ -108,9 +107,7 @@ final class ContentViewModel {
         return found.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
     }
 
-    /// `listInNotes` is false for a download, which records its own block
-    /// with its link; a file added from disk is listed by name.
-    func addFiles(_ urls: [URL], listInNotes: Bool = true) {
+    func addFiles(_ urls: [URL]) {
         let fileURLs = urls.filter(\.isFileURL)
         let loose = fileURLs.filter { !$0.hasDirectoryPath }
         let folders = fileURLs.filter(\.hasDirectoryPath)
@@ -150,7 +147,7 @@ final class ContentViewModel {
             return
         }
 
-        commitFiles(valid, listInNotes: listInNotes)
+        commitFiles(valid)
     }
 
     func confirmReprocessWarning() {
@@ -165,7 +162,7 @@ final class ContentViewModel {
         showReprocessWarning = false
     }
 
-    private func commitFiles(_ urls: [URL], listInNotes: Bool = true) {
+    private func commitFiles(_ urls: [URL]) {
         // A clip re-added days later, by drag or by folder drop, arrives with
         // the cut the session's notes file has for it.
         let records = downloadNotesFile.map { SessionNotesFile.read(at: $0) } ?? []
@@ -178,29 +175,10 @@ final class ContentViewModel {
             return item
         }
         files.append(contentsOf: newFiles)
-        if listInNotes { listAddedFilesInNotes(urls) }
 
         for file in newFiles {
             analyzeFile(file)
             generateWaveform(file)
-        }
-    }
-
-    /// A file added from disk goes in the session's notes file too, by name,
-    /// so the notes list every clip of the episode and not only the downloaded
-    /// ones, and its cut can be set. A ClipHack output added to be processed
-    /// again is left out: it is a generation of a clip, not a clip.
-    private func listAddedFilesInNotes(_ urls: [URL]) {
-        guard clipNotesEnabled, let notesFile = downloadNotesFile else { return }
-        let names = urls
-            .filter { !ClipHackOutputNaming.looksLikeClipHackOutput($0) }
-            .map(\.lastPathComponent)
-        guard !names.isEmpty else { return }
-        do {
-            try SessionNotesFile.recordAddedFiles(named: names, at: notesFile)
-        } catch {
-            alertTitle = "Notice"
-            alertMessage = "Added, but the clip notes could not be written: \(error.localizedDescription)"
         }
     }
 
@@ -323,9 +301,8 @@ final class ContentViewModel {
     var cutField: String = ""
 
     /// A cut goes in the clip's file name, so a row takes one whenever its file
-    /// can be renamed. The notes file is written too when there is one, but
-    /// the cut doesn't depend on it: a temporary session, or Save clip notes
-    /// off, gets the name alone.
+    /// can be renamed. The notes file is written too when there is one; a
+    /// temporary session, which keeps none, gets the name alone.
     func canSetCut(_ file: FileItem) -> Bool { isRenamable(file) }
 
     func beginCut(_ id: UUID) {
@@ -383,7 +360,7 @@ final class ContentViewModel {
         // can't be written.
         files[index].cut = cut.isEmpty ? nil : cut
 
-        guard clipNotesEnabled, let notesFile = downloadNotesFile else { return }
+        guard let notesFile = downloadNotesFile else { return }
         let source = downloadedURLToFileID.first(where: { $0.value == id })?.key
         do {
             try SessionNotesFile.setCut(
@@ -453,15 +430,6 @@ final class ContentViewModel {
     /// (`ClipCutName`) and is written on its own line in the session's notes
     /// file.
     var downloadTimestampField: String = ""
-    /// "Save clip notes": record each download in the session's notes file.
-    /// Persisted across launches.
-    var clipNotesEnabled: Bool {
-        didSet { ClipHackSettings.store.set(clipNotesEnabled, forKey: Self.clipNotesKey) }
-    }
-    /// Key predates the notes file (it gated a daily clip list, long since
-    /// gone) — kept as-is so the preference survives the upgrade.
-    private static let clipNotesKey = "clipListEnabled"
-
     /// "Trash Originals": move each source file to the Trash once its output is
     /// written. Deliberately NOT part of `ClipHackSettings` — that struct is what
     /// presets store and reapply, and switching preset must never quietly start
@@ -588,7 +556,7 @@ final class ContentViewModel {
         if let row = files.first(where: { Self.fileIdentity($0.url) == identity }) {
             selectedFileIDs = [row.id]
         } else {
-            addFiles([existing], listInNotes: false)
+            addFiles([existing])
             guard let row = files.last(where: { Self.fileIdentity($0.url) == identity }) else {
                 return false
             }
@@ -699,11 +667,11 @@ final class ContentViewModel {
 
     /// Feeds a completed download through the existing add-files path, then
     /// records and selects the row that landed, gives it its cut, and
-    /// records the clip in `notesFile` when enabled — the notes file of the
+    /// records the clip in `notesFile` — the notes file of the
     /// session the download was started in, nil when that was a temporary one.
     func finishDownload(sourceURL: String, filePath: String, notesFile: URL?) {
         let fileURL = URL(fileURLWithPath: filePath)
-        addFiles([fileURL], listInNotes: false)
+        addFiles([fileURL])
         // addFiles can reject (unsupported extension) or defer to the
         // reprocess warning — only record and select a row that landed.
         let identity = Self.fileIdentity(fileURL)
@@ -718,7 +686,7 @@ final class ContentViewModel {
         }
 
         // Recorded in the session's own notes file, beside the audio.
-        if clipNotesEnabled, let notesFile {
+        if let notesFile {
             do {
                 // The filename, the cut and the source. The filename is written
                 // even when it was typed by hand: it is the only line that says
@@ -726,7 +694,6 @@ final class ContentViewModel {
                 // on, for replacing a block and for the already-downloaded check.
                 let record = ClipRecord(
                     filename: fileURL.lastPathComponent,
-                    notes: "",
                     timestamp: downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines),
                     sourceURL: sourceURL
                 )

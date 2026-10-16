@@ -169,7 +169,6 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         let audio = desk.appendingPathComponent("Some Title.m4a")
         try Data("audio".utf8).write(to: audio)
 
-        vm.clipNotesEnabled = true
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path)
 
@@ -177,14 +176,12 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         XCTAssertEqual(vm.files[0].cut, "1:13 to :55", "the cut still rides on the row")
         XCTAssertEqual(try textFiles(in: desk), [], "no notes file beside the download")
         XCTAssertEqual(try textFiles(in: session.clipsFolder), [], "and none in the episode")
-        XCTAssertTrue(vm.clipNotesEnabled, "the episodes' preference is kept, not cleared")
     }
 
     /// A download started in a temporary session and finished after leaving it
     /// must not land a block in the episode's notes — its audio is elsewhere.
     func testADownloadStartedInTheTemporarySessionRecordsNothingAfterLeaving() throws {
         let (vm, session) = try makeViewModel()
-        vm.clipNotesEnabled = true
         XCTAssertTrue(vm.openTemporarySession())
         let notesFile = vm.downloadNotesFile
         XCTAssertNil(notesFile)
