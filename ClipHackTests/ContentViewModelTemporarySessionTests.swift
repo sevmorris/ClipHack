@@ -29,7 +29,7 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
 
     /// A view model with an episode open, the way the app sits on launch.
     private func makeViewModel() throws -> (ContentViewModel, ClipSession) {
-        let session = try ClipSessionStore.create(title: "HT_0382 2026-09-22", inRoot: root)
+        let session = try makePreppedEpisode("HT_0382 2026-09-22", in: root)
         let vm = ContentViewModel()
         vm.settings.sessionRootPath = root.path
         vm.openSession(session)
@@ -77,7 +77,7 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
 
     func testOpeningAnEpisodeEndsTheTemporarySession() throws {
         let (vm, session) = try makeViewModel()
-        let other = try ClipSessionStore.create(title: "HT_0383 2026-09-29", inRoot: root)
+        let other = try makePreppedEpisode("HT_0383 2026-09-29", in: root)
         XCTAssertTrue(vm.openTemporarySession())
 
         vm.openSession(other)
@@ -88,14 +88,21 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         XCTAssertNotEqual(vm.settings.downloadDirectoryPath, session.clipsFolder.path)
     }
 
-    func testCreatingASessionEndsTheTemporarySession() throws {
+    /// Prep can make the next episode while a temporary session is open.
+    /// Leaving goes to that one, not the episode that was open before.
+    func testLeavingGoesToAnEpisodeMadeInTheMeantime() throws {
         let (vm, _) = try makeViewModel()
         XCTAssertTrue(vm.openTemporarySession())
+        let next = try makePreppedEpisode("HT_0383 2026-09-29", in: root)
 
-        XCTAssertTrue(vm.createSession(title: "HT_0383 2026-09-29"))
+        vm.followNewestEpisode()
+        XCTAssertTrue(vm.isTemporarySession, "a temporary session is not moved off while it is open")
 
-        XCTAssertFalse(vm.isTemporarySession)
+        vm.closeTemporarySession()
         XCTAssertEqual(vm.sessionTitle, "HT_0383 2026-09-29")
+        // The listing can spell the temporary folder /private/var.
+        XCTAssertEqual(vm.settings.downloadDirectoryPath.map { URL(fileURLWithPath: $0).standardizedFileURL.path },
+                       next.clipsFolder.standardizedFileURL.path)
     }
 
     /// Opening the Desktop as an episode would have adopted the folder above
@@ -163,13 +170,11 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         try Data("audio".utf8).write(to: audio)
 
         vm.clipNotesEnabled = true
-        vm.downloadPersonField = "Trump"
-        vm.downloadNotesField = "the good part"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path)
 
         XCTAssertEqual(vm.files.count, 1)
-        XCTAssertEqual(vm.files[0].notes, "Trump — the good part", "notes still ride on the row")
+        XCTAssertEqual(vm.files[0].cut, "1:13 to :55", "the cut still rides on the row")
         XCTAssertEqual(try textFiles(in: desk), [], "no notes file beside the download")
         XCTAssertEqual(try textFiles(in: session.clipsFolder), [], "and none in the episode")
         XCTAssertTrue(vm.clipNotesEnabled, "the episodes' preference is kept, not cleared")
@@ -190,22 +195,6 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path, notesFile: notesFile)
 
         XCTAssertEqual(try textFiles(in: session.clipsFolder), [])
-    }
-
-    /// The already-downloaded check folds any notes files it finds into the
-    /// session's one. On a Desktop that would make a `Desktop.txt`.
-    func testTheAlreadyDownloadedCheckDoesNotGatherNotesFiles() throws {
-        let (vm, _) = try makeViewModel()
-        let audio = desk.appendingPathComponent("Some Title.m4a")
-        try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "n", sourceURL: "https://a", forAudioFile: audio)
-        let before = try textFiles(in: desk)
-        XCTAssertTrue(vm.openTemporarySession())
-
-        XCTAssertFalse(vm.adoptAlreadyDownloadedClip(for: "https://a", in: desk))
-
-        XCTAssertEqual(try textFiles(in: desk), before)
-        XCTAssertTrue(vm.files.isEmpty)
     }
 
     // MARK: - An unwritable folder

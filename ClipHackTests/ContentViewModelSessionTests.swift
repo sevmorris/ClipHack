@@ -24,12 +24,10 @@ final class ContentViewModelSessionTests: XCTestCase {
         return vm
     }
 
-    private let aug24 = Date(timeIntervalSince1970: 1_787_529_600)
-
     // MARK: - Opening
 
     func testOpeningASessionPointsBothFoldersAtIt() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
+        let session = try makePreppedEpisode("HT_0380 2026-08-24", in: root)
         let vm = makeViewModel()
 
         vm.openSession(session)
@@ -40,7 +38,7 @@ final class ContentViewModelSessionTests: XCTestCase {
     }
 
     func testSessionTitleFollowsTheOpenSession() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
+        let session = try makePreppedEpisode("HT_0380 2026-08-24", in: root)
         let vm = makeViewModel()
         XCTAssertEqual(vm.sessionTitle, "ClipHack", "no session yet")
 
@@ -49,68 +47,36 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(vm.currentSession?.folder.lastPathComponent, "HT_0380 2026-08-24")
     }
 
-    /// Opening an episode written by an older version folds its per-clip files
-    /// into the session's one file, so the notes read as a single document.
-    func testOpeningASessionFoldsInItsPerClipNotes() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
-        let clipFolder = session.clipsFolder.appendingPathComponent("Some Clip", isDirectory: true)
-        try FileManager.default.createDirectory(at: clipFolder, withIntermediateDirectories: true)
-        let audio = clipFolder.appendingPathComponent("Some Clip.m4a")
-        try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "TRUMP — said it", sourceURL: "https://a", forAudioFile: audio)
-
-        let vm = makeViewModel()
-        vm.openSession(session)
-
-        let records = SessionNotesFile.read(at: vm.sessionNotesURL)
-        XCTAssertEqual(records.count, 1)
-        XCTAssertEqual(records.first?.notes, "TRUMP — said it")
-        XCTAssertEqual(records.first?.sourceURL, "https://a")
-    }
-
     /// Listings of the temporary folder can spell it /private/var;
     /// standardizing drops that, as the store's own tests do.
     private func standardized(_ path: String?) -> String? {
         path.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
     }
 
-    /// The weekly shape: the episode folder is made in the Finder, the menu's
-    /// list is read, and only then does the episode get its clips folder.
-    func testASessionListedBeforeItsClipsFolderExistedOpensIntoIt() throws {
+    /// An episode folder can be read before its clips folder is made in it.
+    /// The next look moves into the clips folder.
+    func testAClipsFolderMadeAfterTheEpisodeIsMovedInto() throws {
         let episode = root.appendingPathComponent("HT_0383 2026-09-29", isDirectory: true)
         try FileManager.default.createDirectory(at: episode, withIntermediateDirectories: true)
         let vm = makeViewModel()
-        vm.loadSessions()
-        let listed = try XCTUnwrap(vm.savedSessions.first)
+        vm.followNewestEpisode()
+        XCTAssertEqual(standardized(vm.settings.downloadDirectoryPath), episode.standardizedFileURL.path,
+                       "an episode with no clips folder is used as it is")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: episode.appendingPathComponent("clips").path),
+                       "ClipHack never makes the clips folder")
 
         let clips = episode.appendingPathComponent("clips", isDirectory: true)
         try FileManager.default.createDirectory(at: clips, withIntermediateDirectories: true)
-        vm.openSession(listed)
+        vm.followNewestEpisode()
 
         XCTAssertEqual(standardized(vm.settings.downloadDirectoryPath), clips.standardizedFileURL.path)
-        XCTAssertEqual(standardized(vm.settings.outputDirectoryPath), clips.standardizedFileURL.path,
-                       "both folders, not the episode folder the menu read")
-    }
-
-    /// A published episode has had its subfolders cleared out. Opening one
-    /// files into the episode folder, as it always has, and makes nothing.
-    func testAnEpisodeWithNoClipsFolderIsOpenedAsItIs() throws {
-        let episode = root.appendingPathComponent("HT_0381 2026-09-15", isDirectory: true)
-        try FileManager.default.createDirectory(at: episode, withIntermediateDirectories: true)
-        let vm = makeViewModel()
-        vm.loadSessions()
-
-        vm.openSession(try XCTUnwrap(vm.savedSessions.first))
-
-        XCTAssertEqual(standardized(vm.settings.outputDirectoryPath), episode.standardizedFileURL.path)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: episode.appendingPathComponent("clips").path),
-                       "opening a session never creates its clips folder")
+        XCTAssertEqual(standardized(vm.settings.outputDirectoryPath), clips.standardizedFileURL.path)
     }
 
     // MARK: - Naming the folders
 
     func testBothFolderRowsNameTheSessionsClipsFolder() throws {
-        let session = try ClipSessionStore.create(title: "HT_0382 2026-09-22", inRoot: root)
+        let session = try makePreppedEpisode("HT_0382 2026-09-22", in: root)
         let vm = makeViewModel()
         vm.openSession(session)
 
@@ -126,69 +92,64 @@ final class ContentViewModelSessionTests: XCTestCase {
                        "HT_0381 2026-09-15")
     }
 
-    // MARK: - Creating
+    // MARK: - Following the newest episode
 
-    func testCreatingASessionMakesTheFolderAndSwitchesToIt() {
+    func testTheNewestEpisodeIsFollowed() throws {
+        try makePreppedEpisode("HT_0378 2026-08-10", in: root)
+        let newest = try makePreppedEpisode("HT_0380 2026-08-24", in: root)
+        try makePreppedEpisode("HT_0379 2026-08-17", in: root)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("TEMPLATES"), withIntermediateDirectories: true)
         let vm = makeViewModel()
-        XCTAssertTrue(vm.createSession(title: "HT_0380 2026-08-24"))
 
-        let clips = root
-            .appendingPathComponent("HT_0380 2026-08-24", isDirectory: true)
-            .appendingPathComponent("clips", isDirectory: true)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: clips.path))
-        XCTAssertEqual(vm.settings.downloadDirectoryPath, clips.path)
+        vm.followNewestEpisode()
+
         XCTAssertEqual(vm.sessionTitle, "HT_0380 2026-08-24")
+        XCTAssertEqual(standardized(vm.settings.downloadDirectoryPath), standardized(newest.clipsFolder.path))
+        XCTAssertEqual(standardized(vm.settings.outputDirectoryPath), standardized(newest.clipsFolder.path))
     }
 
-    func testCreatingRefusesABlankTitle() {
+    /// The weekly shape: prep makes the next episode and clears the last
+    /// one's clips folder out, while ClipHack still points at it.
+    func testPrepsNextEpisodeIsMovedTo() throws {
+        let last = try makePreppedEpisode("HT_0385 2026-10-13", in: root)
         let vm = makeViewModel()
-        XCTAssertFalse(vm.createSession(title: "   "))
+        vm.openSession(last)
+
+        let next = try makePreppedEpisode("HT_0386 2026-10-20", in: root)
+        try FileManager.default.removeItem(at: last.clipsFolder)
+        vm.followNewestEpisode()
+
+        XCTAssertEqual(vm.sessionTitle, "HT_0386 2026-10-20")
+        XCTAssertEqual(standardized(vm.settings.downloadDirectoryPath), standardized(next.clipsFolder.path))
     }
 
-    func testCreatingNeedsAShowRoot() {
+    func testFoldersThatAreNotEpisodesAreNeverFollowed() throws {
+        for name in ["TEMPLATES", "Ads", "Audio assets"] {
+            try FileManager.default.createDirectory(at: root.appendingPathComponent(name), withIntermediateDirectories: true)
+        }
+        let vm = makeViewModel()
+        vm.followNewestEpisode()
+        XCTAssertNil(vm.settings.downloadDirectoryPath)
+        XCTAssertEqual(vm.sessionTitle, "ClipHack")
+    }
+
+    func testTheShowFolderIsTakenFromTheOpenEpisodeWhenNoneIsSet() throws {
+        let open = try makePreppedEpisode("HT_0380 2026-08-24", in: root)
+        let newest = try makePreppedEpisode("HT_0381 2026-08-31", in: root)
         let vm = ContentViewModel()
         vm.settings.sessionRootPath = nil
-        XCTAssertFalse(vm.createSession(title: "HT_0380 2026-08-24"))
-        XCTAssertEqual(vm.alertTitle, "Choose a Show Folder")
-    }
+        vm.settings.downloadDirectoryPath = open.clipsFolder.path
 
-    // MARK: - Suggested name
+        vm.followNewestEpisode()
 
-    func testSuggestedTitleIncrementsFromWhatIsOnDisk() throws {
-        try ClipSessionStore.create(title: "HT_0379 2026-08-17", inRoot: root)
-        let vm = makeViewModel()
-        vm.now = { [aug24] in aug24 }
-        XCTAssertEqual(
-            vm.suggestedSessionTitle,
-            "HT_0380 \(ClipSessionStore.dateString(aug24))"
-        )
-    }
-
-    // MARK: - Listing
-
-    func testSessionsAreListedFromTheShowRoot() throws {
-        try ClipSessionStore.create(title: "HT_0378 2026-08-10", inRoot: root)
-        try ClipSessionStore.create(title: "HT_0379 2026-08-17", inRoot: root)
-        let vm = makeViewModel()
-        vm.loadSessions()
-        XCTAssertEqual(vm.savedSessions.map(\.title), ["HT_0379 2026-08-17", "HT_0378 2026-08-10"])
-    }
-
-    func testShowRootIsAdoptedFromAHandPickedFolder() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
-        let vm = ContentViewModel()
-        vm.settings.sessionRootPath = nil
-        vm.downloadDirectoryPicker = { session.clipsFolder.path }
-
-        XCTAssertTrue(vm.chooseDownloadDirectory())
-        XCTAssertEqual(vm.settings.sessionRootPath, root.standardizedFileURL.path,
-                       "picking an episode's clips folder should adopt the show folder above it")
+        XCTAssertEqual(vm.settings.sessionRootPath, root.standardizedFileURL.path)
+        XCTAssertEqual(standardized(vm.settings.downloadDirectoryPath), newest.clipsFolder.standardizedFileURL.path)
     }
 
     // MARK: - Presets must not move folders
 
     func testApplyingAPresetKeepsEveryFolderTheUserChose() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
+        let session = try makePreppedEpisode("HT_0380 2026-08-24", in: root)
         let vm = makeViewModel()
         vm.openSession(session)
 
@@ -202,100 +163,43 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(vm.sessionTitle, "HT_0380 2026-08-24",
                        "switching preset must not drop you out of your session")
     }
-    // MARK: - Picking up a pre-session setup
-
-    func testASessionShapedOutputFolderIsAdoptedOnLaunch() throws {
-        let session = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
-        let vm = makeViewModel()
-        // The shape before sessions existed: output pointed at the episode,
-        // downloads still went to the default folder.
-        vm.settings.downloadDirectoryPath = nil
-        vm.settings.outputDirectoryPath = session.clipsFolder.path
-
-        vm.adoptSessionFromOutputFolderIfNeeded()
-
-        XCTAssertEqual(vm.sessionTitle, "HT_0379 2026-08-24")
-        XCTAssertEqual(vm.settings.downloadDirectoryPath, session.clipsFolder.path)
-    }
-
-    func testAnAlreadyChosenDownloadFolderIsNotOverridden() throws {
-        let a = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
-        let b = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
-        let vm = makeViewModel()
-        vm.settings.downloadDirectoryPath = b.clipsFolder.path
-        vm.settings.outputDirectoryPath = a.clipsFolder.path
-
-        vm.adoptSessionFromOutputFolderIfNeeded()
-
-        XCTAssertEqual(vm.settings.downloadDirectoryPath, b.clipsFolder.path,
-                       "an explicit download folder wins over the guess")
-    }
-
-    func testAnUnrelatedOutputFolderIsNotAdopted() {
-        let vm = makeViewModel()
-        vm.settings.downloadDirectoryPath = nil
-        vm.settings.outputDirectoryPath = root.appendingPathComponent("Renders").path
-
-        vm.adoptSessionFromOutputFolderIfNeeded()
-
-        XCTAssertNil(vm.settings.downloadDirectoryPath)
-        XCTAssertEqual(vm.sessionTitle, "ClipHack", "only a folder named clips counts as an episode")
-    }
-
     func testSubtitleNamesTheShowAndIsEmptyWithoutASession() throws {
         let vm = makeViewModel()
         XCTAssertEqual(vm.sessionSubtitle, "", "no session, no subtitle")
 
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
+        let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
         vm.openSession(session)
         XCTAssertEqual(vm.sessionSubtitle, root.lastPathComponent)
     }
-    func testAMisPickedShowRootIsRepairedOnLaunch() throws {
-        let session = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
-        let vm = makeViewModel()
-        // What "Choose Show Folder…" produces when the episode is picked.
-        vm.settings.sessionRootPath = session.folder.path
-
-        vm.normalizeSessionRootIfNeeded()
-
-        XCTAssertEqual(vm.settings.sessionRootPath, root.path)
-        vm.loadSessions()
-        XCTAssertEqual(vm.savedSessions.map(\.title), ["HT_0379 2026-08-24"],
-                       "and the menu lists episodes again, not ads/clips/recordings")
-    }
-
     func testChoosingAnEpisodeAsTheShowFolderResolvesUpward() throws {
-        let session = try ClipSessionStore.create(title: "HT_0379 2026-08-24", inRoot: root)
+        let session = try makePreppedEpisode("HT_0379 2026-08-24", in: root)
         let vm = makeViewModel()
         vm.sessionRootPicker = { session.folder.path }
 
         XCTAssertTrue(vm.chooseSessionRoot())
         XCTAssertEqual(vm.settings.sessionRootPath, root.path)
+        XCTAssertEqual(vm.sessionTitle, "HT_0379 2026-08-24", "and its newest episode is opened")
     }
     // MARK: - Editing the clip list targets the right clip
 
     // MARK: - One file per session
 
     func testDownloadsLandInTheSessionFile() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
-        let clipDir = session.clipsFolder.appendingPathComponent("Some Title", isDirectory: true)
-        try FileManager.default.createDirectory(at: clipDir, withIntermediateDirectories: true)
-        let audio = clipDir.appendingPathComponent("Some Title.m4a")
+        let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
+        let audio = session.clipsFolder.appendingPathComponent("Some Title 1.13 to .55.m4a")
         try Data("audio".utf8).write(to: audio)
 
         let vm = makeViewModel()
         vm.openSession(session)
         vm.clipNotesEnabled = true
-        vm.downloadPersonField = "Trump"
-        vm.downloadNotesField = "the good part"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path)
 
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
         let records = SessionNotesFile.read(at: file)
         XCTAssertEqual(records.count, 1)
-        XCTAssertEqual(records.first?.filename, "Some Title.m4a")
-        XCTAssertEqual(records.first?.notes, "", "the person and notes stay on the row")
+        XCTAssertEqual(records.first?.filename, "Some Title 1.13 to .55.m4a")
+        XCTAssertEqual(records.first?.notes, "")
         XCTAssertEqual(records.first?.timestamp, "1:13 to :55")
         XCTAssertEqual(records.first?.sourceURL, "https://x.com/a/status/1")
     }
@@ -303,8 +207,8 @@ final class ContentViewModelSessionTests: XCTestCase {
     /// A download is recorded in the notes of the session it was started in,
     /// which is where its audio went — not whichever is open when it ends.
     func testADownloadFinishedAfterSwitchingIsRecordedWhereItStarted() throws {
-        let started = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
-        let switched = try ClipSessionStore.create(title: "HT_0381 2026-09-07", inRoot: root)
+        let started = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
+        let switched = try makePreppedEpisode("HT_0381 2026-09-07", in: root)
         let audio = started.clipsFolder.appendingPathComponent("Some Title.m4a")
         try Data("audio".utf8).write(to: audio)
 
@@ -322,15 +226,13 @@ final class ContentViewModelSessionTests: XCTestCase {
     }
 
     func testAClipAlreadyInTheSessionIsAdoptedRatherThanRefetched() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
-        let clipDir = session.clipsFolder.appendingPathComponent("Some Title", isDirectory: true)
-        try FileManager.default.createDirectory(at: clipDir, withIntermediateDirectories: true)
-        let audio = clipDir.appendingPathComponent("Some Title.m4a")
+        let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
+        let audio = session.clipsFolder.appendingPathComponent("Some Title.m4a")
         try Data("audio".utf8).write(to: audio)
 
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
         try SessionNotesFile.write([
-            ClipNotesFile.Record(filename: "Some Title.m4a", notes: "n", sourceURL: "https://x.com/a/status/1"),
+            ClipRecord(filename: "Some Title.m4a", notes: "", sourceURL: "https://x.com/a/status/1"),
         ], to: file)
 
         let vm = makeViewModel()
@@ -340,19 +242,57 @@ final class ContentViewModelSessionTests: XCTestCase {
         XCTAssertEqual(vm.files.count, 1)
     }
 
-    func testADeletedClipDoesNotBlockDownloadingItAgain() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-31", inRoot: root)
+    /// Its file has moved on — processed with the original trashed, or filed
+    /// by the clip skill — but its block is still there. ClipHack asks before
+    /// fetching it again, rather than handing the skill a duplicate.
+    func testALinkWhoseFileHasMovedOnIsAskedAboutBeforeDownloading() throws {
+        let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
         let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
-        // Its block survives; its audio does not.
         try SessionNotesFile.write([
-            ClipNotesFile.Record(filename: "Gone.m4a", notes: "n", sourceURL: "https://a"),
+            ClipRecord(filename: "Gone.m4a", notes: "", sourceURL: "https://x.com/a/status/1"),
         ], to: file)
-
         let vm = makeViewModel()
         vm.openSession(session)
-        XCTAssertFalse(vm.adoptAlreadyDownloadedClip(for: "https://a", in: session.clipsFolder))
-        let record = try XCTUnwrap(SessionNotesFile.read(at: file).first)
-        XCTAssertNil(vm.audioURL(for: record, in: session.clipsFolder),
-                     "the block survives, but nothing on disk answers to it")
+        XCTAssertFalse(vm.adoptAlreadyDownloadedClip(for: "https://x.com/a/status/1", in: session.clipsFolder),
+                       "nothing on disk to add instead")
+
+        vm.downloadURLField = "https://x.com/a/status/1?s=43"
+        vm.startDownload()
+
+        XCTAssertEqual(vm.downloadState, .alreadyDownloaded(url: "https://x.com/a/status/1?s=43", filename: "Gone.m4a"))
+        XCTAssertFalse(vm.isDownloading)
+        XCTAssertEqual(vm.downloadURLField, "https://x.com/a/status/1?s=43", "the form is kept for Download Again")
+    }
+
+    /// Download Again only answers the question that was asked.
+    func testDownloadAgainWithoutBeingAskedStillAsks() throws {
+        let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
+        let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
+        try SessionNotesFile.write([
+            ClipRecord(filename: "Gone.m4a", notes: "", sourceURL: "https://a"),
+        ], to: file)
+        let vm = makeViewModel()
+        vm.openSession(session)
+        vm.downloadURLField = "https://a"
+
+        vm.startDownload(again: true)
+
+        XCTAssertEqual(vm.downloadState, .alreadyDownloaded(url: "https://a", filename: "Gone.m4a"))
+        XCTAssertFalse(vm.isDownloading)
+    }
+
+    func testTypingAnotherLinkTakesTheQuestionAway() throws {
+        let session = try makePreppedEpisode("HT_0380 2026-08-31", in: root)
+        let file = SessionNotesFile.url(inClipsFolder: session.clipsFolder, title: session.title)
+        try SessionNotesFile.write([ClipRecord(filename: "Gone.m4a", notes: "", sourceURL: "https://a")], to: file)
+        let vm = makeViewModel()
+        vm.openSession(session)
+        vm.downloadURLField = "https://a"
+        vm.startDownload()
+
+        vm.downloadURLField = "https://b"
+        vm.downloadURLFieldChanged()
+
+        XCTAssertEqual(vm.downloadState, .idle)
     }
 }

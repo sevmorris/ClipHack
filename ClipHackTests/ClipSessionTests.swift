@@ -113,49 +113,20 @@ final class ClipSessionTests: XCTestCase {
         )
     }
 
-    // MARK: - Naming the next session
+    // MARK: - The newest episode
 
-    private let aug24 = Date(timeIntervalSince1970: 1_787_529_600)  // 2026-08-24 UTC
-
-    func testNextTitleIncrementsFromTheHighestEpisode() throws {
+    func testTheNewestEpisodeIsTheHighestNumbered() throws {
         try makeEpisode("HT_0378 2026-08-10")
+        try makeEpisode("HT_0380 2026-08-24")
         try makeEpisode("HT_0379 2026-08-17")
-        XCTAssertEqual(
-            ClipSessionStore.nextTitle(inRoot: root, date: aug24),
-            "HT_0380 \(ClipSessionStore.dateString(aug24))"
-        )
+        try makeEpisode("TEMPLATES", withClipsFolder: false)
+        XCTAssertEqual(ClipSessionStore.newestEpisode(inRoot: root)?.title, "HT_0380 2026-08-24")
     }
 
-    func testNextTitleKeepsTheZeroPaddingAlreadyInUse() throws {
-        try makeEpisode("HT_12 2026-08-17")
-        XCTAssertEqual(
-            ClipSessionStore.nextTitle(inRoot: root, date: aug24),
-            "HT_13 \(ClipSessionStore.dateString(aug24))"
-        )
-    }
-
-    func testNextTitleRollsPastTheDigitWidthWhenItHasTo() throws {
-        try makeEpisode("HT_0999 2026-08-17")
-        XCTAssertEqual(
-            ClipSessionStore.nextTitle(inRoot: root, date: aug24).hasPrefix("HT_1000 "),
-            true
-        )
-    }
-
-    func testFoldersThatAreNotEpisodesAreIgnoredWhenNumbering() throws {
-        try makeEpisode("HT_0379 2026-08-17")
-        try makeEpisode("Archive")
-        try makeEpisode("HTML notes")
-        XCTAssertEqual(ClipSessionStore.nextEpisodeNumber(inRoot: root).number, 380)
-    }
-
-    func testFirstEpisodeInAnEmptyRoot() {
-        XCTAssertEqual(ClipSessionStore.nextEpisodeNumber(inRoot: root).number, 1)
-    }
-
-    func testDateStringIsFixedFormat() {
-        XCTAssertEqual(ClipSessionStore.dateString(aug24).count, 10)
-        XCTAssertEqual(ClipSessionStore.dateString(aug24).filter { $0 == "-" }.count, 2)
+    func testAShowFolderWithNoEpisodesHasNoNewest() throws {
+        try makeEpisode("Ads", withClipsFolder: false)
+        try makeEpisode("Audio assets", withClipsFolder: false)
+        XCTAssertNil(ClipSessionStore.newestEpisode(inRoot: root))
     }
 
     func testEpisodeDigitsOnlyMatchesThePrefix() {
@@ -165,21 +136,6 @@ final class ClipSessionTests: XCTestCase {
         XCTAssertNil(ClipSessionStore.episodeDigits("Archive"))
     }
 
-    // MARK: - Creating
-
-    func testCreateMakesTheEpisodeAndItsClipsFolder() throws {
-        let session = try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
-        var isDir: ObjCBool = false
-        XCTAssertTrue(FileManager.default.fileExists(atPath: session.clipsFolder.path, isDirectory: &isDir))
-        XCTAssertTrue(isDir.boolValue)
-        XCTAssertEqual(session.clipsFolder.lastPathComponent, "clips")
-        XCTAssertEqual(session.title, "HT_0380 2026-08-24")
-    }
-
-    func testACreatedSessionShowsUpInTheList() throws {
-        try ClipSessionStore.create(title: "HT_0380 2026-08-24", inRoot: root)
-        XCTAssertEqual(ClipSessionStore.sessions(inRoot: root).map(\.title), ["HT_0380 2026-08-24"])
-    }
     // Production builds these URLs with isDirectory: true, which appends a
     // trailing slash. The earlier tests used the no-flag form, so this shape
     // was never exercised.
