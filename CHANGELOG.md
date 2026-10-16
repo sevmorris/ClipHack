@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.30.0] — 2026-10-16
 
 **Changed**
 - **A clip's cut is in the downloaded file's name, and only there.** Type `1:13 to :55` as the cut when you download, and the clip arrives as `Some Title 1.13 to .55.m4a`, so the cut is in front of you while you make it. A file name can't hold a colon, so each one is written as a period. The cut follows the custom name when you typed one, and the source title when you didn't. The cut is made before the clip is processed, so the processed clip is named without it: `Some Title-44knorm-clipped-1dB.wav`. **Set Cut…** renames the file the same way, and **Change Cut…** replaces the cut in the name rather than adding a second one; the clip's block in the notes file follows it to the new name. The notes file and the row keep the cut with its colons. Because the name carries the cut, **Set Cut…** works in a temporary session and with Save clip notes off too, where it renames the file only. It can't be used while a clip is being analyzed or processed, as **Rename…** can't.
