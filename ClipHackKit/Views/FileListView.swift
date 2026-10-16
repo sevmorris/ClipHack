@@ -60,7 +60,7 @@ struct FileListView: View {
                         } label: {
                             Label(file.cut == nil ? "Set Cut…" : "Change Cut…", systemImage: "scissors")
                         }
-                        .disabled(!viewModel.canSetCut)
+                        .disabled(!viewModel.canSetCut(file))
 
                         // Row menus cover clicks on rows; keep the list-level
                         // action reachable here too.
@@ -166,7 +166,8 @@ struct FileRowView: View {
                 }
             }
 
-            // The part to keep, as the session's notes file has it.
+            // The part to keep, as it was typed — the file name has it too,
+            // with periods for colons.
             if let cut = file.cut, !cut.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "scissors")
@@ -176,7 +177,7 @@ struct FileRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .help("The cut in the session's notes file. Right-click to change it.")
+                .help("The cut, also at the end of the file name. Right-click to change it.")
             }
 
             // What the clip actually is, not just what it's called — typed when

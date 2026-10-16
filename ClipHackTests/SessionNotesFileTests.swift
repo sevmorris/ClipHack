@@ -283,6 +283,26 @@ final class SessionNotesFileTests: XCTestCase {
         XCTAssertEqual(records.map(\.timestamp), [":18 to end"], "found by its link despite the rename")
     }
 
+    func testARenamedClipsBlockTakesItsNewName() throws {
+        try SessionNotesFile.recordAddedFiles(named: ["Talarico.wav"], at: file)
+        try SessionNotesFile.setCut("1:23 to :52", filename: "Talarico.wav",
+                                    renamedTo: "Talarico 1.23 to .52.wav", at: file)
+        XCTAssertEqual(SessionNotesFile.read(at: file),
+                       [record("Talarico 1.23 to .52.wav", notes: "", timestamp: "1:23 to :52", url: "")])
+    }
+
+    func testADownloadFoundByItsLinkTakesItsNewName() throws {
+        try SessionNotesFile.upsert(record("Rupar.m4a", notes: "", url: "https://x.com/acyn/status/2109406640567161167"), at: file)
+        try SessionNotesFile.setCut(":18 to end", filename: "Rupar.m4a", renamedTo: "Rupar .18 to end.m4a",
+                                    source: "https://x.com/acyn/status/2109406640567161167", at: file)
+        XCTAssertEqual(SessionNotesFile.read(at: file).map(\.filename), ["Rupar .18 to end.m4a"])
+    }
+
+    func testACutForAnUnlistedRenamedFileListsItByItsNewName() throws {
+        try SessionNotesFile.setCut("to :03", filename: "Collins.wav", renamedTo: "Collins to .03.wav", at: file)
+        XCTAssertEqual(SessionNotesFile.read(at: file).map(\.filename), ["Collins to .03.wav"])
+    }
+
     func testACutIsSetOnAFileAddedByHandByItsName() throws {
         try SessionNotesFile.recordAddedFiles(named: ["Talarico.wav"], at: file)
         try SessionNotesFile.setCut("1:23 to :52", filename: "Talarico.wav", at: file)

@@ -7,13 +7,15 @@ final class YtDlpServiceTests: XCTestCase {
         url: String = "https://example.com/watch?v=abc123",
         destination: String = "/Users/test/Music/ClipHack",
         ffmpegDirectory: String = "/Applications/ClipHack.app/Contents/Resources",
-        customStem: String? = nil
+        customStem: String? = nil,
+        cut: String = ""
     ) -> [String] {
         YtDlpService.buildArguments(
             url: url,
             destination: destination,
             ffmpegDirectory: ffmpegDirectory,
-            customStem: customStem
+            customStem: customStem,
+            cut: cut
         )
     }
 
@@ -141,6 +143,27 @@ final class YtDlpServiceTests: XCTestCase {
 
     func testNoCustomStemKeepsDefaultTitleTemplate() {
         XCTAssertEqual(value(after: "-o", in: args()), "%(title)s.%(ext)s")
+    }
+
+    // MARK: - The cut in the output template
+
+    func testACutEndsACustomName() {
+        XCTAssertEqual(value(after: "-o", in: args(customStem: "Trump drill", cut: "1:13 to :55")),
+                       "Trump drill 1.13 to .55.%(ext)s")
+    }
+
+    func testACutEndsTheSourceTitle() {
+        XCTAssertEqual(value(after: "-o", in: args(cut: "1:13 to :55")),
+                       "%(title)s 1.13 to .55.%(ext)s")
+    }
+
+    func testACutEscapesPercentForTemplateSyntax() {
+        XCTAssertEqual(value(after: "-o", in: args(cut: "first 50%")), "%(title)s first 50%%.%(ext)s")
+    }
+
+    func testABlankCutLeavesTheTemplateAlone() {
+        XCTAssertEqual(value(after: "-o", in: args(cut: "  ")), "%(title)s.%(ext)s")
+        XCTAssertEqual(value(after: "-o", in: args(customStem: "Clip", cut: "")), "Clip.%(ext)s")
     }
 
     // MARK: - Stem sanitization

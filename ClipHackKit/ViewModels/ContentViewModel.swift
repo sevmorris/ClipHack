@@ -330,12 +330,14 @@ final class ContentViewModel {
     var cutTargetID: UUID?
     var cutField: String = ""
 
-    /// A cut is kept in the session's notes file, so there has to be one: not
-    /// in a temporary session, nor with Save clip notes off.
-    var canSetCut: Bool { clipNotesEnabled && downloadNotesFile != nil }
+    /// A cut goes in the clip's file name, so a row takes one whenever its file
+    /// can be renamed. The notes file is written too when there is one, but
+    /// the cut doesn't depend on it: a temporary session, or Save clip notes
+    /// off, gets the name alone.
+    func canSetCut(_ file: FileItem) -> Bool { isRenamable(file) }
 
     func beginCut(_ id: UUID) {
-        guard canSetCut, let file = files.first(where: { $0.id == id }) else { return }
+        guard let file = files.first(where: { $0.id == id }), canSetCut(file) else { return }
         cutField = file.cut ?? ""
         cutTargetID = id
     }
@@ -351,23 +353,57 @@ final class ContentViewModel {
         cancelCut()
     }
 
-    /// Records `rawCut` for a row's clip in the session's notes file and shows
-    /// it on the row; an empty cut removes it. A clip downloaded in this run
-    /// is found by its link, anything else by its file name — so a clip that
-    /// was renamed after an earlier run's download gets a block of its own.
+    /// Sets a row's cut, or removes it when `rawCut` is empty. The file is
+    /// renamed so its name ends with the new cut in place of the row's old one
+    /// (`ClipCutName`), the row shows it, and the session's notes file records
+    /// it under the new name.
+    ///
+    /// In the notes, a clip downloaded in this run is found by its link and
+    /// anything else by its file name — so a clip renamed by hand after an
+    /// earlier run's download gets a block of its own.
     func setCut(_ rawCut: String, for id: UUID) {
-        guard clipNotesEnabled, let notesFile = downloadNotesFile,
-              let index = files.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = files.firstIndex(where: { $0.id == id }) else { return }
         let cut = rawCut.trimmingCharacters(in: .whitespacesAndNewlines)
+        let oldName = files[index].url.lastPathComponent
+        let stem = files[index].url.deletingPathExtension().lastPathComponent
+        let newStem = ClipCutName.stem(ClipCutName.baseStem(stem, cut: files[index].cut ?? ""), cut: cut)
+
+        let failure: String?
+        switch renameFile(id: id, to: newStem) {
+        case .renamed:
+            failure = nil
+        case .notRenamable:
+            failure = "The cut goes in the clip's file name, which can't change while the clip is being analyzed or processed, or once it is in the Trash."
+        case .invalidName:
+            failure = "The cut leaves the clip with no usable file name."
+        case .nameTaken:
+            let ext = files[index].url.pathExtension
+            failure = "A file named \"\(ext.isEmpty ? newStem : "\(newStem).\(ext)")\" already exists in the same folder."
+        case .renameFailed(let message):
+            failure = message
+        }
+        if let failure {
+            alertTitle = "Cut Not Set"
+            alertMessage = failure
+            return
+        }
+        // The name carries the cut now, so the row shows it even if the notes
+        // can't be written.
+        files[index].cut = cut.isEmpty ? nil : cut
+
+        guard clipNotesEnabled, let notesFile = downloadNotesFile else { return }
         let source = downloadedURLToFileID.first(where: { $0.value == id })?.key
         do {
             try SessionNotesFile.setCut(
-                cut, filename: files[index].url.lastPathComponent, source: source, at: notesFile
+                cut,
+                filename: oldName,
+                renamedTo: files[index].url.lastPathComponent,
+                source: source,
+                at: notesFile
             )
-            files[index].cut = cut.isEmpty ? nil : cut
         } catch {
             alertTitle = "Notice"
-            alertMessage = "The cut could not be written to the clip notes: \(error.localizedDescription)"
+            alertMessage = "The file is renamed, but the cut could not be written to the clip notes: \(error.localizedDescription)"
         }
     }
 
@@ -418,15 +454,11 @@ final class ContentViewModel {
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
     /// Optional free-text carried onto the added row — the row only; the notes
-    /// file does not record it. Line one becomes this clip's description;
-    /// anything typed below it is scratch (timings) and rides along untouched.
+    /// file does not record it.
     var downloadNotesField: String = ""
-    /// Who is *in* the clip — the speaker, not whoever posted it. Auto-filled
-    /// from the post's own text when a name can be read confidently, left blank
-    /// when it can't.
-    var downloadPersonField: String = ""
-    /// The cut to make, e.g. "1:13 to :55". Written on its own line in the
-    /// session's notes file.
+    /// The cut to make, e.g. "1:13 to :55". It ends the downloaded file's name
+    /// (`ClipCutName`) and is written on its own line in the session's notes
+    /// file.
     var downloadTimestampField: String = ""
     /// "Save clip notes": record each download in the session's notes file.
     /// Persisted across launches.
@@ -493,10 +525,6 @@ final class ContentViewModel {
     /// user has typed or edited (never touched). nil once the user edits them or
     /// we clear them.
     private var autoFilledNotes: String?
-    /// The same idea for Person: what a fetch filled, so moving the URL to a
-    /// different post can drop machine-written text without ever clearing a
-    /// name the user typed.
-    private var autoFilledPerson: String?
 
     /// Trimmed http(s) URL, or nil if the string isn't a usable web URL.
     static func validatedWebURL(_ raw: String) -> String? {
@@ -588,16 +616,8 @@ final class ContentViewModel {
               downloadURLField == urlString,
               downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return }
-        // The account that posted a clip is usually not the person in it, so
-        // the name is read out of the post's own text and left empty when it
-        // can't be read confidently — a wrong name reads as correct.
-        let (person, description) = ClipPersonName.extract(fromPostText: text)
-        downloadNotesField = description
-        autoFilledNotes = description
-        if let person, downloadPersonField.trimmingCharacters(in: .whitespaces).isEmpty {
-            downloadPersonField = person
-            autoFilledPerson = person
-        }
+        downloadNotesField = text
+        autoFilledNotes = text
     }
 
     /// Clears Notes only when they still hold exactly what a previous auto-fill
@@ -609,12 +629,6 @@ final class ContentViewModel {
             downloadNotesField = ""
             autoFilledNotes = nil
         }
-        // Checked separately: the user may have rewritten one field and left
-        // the other exactly as the fetch filled it.
-        if let auto = autoFilledPerson, downloadPersonField == auto {
-            downloadPersonField = ""
-            autoFilledPerson = nil
-        }
     }
 
     /// Resets the X-post Notes auto-fill bookkeeping when the download form is
@@ -623,7 +637,6 @@ final class ContentViewModel {
     private func resetNotesAutoFillState() {
         lastPrefilledStatusID = nil
         autoFilledNotes = nil
-        autoFilledPerson = nil
     }
 
     /// Notes for a clip being added back to the list. Only files an earlier
@@ -718,7 +731,6 @@ final class ContentViewModel {
         downloadURLField = ""
         downloadNameField = ""
         downloadNotesField = ""
-        downloadPersonField = ""
         downloadTimestampField = ""
         resetNotesAutoFillState()
         downloadState = .idle
@@ -812,6 +824,7 @@ final class ContentViewModel {
         }
 
         let stem = YtDlpService.sanitizedStem(downloadNameField)
+        let cut = downloadTimestampField
         downloadState = .downloading(progress: "Starting download…")
 
         // `[self]` states what the Task already did implicitly: it holds the view
@@ -819,7 +832,7 @@ final class ContentViewModel {
         downloadTask = Task { [self] in
             defer { downloadTask = nil }
             do {
-                let path = try await YtDlpService.shared.downloadAudio(url: url, destination: destination, customStem: stem) { [weak self] line in
+                let path = try await YtDlpService.shared.downloadAudio(url: url, destination: destination, customStem: stem, cut: cut) { [weak self] line in
                     guard let self else { return }
                     Task { @MainActor in
                         // Stale lines can trail a finished/failed download —
@@ -864,16 +877,7 @@ final class ContentViewModel {
             return
         }
 
-        // Line one of the notes says who is in the clip and what it is —
-        // "Person — what they said" — and anything typed below it is kept as-is.
-        let box = ClipNotesLine.splitNotesBox(
-            downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        let notes = ClipNotesLine.compose(
-            person: downloadPersonField.trimmingCharacters(in: .whitespaces),
-            description: box.description,
-            extra: box.extra
-        )
+        let notes = downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
         if !notes.isEmpty {
             files[index].notes = notes
         }
@@ -885,8 +889,8 @@ final class ContentViewModel {
         // Recorded in the session's own notes file, beside the audio.
         if clipNotesEnabled, let notesFile {
             do {
-                // The filename, the cut and the source — not the person or the
-                // notes, which stay on the row. The filename is written even
+                // The filename, the cut and the source — not the notes, which
+                // stay on the row. The filename is written even
                 // when it was typed by hand: with no notes beside it, it is the
                 // only line that says which clip a block is. The source is what
                 // the file is matched on, for replacing a block and for the

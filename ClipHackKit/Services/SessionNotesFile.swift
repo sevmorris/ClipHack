@@ -25,7 +25,7 @@ import Foundation
 /// the next time the file is written.
 ///
 /// A download records its filename, the cut when one was entered, and the
-/// source URL — never the person or the notes. Blocks an earlier version wrote
+/// source URL — never the notes. Blocks an earlier version wrote
 /// with notes in them still parse, and keep their notes when the file is
 /// rewritten: the parser cannot always tell a free-form cut from notes, so
 /// dropping notes on the way out would eat cuts too.
@@ -275,7 +275,17 @@ nonisolated enum SessionNotesFile {
     /// Sets the cut of one clip: the block whose link is `source` when that is
     /// known, else the one named `filename`, else a new block for it. An empty
     /// cut removes the clip's `CUT` line and adds nothing.
-    static func setCut(_ cut: String, filename: String, source: String? = nil, at url: URL) throws {
+    ///
+    /// `renamedTo` is the clip's name after its file was renamed to carry the
+    /// cut (`ClipCutName`). The block takes that name, so the clip is still
+    /// found by it the next time it is added.
+    static func setCut(
+        _ cut: String,
+        filename: String,
+        renamedTo newFilename: String? = nil,
+        source: String? = nil,
+        at url: URL
+    ) throws {
         var records = read(at: url)
         let cut = trimmed(cut)
         let bySource = source.flatMap { source in
@@ -283,9 +293,10 @@ nonisolated enum SessionNotesFile {
         }
         if let index = bySource ?? records.firstIndex(where: { $0.filename == filename }) {
             records[index].timestamp = cut
+            if let newFilename { records[index].filename = newFilename }
         } else if !cut.isEmpty {
             records.append(ClipNotesFile.Record(
-                filename: filename, notes: "", timestamp: cut, sourceURL: source ?? ""
+                filename: newFilename ?? filename, notes: "", timestamp: cut, sourceURL: source ?? ""
             ))
         } else {
             return

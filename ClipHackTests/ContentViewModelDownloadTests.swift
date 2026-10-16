@@ -177,7 +177,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
         vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
         vm.downloadNameField = "Title"          // named by hand
-        vm.downloadPersonField = "Trump"
         vm.downloadNotesField = "the good part"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(
@@ -192,14 +191,13 @@ final class ContentViewModelDownloadTests: XCTestCase {
         )
     }
 
-    func testTheCutGoesOnItsOwnLineAndThePersonAndNotesStayOnTheRow() throws {
+    func testTheCutGoesOnItsOwnLineAndTheNotesStayOnTheRow() throws {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
-        vm.downloadPersonField = "Trump"
         vm.downloadNotesField = "the good part\n:30 in"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(
@@ -215,7 +213,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(record.notes, "")
         XCTAssertEqual(record.timestamp, "1:13 to :55", "the cut is kept on its own line")
         XCTAssertEqual(record.sourceURL, "https://example.com/watch?v=abc")
-        XCTAssertEqual(vm.files[0].notes, "Trump — the good part\n:30 in")
+        XCTAssertEqual(vm.files[0].notes, "the good part\n:30 in")
     }
 
     /// A session file an earlier version wrote holds notes. The next download
@@ -293,9 +291,29 @@ final class ContentViewModelDownloadTests: XCTestCase {
                        ["https://example.com/watch?v=abc"], "not also listed by name")
     }
 
-    func testSettingACutWritesItUnderTheClipAndShowsItOnTheRow() throws {
+    /// An audio file in `dir` for a cut to rename. A row is renamable only
+    /// once its analysis has finished, which in a test never comes, so the
+    /// row is marked as having got that far.
+    private func makeAudio(_ name: String, in dir: URL) throws -> URL {
+        let url = dir.appendingPathComponent(name)
+        try Data("audio".utf8).write(to: url)
+        return url
+    }
+
+    private func settle(_ vm: ContentViewModel) {
+        for index in vm.files.indices { vm.files[index].status = .pending }
+    }
+
+    private func names(in dir: URL) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { !$0.hasSuffix(".txt") }
+            .sorted()
+    }
+
+    func testSettingACutRenamesTheFileWritesItUnderTheClipAndShowsItOnTheRow() throws {
         let (vm, dir) = try makeSessionViewModel()
-        vm.addFiles([dir.appendingPathComponent("Collins.wav")])
+        vm.addFiles([try makeAudio("Collins.wav", in: dir)])
+        settle(vm)
         let id = try XCTUnwrap(vm.files.first?.id)
 
         vm.beginCut(id)
@@ -303,30 +321,94 @@ final class ContentViewModelDownloadTests: XCTestCase {
         vm.confirmCut()
 
         XCTAssertEqual(vm.files.first?.cut, ":18 to end")
+        XCTAssertEqual(vm.files.first?.url.lastPathComponent, "Collins .18 to end.wav")
+        XCTAssertEqual(try names(in: dir), ["Collins .18 to end.wav"])
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            "Collins.wav\n    CUT  :18 to end\n"
+            "Collins .18 to end.wav\n    CUT  :18 to end\n",
+            "the block follows the file to its new name"
         )
 
         vm.setCut("", for: id)
         XCTAssertNil(vm.files.first?.cut)
-        XCTAssertEqual(SessionNotesFile.read(at: vm.sessionNotesURL).first?.timestamp, "")
+        XCTAssertEqual(try names(in: dir), ["Collins.wav"], "removing the cut takes it out of the name")
+        XCTAssertEqual(SessionNotesFile.read(at: vm.sessionNotesURL),
+                       [ClipNotesFile.Record(filename: "Collins.wav", notes: "", timestamp: "", sourceURL: "")])
     }
 
-    func testChangingADownloadsCutKeepsItsLink() throws {
+    func testChangingADownloadsCutReplacesItInTheNameAndKeepsItsLink() throws {
         let (vm, dir) = try makeSessionViewModel()
         vm.downloadTimestampField = "1:13 to :55"
+        // yt-dlp has already named it with the cut by the time it finishes.
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
-            filePath: dir.appendingPathComponent("Title.m4a").path
+            filePath: try makeAudio("Title 1.13 to .55.m4a", in: dir).path
         )
+        settle(vm)
         let id = try XCTUnwrap(vm.files.first?.id)
         XCTAssertEqual(vm.files.first?.cut, "1:13 to :55", "the download's cut shows on its row")
 
         vm.setCut("0:20 to end", for: id)
+        XCTAssertEqual(try names(in: dir), ["Title 0.20 to end.m4a"], "the old cut is replaced, not added to")
         let records = SessionNotesFile.read(at: vm.sessionNotesURL)
+        XCTAssertEqual(records.map(\.filename), ["Title 0.20 to end.m4a"])
         XCTAssertEqual(records.map(\.timestamp), ["0:20 to end"])
         XCTAssertEqual(records.map(\.sourceURL), ["https://example.com/watch?v=abc"])
+    }
+
+    func testACutGoesOnTheEndOfANameThatDoesNotHaveTheRowsCut() throws {
+        let (vm, dir) = try makeSessionViewModel()
+        vm.addFiles([try makeAudio("Hamilton.wav", in: dir)])
+        settle(vm)
+        let id = try XCTUnwrap(vm.files.first?.id)
+        // A cut set before cuts went into names: the row has it, the name doesn't.
+        vm.files[0].cut = "1:23 to :52"
+
+        vm.setCut("1:30 to :52", for: id)
+        XCTAssertEqual(try names(in: dir), ["Hamilton 1.30 to .52.wav"])
+    }
+
+    func testACutWhoseNameIsTakenChangesNothing() throws {
+        let (vm, dir) = try makeSessionViewModel()
+        vm.addFiles([try makeAudio("Collins.wav", in: dir)])
+        _ = try makeAudio("Collins 1.13 to .55.wav", in: dir)
+        settle(vm)
+        let id = try XCTUnwrap(vm.files.first?.id)
+
+        vm.setCut("1:13 to :55", for: id)
+        XCTAssertNil(vm.files.first?.cut)
+        XCTAssertEqual(vm.files.first?.url.lastPathComponent, "Collins.wav")
+        XCTAssertEqual(vm.alertTitle, "Cut Not Set")
+        XCTAssertEqual(SessionNotesFile.read(at: vm.sessionNotesURL).map(\.timestamp), [""],
+                       "the notes don't record a cut the name couldn't take")
+    }
+
+    /// Renaming under a running ffprobe would pull the file out from under it.
+    func testACutCannotBeSetWhileTheClipIsAnalyzed() throws {
+        let (vm, dir) = try makeSessionViewModel()
+        vm.addFiles([try makeAudio("Collins.wav", in: dir)])
+        let file = try XCTUnwrap(vm.files.first)
+        XCTAssertEqual(file.status, .analyzing)
+        XCTAssertFalse(vm.canSetCut(file))
+
+        vm.beginCut(file.id)
+        XCTAssertNil(vm.cutTargetID)
+        vm.setCut("1:13 to :55", for: file.id)
+        XCTAssertEqual(try names(in: dir), ["Collins.wav"])
+        XCTAssertNil(vm.files.first?.cut)
+    }
+
+    func testWithSaveClipNotesOffACutStillGoesInTheName() throws {
+        let (vm, dir) = try makeSessionViewModel()
+        vm.clipNotesEnabled = false
+        vm.addFiles([try makeAudio("Collins.wav", in: dir)])
+        settle(vm)
+        let id = try XCTUnwrap(vm.files.first?.id)
+
+        vm.setCut("1:13 to :55", for: id)
+        XCTAssertEqual(vm.files.first?.cut, "1:13 to :55")
+        XCTAssertEqual(try names(in: dir), ["Collins 1.13 to .55.wav"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: vm.sessionNotesURL.path))
     }
 
     func testARestoredClipArrivesWithItsCut() throws {
@@ -830,55 +912,15 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(vm.settings.downloadDirectoryPath),
                        "the newly-picked folder must resolve as present")
     }
-    // MARK: - Person prefill
-    //
-    // The person in a clip comes out of the post's own text, never from the
-    // account that posted it — aggregators post most clips.
 
-    func testApplySplitsThePersonOutOfThePostText() {
+    // MARK: - Post text prefill
+
+    /// The post's text goes into Notes whole: there is no person field to
+    /// take a name out of it for.
+    func testApplyPutsTheWholePostTextInTheNotes() {
         let vm = makeViewModel()
         vm.downloadURLField = xURL
         vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
-        XCTAssertEqual(vm.downloadPersonField, "Trump")
-        XCTAssertEqual(vm.downloadNotesField, "We are going to win")
-    }
-
-    func testApplyLeavesPersonEmptyWhenNoNameCanBeRead() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.applyFetchedNotes("just setting up my twttr", for: xURL)
-        XCTAssertEqual(vm.downloadPersonField, "", "abstaining beats guessing a name")
-        XCTAssertEqual(vm.downloadNotesField, "just setting up my twttr")
-    }
-
-    func testApplyDoesNotClobberATypedPerson() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadPersonField = "Someone Else"
-        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
-        XCTAssertEqual(vm.downloadPersonField, "Someone Else")
-    }
-
-    func testMovingToANonXURLClearsAnAutoFilledPerson() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
-        XCTAssertEqual(vm.downloadPersonField, "Trump")
-
-        vm.downloadURLField = "https://example.com/not-a-post"
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadPersonField, "", "machine-filled person must not outlive its post")
-        XCTAssertEqual(vm.downloadNotesField, "")
-    }
-
-    func testATypedPersonSurvivesAURLChange() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
-        vm.downloadPersonField = "Someone I typed"
-
-        vm.downloadURLField = "https://example.com/not-a-post"
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadPersonField, "Someone I typed")
+        XCTAssertEqual(vm.downloadNotesField, "Trump: We are going to win")
     }
 }

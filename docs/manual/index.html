@@ -468,19 +468,14 @@
             <td>Names the download before it lands. Stem only — the extension always follows the source audio. Leave it blank to keep the source title.</td>
           </tr>
           <tr>
-            <td>Person in clip</td>
-            <td>optional</td>
-            <td>Who is speaking in the clip. For X/Twitter links ClipHack reads the name out of the post's own text when it can, and leaves the field blank when it can't.</td>
-          </tr>
-          <tr>
             <td>The cut</td>
             <td>optional</td>
-            <td>The part of the clip you want — <code>1:13 to :55</code>. Written on its own line in the notes file.</td>
+            <td>The part of the clip you want — <code>1:13 to :55</code>. It goes on the end of the file name, with a period for each colon, and on its own line in the notes file as typed. See <a href="#cut-in-name">The cut in the file name</a>.</td>
           </tr>
           <tr>
             <td>Notes</td>
             <td>optional</td>
-            <td>Free text kept with the file row. It is not written to the notes file. The first line says what the clip is about; the lines below it are yours, for timings and scratch, and are kept exactly as typed. Drag the grip in the bottom-right corner to make the box taller — the size is remembered.</td>
+            <td>Free text kept with the file row, kept exactly as typed. It is not written to the notes file. Drag the grip in the bottom-right corner to make the box taller — the size is remembered.</td>
           </tr>
           <tr>
             <td>Save clip notes</td>
@@ -495,10 +490,11 @@
         </tbody>
       </table>
 
-      <div class="callout">
-        <strong>The poster is not the person</strong>
-        The name is read from the text of the post, never from the account that posted it — aggregator accounts carry most clips, so the account name is usually not the person speaking. When no name can be read with confidence the field is left empty rather than guessed at.
-      </div>
+      <h3 id="cut-in-name">The cut in the file name</h3>
+      <p>A cut ends the clip's file name, so it is in front of you wherever the file is — in the Finder, in the editor, in its processed copy. A file name can't hold a colon (the Finder shows one as <code>/</code>), so each colon is written as a period:</p>
+      <pre><code>Some Title 1.13 to .55.m4a
+Some Title 1.13 to .55-44knorm-clipped-1dB.wav</code></pre>
+      <p>The cut follows the custom name when you typed one, and the source title when you didn't. The notes file and the clip's row keep the cut with its colons, as you typed it. <strong>Set Cut…</strong> renames the file the same way; see <a href="#notes">Clip Notes</a>.</p>
 
       <h3>Where downloads land</h3>
       <p>Straight into the destination folder, flat. ClipHack does not create a folder per clip.</p>
@@ -508,7 +504,7 @@
       <p>Downloading a link you have already used adds the clip you have instead of fetching a second copy. ClipHack checks the notes files in the destination rather than only what is on screen, so this still works days later in a new session. Delete a clip's audio and the link downloads again as normal.</p>
 
       <h3>X/Twitter links</h3>
-      <p>For a post link, ClipHack fetches the post's text and pre-fills the Notes box with it (best effort), and fills <strong>Person in clip</strong> from that text when a name can be read. Both are yours to edit or clear. Editing either one stops ClipHack from replacing what you wrote if the URL changes.</p>
+      <p>For a post link, ClipHack fetches the post's text and pre-fills the Notes box with it (best effort). It is yours to edit or clear. Editing it stops ClipHack from replacing what you wrote if the URL changes.</p>
     </section>
 
     <!-- SESSIONS -->
@@ -558,16 +554,16 @@
 
       <p>One short block per clip, with a blank line between blocks: the file name at the left edge, then, indented under it, the cut marked <code>CUT</code> if there is one, and the source link. A file added from disk has no link, so its block is the name and any cut.</p>
 
-      <pre><code>Aaron_Rupar_-_TRUMP_….m4a
+      <pre><code>Aaron_Rupar_-_TRUMP_… .46 to .17.m4a
     CUT  :46 to :17
     https://x.com/atrupar/status/2090948085333504072
 
 Mamdani_on_Jeffries.m4a
 …</code></pre>
 
-      <p>To set or change a clip's cut later, right-click its row and choose <strong>Set Cut…</strong>. A cut typed into the file by hand counts too, with or without the <code>CUT</code> label. X links are written without their tracking query (<code>?s=43</code>).</p>
+      <p>To set or change a clip's cut later, right-click its row and choose <strong>Set Cut…</strong>. The file is renamed so its name ends with the new cut in place of the old one, and its block takes the new name. Leave the cut empty to take it out of both. A cut can't be set while the clip is being analyzed or processed, since the file can't be renamed then. In a temporary session, or with Save clip notes off, the cut goes in the file name only. A cut typed into the file by hand counts too, with or without the <code>CUT</code> label. X links are written without their tracking query (<code>?s=43</code>).</p>
 
-      <p>The person and the notes are not written; they stay with the clip's row in the file list. The file name is written every time, including a name you typed yourself — with nothing else in the block, it is what says which clip the cut belongs to. Blocks written by an earlier version keep the notes they already hold.</p>
+      <p>The notes are not written; they stay with the clip's row in the file list. The file name is written every time, including a name you typed yourself — with nothing else in the block, it is what says which clip the cut belongs to. Blocks written by an earlier version keep the notes they already hold.</p>
 
       <div class="callout">
         <strong>Maintained, not appended</strong>

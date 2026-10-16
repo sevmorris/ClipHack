@@ -163,13 +163,12 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         try Data("audio".utf8).write(to: audio)
 
         vm.clipNotesEnabled = true
-        vm.downloadPersonField = "Trump"
         vm.downloadNotesField = "the good part"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path)
 
         XCTAssertEqual(vm.files.count, 1)
-        XCTAssertEqual(vm.files[0].notes, "Trump — the good part", "notes still ride on the row")
+        XCTAssertEqual(vm.files[0].notes, "the good part", "notes still ride on the row")
         XCTAssertEqual(try textFiles(in: desk), [], "no notes file beside the download")
         XCTAssertEqual(try textFiles(in: session.clipsFolder), [], "and none in the episode")
         XCTAssertTrue(vm.clipNotesEnabled, "the episodes' preference is kept, not cleared")

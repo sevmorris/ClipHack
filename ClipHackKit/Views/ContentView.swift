@@ -89,7 +89,7 @@ public struct ContentView: View {
             Button("Cancel", role: .cancel) { viewModel.cancelCut() }
             Button("Set") { viewModel.confirmCut() }
         } message: {
-            Text("The part of the clip to keep, such as 1:13 to :55 or :18 to end. It's written under the clip's name in the session's notes file. Leave it empty to remove the cut.")
+            Text("The part of the clip to keep, such as 1:13 to :55 or :18 to end. The file is renamed to end with it, colons written as periods (1.13 to .55), and it's written under the clip's name in the session's notes file. Leave it empty to remove the cut.")
         }
         // Episode folders are made in the Finder, so the session menu is read
         // again whenever ClipHack comes forward — one made while it was in the

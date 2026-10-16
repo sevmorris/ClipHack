@@ -79,7 +79,7 @@ final class YtDlpService {
     /// whitespace runs collapse to single spaces, "/" and ":" become "-"
     /// (path separator; Finder renders ":" as "/"), NUL is dropped, leading
     /// dots (hidden files) and trailing dots are trimmed, and the result is
-    /// capped at 180 UTF-8 bytes on a character boundary.
+    /// capped at `maxStemBytes` UTF-8 bytes on a character boundary.
     static func sanitizedStem(_ raw: String) -> String? {
         var stem = raw
             .components(separatedBy: .whitespacesAndNewlines)
@@ -93,16 +93,29 @@ final class YtDlpService {
         while stem.hasSuffix(".") { stem.removeLast() }
         stem = stem.trimmingCharacters(in: .whitespaces)
 
-        if stem.utf8.count > 180 {
-            var trimmed = ""
-            for char in stem {
-                if (trimmed + String(char)).utf8.count > 180 { break }
-                trimmed.append(char)
-            }
-            stem = trimmed.trimmingCharacters(in: .whitespaces)
+        if stem.utf8.count > maxStemBytes {
+            stem = prefix(of: stem, utf8Bytes: maxStemBytes).trimmingCharacters(in: .whitespaces)
         }
 
         return stem.isEmpty ? nil : stem
+    }
+
+    /// Longest stem ClipHack names a file with, in UTF-8 bytes. A file name
+    /// may be 255; this leaves room for the extension, a `-2`, and the tags
+    /// processing adds (`-48knorm-clipped-1dB`).
+    nonisolated static let maxStemBytes = 180
+
+    /// The longest start of `text` that fits in `maxBytes` of UTF-8, cut on a
+    /// character boundary.
+    nonisolated static func prefix(of text: String, utf8Bytes maxBytes: Int) -> String {
+        var bytes = 0
+        var end = text.startIndex
+        for index in text.indices {
+            bytes += text[index].utf8.count
+            if bytes > maxBytes { break }
+            end = text.index(after: index)
+        }
+        return String(text[..<end])
     }
 
     /// First stem not claimed by `isTaken`: the stem itself, else "stem-2",
@@ -133,18 +146,23 @@ final class YtDlpService {
     /// --no-quiet is required because --print implies quiet mode, which would
     /// suppress the progress lines and the already-downloaded notice.
     /// `customStem` is a sanitized filesystem stem; "%" is escaped here because
-    /// literal template text is yt-dlp template syntax.
+    /// literal template text is yt-dlp template syntax. `cut`, as typed, ends
+    /// the name either way (`ClipCutName`): after the custom stem, or after
+    /// the source title.
     static func buildArguments(
         url: String,
         destination: String,
         ffmpegDirectory: String,
-        customStem: String? = nil
+        customStem: String? = nil,
+        cut: String = ""
     ) -> [String] {
+        func literal(_ text: String) -> String { text.replacingOccurrences(of: "%", with: "%%") }
         let template: String
         if let customStem {
-            template = customStem.replacingOccurrences(of: "%", with: "%%") + ".%(ext)s"
+            template = literal(ClipCutName.stem(customStem, cut: cut)) + ".%(ext)s"
         } else {
-            template = "%(title)s.%(ext)s"
+            let suffix = ClipCutName.fragment(cut).map { " " + literal($0) } ?? ""
+            template = "%(title)s\(suffix).%(ext)s"
         }
         return [
             "-f", "ba/b",
@@ -221,13 +239,16 @@ final class YtDlpService {
     /// the child process when the surrounding `Task` is cancelled.
     /// `customStem` (already sanitized) names the output file; it is uniquified
     /// against the download directory so a colliding name can never make yt-dlp
-    /// skip the download and resolve someone else's file.
+    /// skip the download and resolve someone else's file. The name is made
+    /// unique before the cut goes on, so a second "Clip" with the same cut is
+    /// "Clip-2 1.13 to .55" rather than one whose cut reads ".55-2".
     /// Returns the absolute path of the downloaded (or already-present) file,
     /// after filing it into its own clip folder.
     func downloadAudio(
         url: String,
         destination: URL,
         customStem: String? = nil,
+        cut: String = "",
         onProgress: @escaping @Sendable (String) -> Void
     ) async throws -> String {
         let binary = try await YtDlpManager.shared.ensureTool()
@@ -236,7 +257,7 @@ final class YtDlpService {
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
         let uniqueCustomStem = customStem.map { stem in
-            Self.uniqueStem(stem) { Self.stemIsTaken($0, in: destination) }
+            Self.uniqueStem(stem) { Self.stemIsTaken(ClipCutName.stem($0, cut: cut), in: destination) }
         }
 
         let marker = Self.filepathMarker
@@ -246,7 +267,8 @@ final class YtDlpService {
             url: url,
             destination: destination.path,
             ffmpegDirectory: ffmpegDir,
-            customStem: uniqueCustomStem
+            customStem: uniqueCustomStem,
+            cut: cut
         )
         process.standardInput = FileHandle.nullDevice
 

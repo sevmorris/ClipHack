@@ -47,21 +47,12 @@ struct DownloadPopover: View {
                 .onSubmit { viewModel.startDownload() }
                 .disabled(viewModel.isDownloading)
 
-            HStack(spacing: 6) {
-                TextField("Person in clip (optional)", text: $viewModel.downloadPersonField)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { viewModel.startDownload() }
-                    .disabled(viewModel.isDownloading)
-                    .help("Who is speaking in the clip — it opens the notes shown on the clip's row. Filled in from the post's own text when a name can be read from it, never from whoever posted it.")
-
-                TextField("1:13 to :55", text: $viewModel.downloadTimestampField)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 110)
-                    .onSubmit { viewModel.startDownload() }
-                    .disabled(viewModel.isDownloading)
-                    .help("The cut to make. Written under the clip's file name in the session's notes file, marked CUT.")
-            }
-            .frame(width: Self.fieldWidth)
+            TextField("Cut (optional) — 1:13 to :55", text: $viewModel.downloadTimestampField)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: Self.fieldWidth)
+                .onSubmit { viewModel.startDownload() }
+                .disabled(viewModel.isDownloading)
+                .help("The cut to make. It ends the file name, colons written as periods (1.13 to .55), and is written under the clip's file name in the session's notes file, marked CUT.")
 
             notesEditor
 
@@ -69,8 +60,8 @@ struct DownloadPopover: View {
                 .toggleStyle(.checkbox)
                 .disabled(viewModel.isDownloading || viewModel.isTemporarySession)
                 .help(viewModel.isTemporarySession
-                      ? "A temporary session keeps no notes file. The person and notes stay on the clip's row."
-                      : "Saves the file name, the cut, and the source URL to this session's notes file, in the download folder. The person and notes stay on the clip's row.")
+                      ? "A temporary session keeps no notes file. The notes stay on the clip's row."
+                      : "Saves the file name, the cut, and the source URL to this session's notes file, in the download folder. The notes stay on the clip's row.")
 
             destinationRow
 

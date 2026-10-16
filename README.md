@@ -45,9 +45,8 @@ HT_0379 2026-08-24/clips/
 If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
 
 * **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
-* **Person in clip (optional):** Type the name of the person speaking in the clip. The tool writes this name at the start of the clip's notes. If you use a link from X (Twitter), the tool reads the name from the post text and fills the field. The tool leaves the field empty if it cannot read a name. The tool does not use the name of the account that posted the clip. That account is usually not the person in the clip.
-* **Notes (optional):** Type text to keep with the file row. The tool does not write the notes to the notes file. The first line says what the clip is about. The person goes in front of that line. The tool keeps the lines below exactly as you type them. Use those lines for timings and other notes. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
-* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool writes this under the clip's file name in the notes file and marks it `CUT`.
+* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool adds the cut to the end of the file name. A file name cannot contain a colon, thus the tool writes each colon as a period: `Some Title 1.13 to .55.m4a`. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. In the notes file, the cut has its colons.
+* **Notes (optional):** Type text to keep with the file row. The tool does not write the notes to the notes file. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
 * **Save clip notes:** This writes a record of each download to the session's text file. The session keeps one file for all its clips:
 
 ```
@@ -57,7 +56,7 @@ HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt
 The tool writes one short block for each clip. The file name starts the block at the left edge. The cut and the source link are indented under it. The tool writes the cut only when you typed one:
 
 ```
-Some Title.m4a
+Some Title 1.13 to .55.m4a
     CUT  1:13 to :55
     https://x.com/atrupar/status/2090948085333504072
 
@@ -67,7 +66,7 @@ Another Title.m4a
 
 Thus you can find a clip by its file name and see its cut immediately. The tool removes the tracking part (`?s=43`) from X (Twitter) links. If you type a cut into the file yourself, the tool reads it as the cut, also without the `CUT` label. The tool reads files in the earlier layout, with `---` lines between the clips. The next time that the tool saves the file, it writes the file in the new layout. Version 1.29.0 started the file with a line that counted the clips and the cuts. The tool does not write that line now. The next time that the tool saves the file, it removes the line.
 
-For a download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name (see below). The tool does not write the person or the notes. The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for. Blocks from an earlier version keep the notes that they have.
+For a download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name (see below). The tool does not write the notes. The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for. Blocks from an earlier version keep the notes that they have.
 
 The tool does not append to this file. The tool writes the file again from what it holds. Thus a second download of the same link replaces that clip's block. The file does not collect old copies.
 
@@ -111,7 +110,7 @@ The tool renames the file on your disk. You can only change the name stem. The f
 
 When you drop or open a file while an episode is open, the tool writes the file name in the session's notes file. Thus the notes file shows all the clips of the episode, not only the downloads. The block for this file has no link. The tool does not write a ClipHack output that you add again to process it again.
 
-To record the cut of a clip, right-click the row and select **Set Cut…**. Type the part of the clip that you want, for example `1:13 to :55` or `:18 to end`. The tool writes the cut under the clip's file name in the notes file and marks it `CUT`. The row shows the cut below the file name. To remove the cut, select **Change Cut…** and delete the text. You can use **Set Cut…** for a downloaded clip too. The tool does not write the file name or the cut in a temporary session, or when **Save clip notes** is off.
+To record the cut of a clip, right-click the row and select **Set Cut…**. Type the part of the clip that you want, for example `1:13 to :55` or `:18 to end`. The tool renames the file on your disk: the cut goes on the end of the file name, with a period for each colon. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. The row shows the cut below the file name. To change the cut, select **Change Cut…**. The new cut replaces the old cut in the file name. To remove the cut, select **Change Cut…** and delete the text. You can use **Set Cut…** for a downloaded clip too. You cannot set a cut while the tool analyzes or processes the clip. In a temporary session, or when **Save clip notes** is off, the tool puts the cut in the file name only.
 
 ## Sessions
 

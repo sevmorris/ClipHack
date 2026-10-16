@@ -2,6 +2,14 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Changed**
+- **A clip's cut is in its file name.** Type `1:13 to :55` as the cut when you download, and the clip arrives as `Some Title 1.13 to .55.m4a`, so the cut is in front of you in the Finder and the editor, and its processed copy carries it too. A file name can't hold a colon, so each one is written as a period. The cut follows the custom name when you typed one, and the source title when you didn't. **Set Cut…** renames the file the same way, and **Change Cut…** replaces the cut in the name rather than adding a second one; the clip's block in the notes file follows it to the new name. The notes file and the row keep the cut with its colons. Because the name carries the cut, **Set Cut…** now works in a temporary session and with Save clip notes off too, where it renames the file only. It can't be used while a clip is being analyzed or processed, as **Rename…** can't.
+
+**Removed**
+- **Person in clip.** The download popover no longer asks who is speaking, and the notes on a clip's row no longer start with a name. For an X/Twitter link, the post's whole text goes into Notes, as it did before the name was read out of it.
+
 ## [1.29.2] — 2026-10-13
 
 **Developer**

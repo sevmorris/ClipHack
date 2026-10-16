@@ -286,7 +286,6 @@ final class ContentViewModelSessionTests: XCTestCase {
         let vm = makeViewModel()
         vm.openSession(session)
         vm.clipNotesEnabled = true
-        vm.downloadPersonField = "Trump"
         vm.downloadNotesField = "the good part"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(sourceURL: "https://x.com/a/status/1", filePath: audio.path)
@@ -295,7 +294,7 @@ final class ContentViewModelSessionTests: XCTestCase {
         let records = SessionNotesFile.read(at: file)
         XCTAssertEqual(records.count, 1)
         XCTAssertEqual(records.first?.filename, "Some Title.m4a")
-        XCTAssertEqual(records.first?.notes, "", "the person and notes stay on the row")
+        XCTAssertEqual(records.first?.notes, "", "the notes stay on the row")
         XCTAssertEqual(records.first?.timestamp, "1:13 to :55")
         XCTAssertEqual(records.first?.sourceURL, "https://x.com/a/status/1")
     }
