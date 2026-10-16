@@ -116,29 +116,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(vm.downloadNameField, "")
     }
 
-    // MARK: - Notes and the clip notes file
-
-    func testFinishDownloadAttachesTrimmedNotesToRow() {
-        let vm = makeViewModel()
-        vm.downloadNotesField = "  :30 to :12  "
-        vm.finishDownload(
-            sourceURL: "https://example.com/watch?v=abc",
-            filePath: "/tmp/cliphack-tests/Title.m4a"
-        )
-
-        XCTAssertEqual(vm.files[0].notes, ":30 to :12")
-        XCTAssertEqual(vm.downloadNotesField, "", "notes clear once they're on the row")
-    }
-
-    func testEmptyNotesLeaveRowNotesNil() {
-        let vm = makeViewModel()
-        vm.downloadNotesField = "   "
-        vm.finishDownload(
-            sourceURL: "https://example.com/watch?v=abc",
-            filePath: "/tmp/cliphack-tests/Title.m4a"
-        )
-        XCTAssertNil(vm.files[0].notes)
-    }
+    // MARK: - The clip notes file
 
     /// A stand-in for the clip folder a download now lands in.
     private func makeClipFolder() throws -> URL {
@@ -157,16 +135,13 @@ final class ContentViewModelDownloadTests: XCTestCase {
         defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
-        vm.downloadNotesField = "the good part"
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
             filePath: dir.appendingPathComponent("Title.m4a").path
         )
 
         let content = try String(contentsOf: vm.sessionNotesURL, encoding: .utf8)
-        XCTAssertEqual(content, "Title.m4a\n    https://example.com/watch?v=abc\n",
-                       "the file records the clip, not its notes")
-        XCTAssertEqual(vm.files[0].notes, "the good part", "the notes stay on the row")
+        XCTAssertEqual(content, "Title.m4a\n    https://example.com/watch?v=abc\n")
     }
 
     func testAHandTypedNameIsStillRecorded() throws {
@@ -177,7 +152,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
         vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
         vm.downloadNameField = "Title"          // named by hand
-        vm.downloadNotesField = "the good part"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
@@ -187,18 +161,17 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
             "Title.m4a\n    CUT  1:13 to :55\n    https://example.com/watch?v=abc\n",
-            "with no notes in the block, the name is the only thing saying which clip it is"
+            "the name is the only thing saying which clip a block is"
         )
     }
 
-    func testTheCutGoesOnItsOwnLineAndTheNotesStayOnTheRow() throws {
+    func testTheCutGoesOnItsOwnLine() throws {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
-        vm.downloadNotesField = "the good part\n:30 in"
         vm.downloadTimestampField = "1:13 to :55"
         vm.finishDownload(
             sourceURL: "https://example.com/watch?v=abc",
@@ -213,22 +186,20 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertEqual(record.notes, "")
         XCTAssertEqual(record.timestamp, "1:13 to :55", "the cut is kept on its own line")
         XCTAssertEqual(record.sourceURL, "https://example.com/watch?v=abc")
-        XCTAssertEqual(vm.files[0].notes, "the good part\n:30 in")
     }
 
-    /// A session file an earlier version wrote holds notes. The next download
-    /// rewrites the file in the current layout, and must not take them out.
-    func testNotesAnEarlierVersionWroteSurviveTheNextDownload() throws {
+    /// A line typed into a clip's block by hand is neither its cut nor its
+    /// link. The next download rewrites the file, and must not take it out.
+    func testALineTypedIntoTheFileSurvivesTheNextDownload() throws {
         let dir = try makeClipFolder()
         let vm = makeViewModel()
         let wasEnabled = vm.clipNotesEnabled
         defer { vm.clipNotesEnabled = wasEnabled }
         vm.settings.downloadDirectoryPath = dir.path
         vm.clipNotesEnabled = true
-        let older = "Old.m4a\n\nTRUMP — said it\n\n:30 to :12\n\nhttps://example.com/old\n"
-        try Data(older.utf8).write(to: vm.sessionNotesURL)
+        let typed = "Old.m4a\n    CUT  :30 to :12\n    check the levels\n    https://example.com/old\n"
+        try Data(typed.utf8).write(to: vm.sessionNotesURL)
 
-        vm.downloadNotesField = "not saved"
         vm.finishDownload(
             sourceURL: "https://example.com/new",
             filePath: dir.appendingPathComponent("New.m4a").path
@@ -236,16 +207,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         XCTAssertEqual(
             try String(contentsOf: vm.sessionNotesURL, encoding: .utf8),
-            """
-            Old.m4a
-                CUT  :30 to :12
-                TRUMP — said it
-                https://example.com/old
-
-            New.m4a
-                https://example.com/new
-
-            """
+            typed + "\nNew.m4a\n    https://example.com/new\n"
         )
     }
 
@@ -333,7 +295,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNil(vm.files.first?.cut)
         XCTAssertEqual(try names(in: dir), ["Collins.wav"], "removing the cut takes it out of the name")
         XCTAssertEqual(SessionNotesFile.read(at: vm.sessionNotesURL),
-                       [ClipNotesFile.Record(filename: "Collins.wav", notes: "", timestamp: "", sourceURL: "")])
+                       [ClipRecord(filename: "Collins.wav", notes: "", timestamp: "", sourceURL: "")])
     }
 
     func testChangingADownloadsCutReplacesItInTheNameAndKeepsItsLink() throws {
@@ -472,38 +434,12 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let afterFirst = try String(contentsOf: notesURL, encoding: .utf8)
 
         vm.downloadURLField = "https://example.com/watch?v=abc"
-        vm.downloadNotesField = "should not be logged"
+        vm.downloadTimestampField = "should not be logged"
         vm.startDownload()
 
         XCTAssertEqual(try String(contentsOf: notesURL, encoding: .utf8), afterFirst,
                        "a duplicate-URL selection downloads nothing and logs nothing")
-        XCTAssertEqual(vm.downloadNotesField, "", "duplicate path clears the notes field")
-    }
-
-    // MARK: - Notes survive the session (restored from disk on add)
-
-    func testAddingAClipRestoresItsNotesFromDisk() throws {
-        let dir = try makeClipFolder()
-        let audio = dir.appendingPathComponent("Title.m4a")
-        try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "Vance on tariffs", sourceURL: "https://a", forAudioFile: audio)
-
-        // A fresh session, days later: the row still knows what the clip is.
-        let vm = makeViewModel()
-        vm.addFiles([audio])
-
-        XCTAssertEqual(vm.files.first?.notes, "Vance on tariffs")
-    }
-
-    func testAddingAClipWithNoSidecarLeavesNotesNil() throws {
-        let dir = try makeClipFolder()
-        let audio = dir.appendingPathComponent("Plain.m4a")
-        try Data("audio".utf8).write(to: audio)
-
-        let vm = makeViewModel()
-        vm.addFiles([audio])
-
-        XCTAssertNil(vm.files.first?.notes)
+        XCTAssertEqual(vm.downloadTimestampField, "", "the duplicate path clears the form")
     }
 
     // MARK: - Folder drops
@@ -514,11 +450,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
             let folder = root.appendingPathComponent(stem, isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try Data("audio".utf8).write(to: folder.appendingPathComponent("\(stem).m4a"))
-            try ClipNotesFile.write(
-                notes: "note for \(stem)",
-                sourceURL: "https://\(stem)",
-                forAudioFile: folder.appendingPathComponent("\(stem).m4a")
-            )
         }
 
         // Dropping a whole show's worth of clip folders finds them all.
@@ -527,7 +458,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
         XCTAssertEqual(vm.files.map { $0.url.lastPathComponent }, ["A Clip.m4a", "B Clip.m4a"],
                        "folder contents arrive in name order")
-        XCTAssertEqual(vm.files.map { $0.notes }, ["note for A Clip", "note for B Clip"])
         XCTAssertNil(vm.alertMessage, "a folder of audio is not a notice")
     }
 
@@ -556,15 +486,21 @@ final class ContentViewModelDownloadTests: XCTestCase {
 
     // MARK: - Cross-session duplicate downloads
 
+    /// The session's notes file records `filename` as downloaded from `link`.
+    private func recordDownload(_ filename: String, from link: String, in dir: URL, vm: ContentViewModel) throws {
+        try SessionNotesFile.upsert(
+            ClipRecord(filename: filename, notes: "", sourceURL: link),
+            at: vm.sessionNotesURL(for: dir)
+        )
+    }
+
     func testDownloadingALinkAlreadyOnDiskAdoptsTheExistingClip() throws {
         let dir = try makeClipFolder()
-        let folder = dir.appendingPathComponent("Title", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let audio = folder.appendingPathComponent("Title.m4a")
+        let audio = dir.appendingPathComponent("Title.m4a")
         try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "day one note", sourceURL: "https://a/clip", forAudioFile: audio)
 
         let vm = makeViewModel()
+        try recordDownload("Title.m4a", from: "https://a/clip", in: dir, vm: vm)
         XCTAssertTrue(vm.adoptAlreadyDownloadedClip(for: "https://a/clip", in: dir))
 
         XCTAssertEqual(vm.files.count, 1)
@@ -572,7 +508,6 @@ final class ContentViewModelDownloadTests: XCTestCase {
             vm.files[0].url.resolvingSymlinksInPath().path,
             audio.resolvingSymlinksInPath().path
         )
-        XCTAssertEqual(vm.files[0].notes, "day one note")
         XCTAssertEqual(vm.selectedFileIDs, [vm.files[0].id])
         XCTAssertEqual(vm.alertTitle, "Already Downloaded")
         XCTAssertFalse(vm.isDownloadPopoverPresented)
@@ -584,9 +519,9 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let dir = try makeClipFolder()
         let audio = dir.appendingPathComponent("Title.m4a")
         try Data("audio".utf8).write(to: audio)
-        try ClipNotesFile.write(notes: "", sourceURL: "https://a/clip", forAudioFile: audio)
 
         let vm = makeViewModel()
+        try recordDownload("Title.m4a", from: "https://a/clip", in: dir, vm: vm)
         vm.addFiles([audio])
         XCTAssertTrue(vm.adoptAlreadyDownloadedClip(for: "https://a/clip", in: dir))
         XCTAssertEqual(vm.files.count, 1, "the clip was already in the list")
@@ -599,35 +534,7 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertTrue(vm.files.isEmpty)
     }
 
-    // MARK: - Resizable notes field
-
-    func testNotesFieldHeightClampsToItsBounds() {
-        XCTAssertEqual(
-            ContentViewModel.clampedNotesFieldHeight(5),
-            ContentViewModel.minNotesFieldHeight
-        )
-        XCTAssertEqual(
-            ContentViewModel.clampedNotesFieldHeight(9_000),
-            ContentViewModel.maxNotesFieldHeight
-        )
-        XCTAssertEqual(ContentViewModel.clampedNotesFieldHeight(200), 200)
-        XCTAssertEqual(
-            ContentViewModel.clampedNotesFieldHeight(.nan),
-            ContentViewModel.defaultNotesFieldHeight
-        )
-    }
-
-    func testDraggingPastTheEndsSettlesAtTheBound() {
-        let vm = makeViewModel()
-        let restore = vm.notesFieldHeight
-        defer { vm.notesFieldHeight = restore }
-
-        // A drag runs well past either end; the stored height stays usable.
-        vm.notesFieldHeight = -400
-        XCTAssertEqual(vm.notesFieldHeight, ContentViewModel.minNotesFieldHeight)
-        vm.notesFieldHeight = 4_000
-        XCTAssertEqual(vm.notesFieldHeight, ContentViewModel.maxNotesFieldHeight)
-    }
+    // MARK: - Re-using a link
 
     func testDuplicateURLClearsNameFieldWithoutDownloading() {
         let vm = makeViewModel()
@@ -703,224 +610,26 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertFalse(vm.isDownloadPopoverPresented)
     }
 
-    // MARK: - X-post Notes prefill
-    //
-    // The fill/stale guards are tested synchronously through applyFetchedNotes;
-    // the trigger points are tested by whether a fetch task is spawned. Awaiting
-    // the fire-and-forget task from an async XCTest method corrupts the test
-    // harness's task allocator, so it's deliberately avoided here.
+    // MARK: - A cleared download folder
 
-    private let xURL = "https://x.com/atrupar/status/2073253157933666426"
-
-    func testApplyFillsEmptyNotesForMatchingURL() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.applyFetchedNotes("fetched post body", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "fetched post body")
-    }
-
-    func testApplyDoesNotClobberTypedNotes() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadNotesField = "my own note"
-        vm.applyFetchedNotes("fetched post body", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "my own note", "fill-if-empty must not overwrite typed notes")
-    }
-
-    func testApplySkipsWhenURLFieldChanged() {
-        let vm = makeViewModel()
-        vm.downloadURLField = "https://x.com/other/status/999"
-        vm.applyFetchedNotes("fetched post body", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "", "stale-URL result must not be applied")
-    }
-
-    func testApplyIgnoresNilOrEmptyText() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.applyFetchedNotes(nil, for: xURL)
-        vm.applyFetchedNotes("   ", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "")
-    }
-
-    func testPrefillSpawnsFetchTaskForXPostURL() {
-        let vm = makeViewModel()
-        vm.prefillNotesFromURL(xURL)
-        XCTAssertNotNil(vm.notesFetchTask, "an X post URL should spawn a fetch")
-        vm.notesFetchTask?.cancel()
-    }
-
-    func testPrefillSpawnsNoTaskForNonXURL() {
-        let vm = makeViewModel()
-        vm.prefillNotesFromURL("https://youtu.be/abc123")
-        XCTAssertNil(vm.notesFetchTask, "non-X URLs must not spawn a fetch")
-    }
-
-    func testAcceptDroppedXURLSpawnsNotesPrefill() {
-        let vm = makeViewModel()
-        vm.acceptDroppedURL(xURL)
-        XCTAssertNotNil(vm.notesFetchTask)
-        vm.notesFetchTask?.cancel()
-    }
-
-    // MARK: - URL-field change triggers the fetch (paste, not just Return)
-
-    private let otherXURL = "https://x.com/someone/status/1234567890123456789"
-
-    func testURLFieldChangeSpawnsFetchForPastedXURL() {
-        let vm = makeViewModel()
-        // Simulate a paste straight into the field (no Return): the binding
-        // mutates, then onChange calls downloadURLFieldChanged.
-        vm.downloadURLField = xURL
-        vm.downloadURLFieldChanged()
-        XCTAssertNotNil(vm.notesFetchTask, "pasting a valid X post URL must trigger the notes fetch")
-        vm.notesFetchTask?.cancel()
-    }
-
-    func testURLFieldChangeSpawnsNoFetchForNonXURL() {
-        let vm = makeViewModel()
-        vm.downloadURLField = "https://youtu.be/abc123"
-        vm.downloadURLFieldChanged()
-        XCTAssertNil(vm.notesFetchTask, "a non-X URL must not spawn a fetch")
-    }
-
-    func testURLFieldChangeDoesNotFetchWhileTypingProfileURL() {
-        let vm = makeViewModel()
-        // Mid-typing an X URL that isn't yet a /status/ link: no fetch.
-        vm.downloadURLField = "https://x.com/atrupar"
-        vm.downloadURLFieldChanged()
-        XCTAssertNil(vm.notesFetchTask, "a non-status X URL (still typing) must not fetch")
-    }
-
-    func testEditingSameStatusURLKeepsNotesAndDoesNotRefire() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadURLFieldChanged()
-        vm.applyFetchedNotes("post body", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "post body")
-
-        // Tweak the URL but keep the same status ID (add a tracking param).
-        vm.downloadURLField = xURL + "?s=46"
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadNotesField, "post body",
-                       "same post: dedupe must keep the notes and not refetch")
-        vm.notesFetchTask?.cancel()
-    }
-
-    // MARK: - Stale auto-filled notes refresh; user-edited notes never do
-
-    func testChangingToNewPostClearsPreviousAutoFilledNotes() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadURLFieldChanged()
-        vm.applyFetchedNotes("first post body", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "first post body")
-
-        // Paste a different X post URL — the stale auto-filled notes must go and
-        // a fresh fetch must start for the new post.
-        vm.downloadURLField = otherXURL
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadNotesField, "",
-                       "auto-filled notes from the previous post must clear for a new post")
-        XCTAssertNotNil(vm.notesFetchTask, "the new post should trigger its own fetch")
-
-        // And the new post's fetch fills the now-empty field.
-        vm.applyFetchedNotes("second post body", for: otherXURL)
-        XCTAssertEqual(vm.downloadNotesField, "second post body")
-        vm.notesFetchTask?.cancel()
-    }
-
-    func testChangingURLNeverClearsUserEditedNotes() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadURLFieldChanged()
-        vm.applyFetchedNotes("auto body", for: xURL)
-
-        // The user edits the auto-filled notes into their own text.
-        vm.downloadNotesField = "my own note"
-
-        // Switching to a different post must NOT touch the user's text …
-        vm.downloadURLField = otherXURL
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadNotesField, "my own note",
-                       "user-edited notes must never be cleared by a URL change")
-
-        // … and the new fetch must not clobber it either.
-        vm.applyFetchedNotes("second post body", for: otherXURL)
-        XCTAssertEqual(vm.downloadNotesField, "my own note",
-                       "the fill-if-empty guard must still protect user notes")
-        vm.notesFetchTask?.cancel()
-    }
-
-    func testClearingURLClearsStaleAutoFilledNotes() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadURLFieldChanged()
-        vm.applyFetchedNotes("post body", for: xURL)
-
-        vm.downloadURLField = ""
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadNotesField, "",
-                       "clearing the URL should drop notes a previous auto-fill left behind")
-    }
-
-    func testChangingToNonXURLKeepsUserEditedNotes() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.downloadURLFieldChanged()
-        vm.applyFetchedNotes("auto body", for: xURL)
-        vm.downloadNotesField = "my own note"
-
-        vm.downloadURLField = "https://youtu.be/abc123"
-        vm.downloadURLFieldChanged()
-        XCTAssertEqual(vm.downloadNotesField, "my own note",
-                       "moving to a non-X URL must not clear the user's own notes")
-    }
-
-    // MARK: - Missing custom download folder re-prompt
-
-    func testStartDownloadCancelledRePromptFailsWithoutFallback() {
+    /// With no show folder to find a newer episode in, a folder that has gone
+    /// stops the download instead of quietly using the default.
+    func testAGoneFolderWithNoEpisodeToMoveToFailsWithoutFallingBack() {
         let vm = makeViewModel()
         let absent = FileManager.default.temporaryDirectory
             .appendingPathComponent("cliphack-missing-\(UUID().uuidString)").path
+        vm.settings.sessionRootPath = nil
         vm.settings.downloadDirectoryPath = absent
-        vm.downloadDirectoryPicker = { nil }   // user cancels the re-prompt
         vm.downloadURLField = "https://example.com/watch?v=abc"
 
         vm.startDownload()
 
-        XCTAssertEqual(vm.downloadState, .failed("Choose a destination folder to download."))
-        XCTAssertFalse(vm.isDownloading, "a cancelled re-prompt must not start a download")
+        guard case .failed(let message) = vm.downloadState else {
+            return XCTFail("expected a failure, got \(vm.downloadState)")
+        }
+        XCTAssertTrue(message.contains("is gone"), message)
+        XCTAssertFalse(vm.isDownloading)
         XCTAssertEqual(vm.settings.downloadDirectoryPath, absent,
-                       "cancelling must not silently fall back to the default")
-    }
-
-    func testStartDownloadRePromptPicksNewFolderAndClearsStaleFailure() {
-        let vm = makeViewModel()
-        let absent = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cliphack-missing-\(UUID().uuidString)").path
-        let picked = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cliphack-picked-\(UUID().uuidString)", isDirectory: true)
-        try? FileManager.default.createDirectory(at: picked, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: picked) }
-        vm.settings.downloadDirectoryPath = absent
-        // User picks a new, valid (existing) folder at the re-prompt.
-        vm.downloadDirectoryPicker = { picked.path }
-
-        XCTAssertTrue(vm.chooseDownloadDirectory())
-        XCTAssertEqual(vm.settings.downloadDirectoryPath, picked.path,
-                       "picking a new folder persists it as the destination")
-        XCTAssertFalse(YtDlpService.customDownloadDirectoryMissing(vm.settings.downloadDirectoryPath),
-                       "the newly-picked folder must resolve as present")
-    }
-
-    // MARK: - Post text prefill
-
-    /// The post's text goes into Notes whole: there is no person field to
-    /// take a name out of it for.
-    func testApplyPutsTheWholePostTextInTheNotes() {
-        let vm = makeViewModel()
-        vm.downloadURLField = xURL
-        vm.applyFetchedNotes("Trump: We are going to win", for: xURL)
-        XCTAssertEqual(vm.downloadNotesField, "Trump: We are going to win")
+                       "it must not silently fall back to the default")
     }
 }

@@ -5,8 +5,6 @@ public struct ContentView: View {
     @State private var viewModel = ContentViewModel()
     @State private var fileListWidth: CGFloat = 250
     @State private var showSettings: Bool = true
-    @State private var showNewSession = false
-    @State private var newSessionTitle = ""
 
     public init() {}
 
@@ -59,18 +57,7 @@ public struct ContentView: View {
         }
         .navigationTitle(viewModel.sessionTitle)
         .navigationSubtitle(viewModel.sessionSubtitle)
-        .onAppear {
-            viewModel.adoptSessionFromOutputFolderIfNeeded()
-            viewModel.normalizeSessionRootIfNeeded()
-            viewModel.loadSessions()
-        }
-        .alert("New Session", isPresented: $showNewSession) {
-            TextField("Session name", text: $newSessionTitle)
-            Button("Create") { viewModel.createSession(title: newSessionTitle) }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Creates \"\(newSessionTitle)\" in \(viewModel.sessionRootDisplayName), with a clips folder inside it, and points downloads there.")
-        }
+        .onAppear { viewModel.followNewestEpisode() }
         .alert("Already Processed?", isPresented: $viewModel.showReprocessWarning) {
             Button("Add Anyway") { viewModel.confirmReprocessWarning() }
             Button("Cancel", role: .cancel) { viewModel.dismissReprocessWarning() }
@@ -91,11 +78,11 @@ public struct ContentView: View {
         } message: {
             Text("The part of the clip to keep, such as 1:13 to :55 or :18 to end. The file is renamed to end with it, colons written as periods (1.13 to .55), and it's written under the clip's name in the session's notes file. Leave it empty to remove the cut.")
         }
-        // Episode folders are made in the Finder, so the session menu is read
-        // again whenever ClipHack comes forward — one made while it was in the
-        // background is listed without a relaunch.
+        // Episode folders are made outside ClipHack, by the week's prep, so the
+        // newest is looked for again whenever ClipHack comes forward — one made
+        // while it was in the background is used without a relaunch.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            viewModel.loadSessions()
+            viewModel.followNewestEpisode()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             viewModel.cancelProcessing()
@@ -191,36 +178,20 @@ public struct ContentView: View {
         .background(.regularMaterial)
     }
 
-    /// Which episode the app is pointed at, and how to switch or start one.
-    /// The session is the download folder's parent, so opening one is just
-    /// re-pointing that folder — there is no session state to restore.
+    /// Which episode the app is pointed at. There is nothing to pick: it is
+    /// always the newest episode in the show folder, so the menu only names
+    /// it, and offers the temporary session and the show folder.
     private var sessionMenu: some View {
         Menu {
-            if viewModel.savedSessions.isEmpty {
+            if let session = viewModel.currentSession {
+                Label(session.title, systemImage: "checkmark")
+            } else {
                 Text(viewModel.sessionRoot == nil
                      ? "No show folder chosen yet"
-                     : "No sessions in \(viewModel.sessionRootDisplayName)")
-            } else {
-                ForEach(viewModel.savedSessions) { session in
-                    Button {
-                        viewModel.openSession(session)
-                    } label: {
-                        if session.id == viewModel.currentSession?.id {
-                            Label(session.title, systemImage: "checkmark")
-                        } else {
-                            Text(session.title)
-                        }
-                    }
-                }
+                     : "No episodes in \(viewModel.sessionRootDisplayName)")
             }
 
             Divider()
-
-            Button("New Session…") {
-                newSessionTitle = viewModel.suggestedSessionTitle
-                showNewSession = true
-            }
-            .disabled(viewModel.sessionRoot == nil)
 
             // Checked like an episode while it is open, and choosing it again
             // goes back to the episode that was open before.
@@ -251,7 +222,7 @@ public struct ContentView: View {
         if viewModel.isTemporarySession {
             return "Temporary session — downloads and processed audio go to \(viewModel.temporarySessionFolder.path). Your episode is left as it was."
         }
-        return viewModel.currentSession.map { "Session folder: \($0.folder.path)" }
+        return viewModel.currentSession.map { "The newest episode in the show folder: \($0.folder.path)" }
             ?? "No session — downloads go to the default folder"
     }
 

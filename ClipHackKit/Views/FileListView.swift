@@ -180,23 +180,6 @@ struct FileRowView: View {
                 .help("The cut, also at the end of the file name. Right-click to change it.")
             }
 
-            // What the clip actually is, not just what it's called — typed when
-            // it was downloaded, or restored from notes an earlier version
-            // wrote to disk. Downloads no longer save them.
-            if let notes = file.notes, !notes.isEmpty {
-                HStack(alignment: .top, spacing: 4) {
-                    Image(systemName: "text.quote")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                    Text(notes)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                }
-                .help(notes)
-            }
-
             statusText
 
             if case .processing = file.status {

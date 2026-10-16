@@ -35,11 +35,6 @@ final class ContentViewModel {
         // Defaults to on, so `bool(forKey:)`'s false-when-absent is wrong here.
         self.trashOriginalsEnabled =
             ClipHackSettings.store.object(forKey: Self.trashOriginalsKey) as? Bool ?? true
-        let storedHeight = ClipHackSettings.store.double(forKey: Self.notesFieldHeightKey)
-        // 0 means "never set" — UserDefaults has no distinct absent value for Double.
-        self.notesFieldHeight = storedHeight == 0
-            ? Self.defaultNotesFieldHeight
-            : Self.clampedNotesFieldHeight(storedHeight)
     }
 
     // nonisolated: with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor the implicit
@@ -171,14 +166,11 @@ final class ContentViewModel {
     }
 
     private func commitFiles(_ urls: [URL], listInNotes: Bool = true) {
-        // Notes an earlier version wrote to disk are read back, so a clip it
-        // downloaded, re-added days later — in a new session, by drag or by
-        // folder drop — still arrives with the text that says what it is,
-        // and with its cut.
+        // A clip re-added days later, by drag or by folder drop, arrives with
+        // the cut the session's notes file has for it.
         let records = downloadNotesFile.map { SessionNotesFile.read(at: $0) } ?? []
         let newFiles = urls.map { url -> FileItem in
             var item = FileItem(url: url)
-            if let notes = restoredNotes(for: url, from: records) { item.notes = notes }
             if let cut = records.first(where: { $0.filename == url.lastPathComponent })?.timestamp,
                !cut.isEmpty {
                 item.cut = cut
@@ -448,14 +440,15 @@ final class ContentViewModel {
         case idle
         case downloading(progress: String)
         case failed(String)
+        /// The session's notes file has `url`, downloaded as `filename`, but
+        /// that file has moved on — processed and trashed, or filed away by
+        /// the clip skill. The popover asks before fetching it a second time.
+        case alreadyDownloaded(url: String, filename: String)
     }
 
     var downloadURLField: String = ""
     /// Optional custom filename (stem only); blank keeps the source title.
     var downloadNameField: String = ""
-    /// Optional free-text carried onto the added row — the row only; the notes
-    /// file does not record it.
-    var downloadNotesField: String = ""
     /// The cut to make, e.g. "1:13 to :55". It ends the downloaded file's name
     /// (`ClipCutName`) and is written on its own line in the session's notes
     /// file.
@@ -478,27 +471,6 @@ final class ContentViewModel {
     }
     private static let trashOriginalsKey = "trashOriginalsAfterProcessing"
 
-    static let minNotesFieldHeight: Double = 56
-    static let maxNotesFieldHeight: Double = 360
-    static let defaultNotesFieldHeight: Double = 96
-    private static let notesFieldHeightKey = "downloadNotesFieldHeight"
-
-    static func clampedNotesFieldHeight(_ raw: Double) -> Double {
-        guard raw.isFinite else { return defaultNotesFieldHeight }
-        return min(max(raw, minNotesFieldHeight), maxNotesFieldHeight)
-    }
-
-    /// Height of the popover's Notes box in points — the user drags the grip in
-    /// its bottom-right corner to resize. Clamped on write (a drag can run past
-    /// either end) and persisted across launches.
-    var notesFieldHeight: Double {
-        didSet {
-            let clamped = Self.clampedNotesFieldHeight(notesFieldHeight)
-            // Assigning inside didSet doesn't re-enter it, so this settles here.
-            if clamped != notesFieldHeight { notesFieldHeight = clamped }
-            ClipHackSettings.store.set(notesFieldHeight, forKey: Self.notesFieldHeightKey)
-        }
-    }
     var isDownloadPopoverPresented = false
     var downloadState: DownloadState = .idle
 
@@ -510,21 +482,6 @@ final class ContentViewModel {
     private var downloadTask: Task<Void, Never>?
     /// Source URL → file-browser row added for it, for session-scoped dedupe.
     private var downloadedURLToFileID: [String: UUID] = [:]
-
-    /// Injectable so the prefill guards are testable without network.
-    var postTextFetcher: @Sendable (String) async -> String? = { await XPostText.fetchPostText(for: $0) }
-    /// The in-flight X-post-text fetch, exposed so tests can await it.
-    private(set) var notesFetchTask: Task<Void, Never>?
-    /// The X status ID we last kicked off a Notes fetch for. Lets us dedupe so
-    /// editing or re-entering the same post's URL (trailing query params,
-    /// whitespace) doesn't refetch on every keystroke. nil when the field holds
-    /// no X post URL.
-    private var lastPrefilledStatusID: String?
-    /// The exact Notes text a fetch auto-filled, so we can tell machine-written
-    /// notes (safe to refresh when the URL moves to a new post) from notes the
-    /// user has typed or edited (never touched). nil once the user edits them or
-    /// we clear them.
-    private var autoFilledNotes: String?
 
     /// Trimmed http(s) URL, or nil if the string isn't a usable web URL.
     static func validatedWebURL(_ raw: String) -> String? {
@@ -542,12 +499,17 @@ final class ContentViewModel {
     func acceptDroppedURL(_ raw: String) -> Bool {
         guard let url = Self.validatedWebURL(raw) else { return false }
         downloadURLField = url
-        if case .failed = downloadState {
+        if !isDownloading {
             downloadState = .idle
         }
         isDownloadPopoverPresented = true
-        prefillNotesFromURL(url)
         return true
+    }
+
+    /// A different link typed or pasted over one ClipHack was asking about
+    /// takes the question away with it.
+    func downloadURLFieldChanged() {
+        if case .alreadyDownloaded = downloadState { downloadState = .idle }
     }
 
     /// Convenience when the popover opens: prefill an empty URL field from the
@@ -557,111 +519,6 @@ final class ContentViewModel {
               let pasted = NSPasteboard.general.string(forType: .string),
               let url = Self.validatedWebURL(pasted) else { return }
         downloadURLField = url
-        prefillNotesFromURL(url)
-    }
-
-    /// Called whenever the URL field's text changes — typing, pasting (⌘V), or
-    /// editing. Fetches Notes for a newly-entered X post, and when the field
-    /// moves off the post it was on (edited to a different post, a non-X link,
-    /// or cleared) drops any Notes a previous auto-fill left behind. Gated to X
-    /// post URLs and deduped by status ID, so hand-typing or tweaking a URL
-    /// doesn't spawn a fetch on every keystroke.
-    ///
-    /// Deliberately NOT time-debounced (decision settled 2026-07-06 — don't
-    /// reopen without new evidence). The statusID gate + status-ID dedupe
-    /// already cover every realistic input: paste drops the whole URL at once
-    /// (one fetch), non-status/non-X text never fetches, and editing that keeps
-    /// the same status ID (trailing params, whitespace) is deduped. The only
-    /// case a debounce would add is hand-typing a 19-digit tweet ID digit by
-    /// digit — not a real workflow, and each keystroke's fetch cancels the prior
-    /// one anyway, so there's no real cost. A debounce would only add timer
-    /// state and untestable timing to the synchronous, unit-tested path here.
-    func downloadURLFieldChanged() {
-        if XPostText.statusID(from: downloadURLField) != nil {
-            prefillNotesFromURL(downloadURLField)
-        } else {
-            lastPrefilledStatusID = nil
-            notesFetchTask?.cancel()
-            discardStaleAutoFilledNotes()
-        }
-    }
-
-    /// Best-effort: when `urlString` is an X/Twitter post, fetch its body text
-    /// and drop it into Notes — but only if Notes is still empty when the fetch
-    /// resolves and the URL field still holds this URL (never clobber typed
-    /// notes, never attach a stale post's text). Deduped by status ID so the
-    /// same post isn't refetched, and it first drops any Notes a *previous*
-    /// auto-fill left behind for a different post. Fire-and-forget: it runs
-    /// independently of the download and every failure is silent.
-    func prefillNotesFromURL(_ urlString: String) {
-        guard let id = XPostText.statusID(from: urlString), id != lastPrefilledStatusID else { return }
-        lastPrefilledStatusID = id
-        discardStaleAutoFilledNotes()
-        notesFetchTask?.cancel()
-        let fetch = postTextFetcher
-        notesFetchTask = Task { [weak self] in
-            let text = await fetch(urlString)
-            self?.applyFetchedNotes(text, for: urlString)
-        }
-    }
-
-    /// Applies a fetched post body to Notes, honoring both guards: only fill if
-    /// Notes is still empty (never clobber typed text) and the URL field still
-    /// holds the URL this text was fetched for (never attach a stale post's
-    /// text). Records what it filled so a later URL change can tell this
-    /// machine-written text from notes the user goes on to edit. Split out from
-    /// the fetch Task so the guards are testable synchronously.
-    func applyFetchedNotes(_ text: String?, for urlString: String) {
-        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
-              downloadURLField == urlString,
-              downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return }
-        downloadNotesField = text
-        autoFilledNotes = text
-    }
-
-    /// Clears Notes only when they still hold exactly what a previous auto-fill
-    /// wrote — i.e. the user hasn't typed or edited them since. Protects
-    /// user-authored notes while letting stale machine-filled text refresh for
-    /// a new post.
-    private func discardStaleAutoFilledNotes() {
-        if let auto = autoFilledNotes, downloadNotesField == auto {
-            downloadNotesField = ""
-            autoFilledNotes = nil
-        }
-    }
-
-    /// Resets the X-post Notes auto-fill bookkeeping when the download form is
-    /// cleared, so the next URL entered isn't deduped against a finished one and
-    /// no stale sentinel lingers.
-    private func resetNotesAutoFillState() {
-        lastPrefilledStatusID = nil
-        autoFilledNotes = nil
-    }
-
-    /// Notes for a clip being added back to the list. Only files an earlier
-    /// version wrote have any: a download now records no notes.
-    ///
-    /// The session file first, matched on the filename its block recorded — an
-    /// older block for a clip named by hand has none, so it cannot be matched
-    /// that way. Then a per-clip file beside the audio, which covers a folder
-    /// dropped in from outside the session and clips written before the
-    /// session file existed.
-    private func restoredNotes(
-        for url: URL,
-        from records: [ClipNotesFile.Record]
-    ) -> String? {
-        if let notes = records.first(where: { $0.filename == url.lastPathComponent })?.notes,
-           !notes.isEmpty {
-            return notes
-        }
-        let sidecar = url
-            .deletingLastPathComponent()
-            .appendingPathComponent(ClipNotesFile.filename(forAudioFile: url.lastPathComponent))
-        if let notes = ClipNotesFile.readSidecar(at: sidecar)?.notes, !notes.isEmpty {
-            return notes
-        }
-        return nil
     }
 
     /// The row previously added for `sourceURL`, if it is still in the list.
@@ -696,65 +553,32 @@ final class ContentViewModel {
     /// Full destination path, for the Destination row's tooltip.
     var downloadDirectoryDisplayPath: String { downloadDirectory.path }
 
-    /// The folder-picker itself, injectable so the re-prompt flow is testable
-    /// without a modal panel. Returns the chosen folder path, or nil on cancel.
-    var downloadDirectoryPicker: () -> String? = {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.canCreateDirectories = true
-        panel.title = "Choose Download Destination"
-        guard panel.runModal() == .OK, let url = panel.url else { return nil }
-        return url.path
-    }
-
-    /// Presents the folder picker and persists the choice. Returns true if the
-    /// user picked a folder (also used by the missing-folder re-prompt).
-    @discardableResult
-    func chooseDownloadDirectory() -> Bool {
-        guard let path = downloadDirectoryPicker() else { return false }
-        settings.downloadDirectoryPath = path
-        adoptSessionRootIfNeeded()
-        loadSessions()
-        return true
-    }
-
-    /// Reverts the download destination to the default (~/Music/ClipHack).
-    func resetDownloadDirectory() {
-        settings.downloadDirectoryPath = nil
-    }
-
     /// Resets the popover after a download starts, finishes, or turns out to be
     /// one we already have.
     private func clearDownloadForm() {
         downloadURLField = ""
         downloadNameField = ""
-        downloadNotesField = ""
         downloadTimestampField = ""
-        resetNotesAutoFillState()
         downloadState = .idle
         isDownloadPopoverPresented = false
     }
 
-    /// A clip downloaded from `url` in an earlier session is still on disk:
-    /// put that file in the list and select it instead of fetching a second
-    /// copy under a `-2` name. Returns true when it took over the download.
-    ///
-    /// Never in a temporary session. It keeps no notes file, and the fold
-    /// below would make one — a `Desktop.txt` gathered from whatever notes
-    /// files happen to be lying on the Desktop.
+    /// The session's notes-file block for a clip downloaded from `url`, if
+    /// there is one. Never in a temporary session, which keeps no notes file.
+    func earlierDownload(of url: String, in destination: URL) -> ClipRecord? {
+        guard !isTemporarySession else { return nil }
+        return SessionNotesFile.read(at: sessionNotesURL(for: destination))
+            .first { ClipRecord.isSameSource($0.sourceURL, url) }
+    }
+
+    /// A clip downloaded from `url` earlier is still on disk under the name it
+    /// was downloaded with: put that file in the list and select it instead of
+    /// fetching a second copy under a `-2` name. Returns true when it took
+    /// over the download.
     ///
     /// Internal for unit tests.
     func adoptAlreadyDownloadedClip(for url: String, in destination: URL) -> Bool {
-        guard !isTemporarySession else { return false }
-        let file = sessionNotesURL(for: destination)
-        // Fold in anything still in per-clip files first, so a link used before
-        // the session file existed is still recognised as already downloaded.
-        _ = try? SessionNotesFile.adoptSidecars(in: destination, sessionFile: file)
-        let records = SessionNotesFile.read(at: file)
-        guard let existing = records
-            .first(where: { ClipNotesFile.isSameSource($0.sourceURL, url) })
+        guard let existing = earlierDownload(of: url, in: destination)
             .flatMap({ audioURL(for: $0, in: destination) })
         else {
             return false
@@ -778,7 +602,9 @@ final class ContentViewModel {
         return true
     }
 
-    func startDownload() {
+    /// `again` is the popover's Download Again: it fetches a link the notes
+    /// file already has, once ClipHack has said so.
+    func startDownload(again: Bool = false) {
         guard !isDownloading else { return }
         guard let url = Self.validatedWebURL(downloadURLField) else {
             downloadState = .failed("Enter a valid http(s) URL.")
@@ -791,16 +617,16 @@ final class ContentViewModel {
             return
         }
 
-        // A custom download folder can vanish (moved, deleted, drive unmounted).
-        // Re-prompt for one rather than failing or silently using the default;
-        // if the user cancels, don't proceed. A temporary session isn't using
-        // the saved folder, so a missing one is no reason to stop it.
+        // The week's prep clears the last episode's clips folder out, which
+        // can happen while ClipHack is open — so move to the newest episode
+        // first, and stop only if even that has nowhere to download to. A
+        // temporary session isn't using the saved folder, so a missing one is
+        // no reason to stop it.
+        followNewestEpisode()
         if !isTemporarySession,
            YtDlpService.customDownloadDirectoryMissing(settings.downloadDirectoryPath) {
-            guard chooseDownloadDirectory() else {
-                downloadState = .failed("Choose a destination folder to download.")
-                return
-            }
+            downloadState = .failed("\"\(downloadDirectoryDisplayName)\" is gone, and the show folder has no episode to use instead. Choose Show Folder… in the session menu.")
+            return
         }
 
         let destination = downloadDirectory
@@ -812,6 +638,15 @@ final class ContentViewModel {
         // runs over days, so also ask the destination itself — the notes files
         // record what each clip came from.
         if adoptAlreadyDownloadedClip(for: url, in: destination) { return }
+        // Its file has moved on since: processed, with the original trashed,
+        // or renamed and filed by the clip skill. Fetching it again would hand
+        // the skill a duplicate to process, so ask first.
+        var confirmed = false
+        if again, case .alreadyDownloaded(let asked, _) = downloadState { confirmed = asked == url }
+        if !confirmed, let earlier = earlierDownload(of: url, in: destination) {
+            downloadState = .alreadyDownloaded(url: url, filename: earlier.filename)
+            return
+        }
         // For a custom folder, prepare it in-app (correct permission attribution)
         // and surface a clear message if it isn't writable, before yt-dlp runs.
         // The default (~/Music/ClipHack) is created on demand inside downloadAudio.
@@ -819,7 +654,7 @@ final class ContentViewModel {
            !YtDlpService.prepareWritableDirectory(destination) {
             downloadState = .failed(isTemporarySession
                 ? temporarySessionRefusal
-                : "ClipHack can't write to \"\(destination.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders, or choose another folder.")
+                : "ClipHack can't write to \"\(destination.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders.")
             return
         }
 
@@ -863,7 +698,7 @@ final class ContentViewModel {
     }
 
     /// Feeds a completed download through the existing add-files path, then
-    /// records and selects the row that landed, attaches notes to it, and
+    /// records and selects the row that landed, gives it its cut, and
     /// records the clip in `notesFile` when enabled — the notes file of the
     /// session the download was started in, nil when that was a temporary one.
     func finishDownload(sourceURL: String, filePath: String, notesFile: URL?) {
@@ -877,10 +712,6 @@ final class ContentViewModel {
             return
         }
 
-        let notes = downloadNotesField.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !notes.isEmpty {
-            files[index].notes = notes
-        }
         let cut = downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines)
         if !cut.isEmpty {
             files[index].cut = cut
@@ -889,13 +720,11 @@ final class ContentViewModel {
         // Recorded in the session's own notes file, beside the audio.
         if clipNotesEnabled, let notesFile {
             do {
-                // The filename, the cut and the source — not the notes, which
-                // stay on the row. The filename is written even
-                // when it was typed by hand: with no notes beside it, it is the
-                // only line that says which clip a block is. The source is what
-                // the file is matched on, for replacing a block and for the
-                // already-downloaded check.
-                let record = ClipNotesFile.Record(
+                // The filename, the cut and the source. The filename is written
+                // even when it was typed by hand: it is the only line that says
+                // which clip a block is. The source is what the file is matched
+                // on, for replacing a block and for the already-downloaded check.
+                let record = ClipRecord(
                     filename: fileURL.lastPathComponent,
                     notes: "",
                     timestamp: downloadTimestampField.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -941,29 +770,15 @@ final class ContentViewModel {
     /// session's own, or nil in a temporary session, which keeps none.
     var downloadNotesFile: URL? { isTemporarySession ? nil : sessionNotesURL }
 
-    /// The clip's audio, when it is still on disk. A block with no filename —
-    /// one an earlier version wrote for a clip named by hand — cannot be
-    /// located.
-    ///
-    /// The per-clip subfolder is still searched: downloads land flat now, but
-    /// clips fetched before that changed are filed one level down.
-    func audioURL(for record: ClipNotesFile.Record, in folder: URL) -> URL? {
+    /// The clip's audio, when it is still in `folder` under the name its block
+    /// records. A block with no filename cannot be located.
+    func audioURL(for record: ClipRecord, in folder: URL) -> URL? {
         guard !record.filename.isEmpty else { return nil }
-        let stem = (record.filename as NSString).deletingPathExtension
-        let candidates = [
-            folder.appendingPathComponent(record.filename),
-            folder.appendingPathComponent(stem).appendingPathComponent(record.filename),
-        ]
-        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+        let url = folder.appendingPathComponent(record.filename)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     // MARK: - Sessions
-
-    /// Episode folders under the show root, newest first.
-    var savedSessions: [ClipSession] = []
-
-    /// Injectable so session naming is testable without the wall clock.
-    var now: @Sendable () -> Date = { Date() }
 
     /// Picker for the show root, injectable like the download one.
     var sessionRootPicker: () -> String? = {
@@ -1008,22 +823,6 @@ final class ContentViewModel {
         return root.lastPathComponent
     }
 
-    /// Picks up a setup that predates sessions: downloads still going to the
-    /// default folder while the *output* folder already points at an episode's
-    /// clips folder. That was the shape before a session set both, and without
-    /// this an upgrade shows no session, and a bare title bar, until one is
-    /// chosen by hand, even though the folder was chosen long ago.
-    ///
-    /// Deliberately narrow: only a folder actually named `clips` is treated as
-    /// an episode, so an unrelated output folder is never adopted.
-    func adoptSessionFromOutputFolderIfNeeded() {
-        guard settings.downloadDirectoryPath?.isEmpty ?? true,
-              let output = settings.outputDirectoryPath, !output.isEmpty else { return }
-        let url = URL(fileURLWithPath: output, isDirectory: true)
-        guard url.lastPathComponent == ClipSessionStore.clipsSubfolder else { return }
-        openSession(ClipSessionStore.session(forClipsFolder: url))
-    }
-
     var sessionRoot: URL? {
         guard let path = settings.sessionRootPath, !path.isEmpty else { return nil }
         return URL(fileURLWithPath: path, isDirectory: true)
@@ -1033,12 +832,24 @@ final class ContentViewModel {
         sessionRoot?.lastPathComponent ?? "No show folder"
     }
 
-    func loadSessions() {
-        guard let root = sessionRoot else {
-            savedSessions = []
-            return
+    /// Points ClipHack at the newest episode in the show folder, unless it
+    /// already is or a temporary session is open.
+    ///
+    /// ClipHack makes no folders: the show's weekly prep makes the next
+    /// episode and clears the last one's clips out, and ClipHack follows. Run
+    /// at launch, whenever it comes forward, and before each download, so a
+    /// new episode is picked up without being chosen and a cleared one is
+    /// never downloaded into.
+    func followNewestEpisode() {
+        guard !isTemporarySession else { return }
+        adoptSessionRootIfNeeded()
+        guard let root = sessionRoot,
+              let newest = ClipSessionStore.newestEpisode(inRoot: root) else { return }
+        let target = ClipSessionStore.currentClipsFolder(for: newest).standardizedFileURL.path
+        let current = settings.downloadDirectoryPath.map {
+            URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL.path
         }
-        savedSessions = ClipSessionStore.sessions(inRoot: root)
+        if current != target { openSession(newest) }
     }
 
     /// Points downloads and processed output at `session`'s clips folder.
@@ -1059,44 +870,10 @@ final class ContentViewModel {
         settings.downloadDirectoryPath = path
         settings.outputDirectoryPath = path
         adoptSessionRootIfNeeded()
-        // Fold in any per-clip files written before the session file existed,
-        // so an old episode reopened today reads as one file. Their originals
-        // are left alone; they are simply no longer read.
-        _ = try? SessionNotesFile.adoptSidecars(in: downloadDirectory, sessionFile: sessionNotesURL)
-        loadSessions()
     }
 
-    /// The title to offer for a new session: next episode number, today's date.
-    var suggestedSessionTitle: String {
-        guard let root = sessionRoot else {
-            return "\(ClipSessionStore.defaultPrefix)_0001 \(ClipSessionStore.dateString(now()))"
-        }
-        return ClipSessionStore.nextTitle(inRoot: root, date: now())
-    }
-
-    /// Creates `<root>/<title>/clips` and switches to it. Returns false when
-    /// there is no root to create in, or the folder can't be made.
-    @discardableResult
-    func createSession(title: String) -> Bool {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        guard let root = sessionRoot else {
-            alertTitle = "Choose a Show Folder"
-            alertMessage = "Pick the folder your episode folders live in before creating a session."
-            return false
-        }
-        do {
-            let session = try ClipSessionStore.create(title: trimmed, inRoot: root)
-            openSession(session)
-            return true
-        } catch {
-            alertTitle = "Error"
-            alertMessage = "Couldn't create \"\(trimmed)\": \(error.localizedDescription)"
-            return false
-        }
-    }
-
-    /// Presents the show-folder picker and persists the choice.
+    /// Presents the show-folder picker, persists the choice, and moves to its
+    /// newest episode.
     @discardableResult
     func chooseSessionRoot() -> Bool {
         guard let path = sessionRootPicker() else { return false }
@@ -1104,22 +881,12 @@ final class ContentViewModel {
         settings.sessionRootPath = ClipSessionStore.normalizedRoot(
             URL(fileURLWithPath: path, isDirectory: true)
         ).path
-        loadSessions()
+        followNewestEpisode()
         return true
     }
 
-    /// Repairs a stored show root that is really an episode folder, so a wrong
-    /// pick made once does not keep listing `ads` and `recordings` as sessions.
-    func normalizeSessionRootIfNeeded() {
-        guard let root = sessionRoot else { return }
-        let normalized = ClipSessionStore.normalizedRoot(root)
-        guard normalized.path != root.path else { return }
-        settings.sessionRootPath = normalized.path
-    }
-
-    /// Adopts a show root the first time a session folder is chosen, so the
-    /// session list works without a separate setup step: the root is simply
-    /// the episode folder's parent.
+    /// Takes the show root to be the open episode's parent when none is set,
+    /// so following the newest episode needs no setup step.
     private func adoptSessionRootIfNeeded() {
         guard settings.sessionRootPath?.isEmpty ?? true,
               let path = settings.downloadDirectoryPath, !path.isEmpty else { return }
@@ -1165,10 +932,11 @@ final class ContentViewModel {
         return true
     }
 
-    /// Goes back to the episode that was open before, which nothing in the
-    /// meantime has touched.
+    /// Goes back to the episode — the newest, should prep have made another
+    /// in the meantime.
     func closeTemporarySession() {
         isTemporarySession = false
+        followNewestEpisode()
     }
 
     private var temporarySessionRefusal: String {
@@ -1216,7 +984,18 @@ final class ContentViewModel {
             }
         }
 
-        let inputs = processable.map { JobInput(id: $0.id, url: $0.url, channelMode: $0.channelMode) }
+        // The cut is in a raw clip's name so it can be made; the processed
+        // clip comes after that, and is named without it.
+        let inputs = processable.map { file in
+            JobInput(
+                id: file.id,
+                url: file.url,
+                channelMode: file.channelMode,
+                outputStem: ClipCutName.baseStem(
+                    file.url.deletingPathExtension().lastPathComponent, cut: file.cut ?? ""
+                )
+            )
+        }
         var outputWarnings: [String] = []
         let outputDirectories = inputs.map { input in
             OutputDirectory.clipHackOutputDirectory(for: input.url, settings: runSettings) { warning in

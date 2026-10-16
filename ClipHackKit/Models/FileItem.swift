@@ -50,8 +50,6 @@ struct FileItem: Identifiable, Equatable {
     var analysisStats: AudioStats?
     var outputStats: AudioStats?
     var outputFileInfo: FileInfo?
-    /// Free-text from the download popover; nil for dropped files.
-    var notes: String?
     /// The part of the clip to keep, "1:13 to :55", as the session's notes file
     /// records it. nil when none was entered.
     var cut: String?
@@ -99,7 +97,7 @@ struct FileItem: Identifiable, Equatable {
             && lhs.analysisStats == rhs.analysisStats
             && lhs.waveform == rhs.waveform && lhs.outputWaveform == rhs.outputWaveform
             && lhs.fileInfo == rhs.fileInfo && lhs.outputStats == rhs.outputStats
-            && lhs.outputFileInfo == rhs.outputFileInfo && lhs.notes == rhs.notes
+            && lhs.outputFileInfo == rhs.outputFileInfo
             && lhs.originalTrashed == rhs.originalTrashed
             && lhs.channelMode == rhs.channelMode
     }

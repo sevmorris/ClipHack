@@ -129,14 +129,12 @@ final class YtDlpService {
     }
 
     /// A stem is taken when any entry in `directory` starts with "<stem>." —
-    /// catching every extension and yt-dlp's in-flight ".part" files — or *is*
-    /// the stem, which is the clip folder an earlier download of that name was
-    /// filed into. Case-insensitive to match APFS's default.
+    /// catching every extension and yt-dlp's in-flight ".part" files.
+    /// Case-insensitive to match APFS's default.
     private static func stemIsTaken(_ stem: String, in directory: URL) -> Bool {
         let filenames = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        let lowered = stem.lowercased()
-        let prefix = lowered + "."
-        return filenames.contains { $0.lowercased() == lowered || $0.lowercased().hasPrefix(prefix) }
+        let prefix = stem.lowercased() + "."
+        return filenames.contains { $0.lowercased().hasPrefix(prefix) }
     }
 
     /// Builds the yt-dlp argument list. Kept separate so flags stay easy to audit.
@@ -242,8 +240,7 @@ final class YtDlpService {
     /// skip the download and resolve someone else's file. The name is made
     /// unique before the cut goes on, so a second "Clip" with the same cut is
     /// "Clip-2 1.13 to .55" rather than one whose cut reads ".55-2".
-    /// Returns the absolute path of the downloaded (or already-present) file,
-    /// after filing it into its own clip folder.
+    /// Returns the absolute path of the downloaded (or already-present) file.
     func downloadAudio(
         url: String,
         destination: URL,

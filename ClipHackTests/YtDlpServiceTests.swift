@@ -217,21 +217,6 @@ final class YtDlpServiceTests: XCTestCase {
         XCTAssertEqual(YtDlpService.uniqueStem("clip") { taken.contains($0) }, "clip-4")
     }
 
-    // MARK: - Per-clip folders
-
-    private func makeTempDir() throws -> URL {
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cliphack-folder-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
-        return dir
-    }
-
-
-
-
-
-
     // MARK: - Already-downloaded notice parsing
 
     func testAlreadyDownloadedNoticeParsesPath() {

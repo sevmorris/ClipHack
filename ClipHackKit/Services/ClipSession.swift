@@ -3,15 +3,15 @@ import Foundation
 /// One episode's working folder.
 ///
 /// A session is a folder, not a record: its name *is* the title, so there is
-/// nothing to keep in sync when a folder is renamed or moved, one made in
-/// Finder shows up on its own, and the name travels with the files.
+/// nothing to keep in sync when a folder is renamed or moved, and the name
+/// travels with the files. ClipHack makes none of them — the show's weekly
+/// prep does — and works in the newest (`ClipSessionStore.newestEpisode`).
 ///
 ///     ~/Desktop/Example Show/          ← root, one per show
 ///     └── HT_0379 2026-08-24/          ← the session; its name is the title
-///         └── clips/                   ← where downloads are filed
-///             └── Some Title/
-///                 ├── Some Title.m4a
-///                 └── Some Title.txt
+///         └── clips/                   ← where downloads land
+///             ├── Some Title.m4a
+///             └── HT_0379 2026-08-24.txt
 struct ClipSession: Identifiable, Equatable, Sendable {
     /// The episode folder. Its last path component is the session title.
     let folder: URL
@@ -32,6 +32,15 @@ enum ClipSessionStore {
     static let defaultPrefix = "HT"
 
     // MARK: - Reading
+
+    /// The highest-numbered episode under `root`, or nil when there is none.
+    ///
+    /// The show's weekly prep makes the next episode and clears the last one
+    /// out, so this is the one being worked on — the same rule the show's own
+    /// tools use to find it.
+    static func newestEpisode(inRoot root: URL) -> ClipSession? {
+        sessions(inRoot: root).first { episodeDigits($0.title) != nil }
+    }
 
     /// Every folder under `root` as a session, episodes first and newest first.
     ///
@@ -125,44 +134,6 @@ enum ClipSessionStore {
 
     // MARK: - Naming
 
-    /// The number and zero-padding for the next episode under `root`.
-    ///
-    /// Padding follows the highest episode already there, so a show numbering
-    /// `HT_0379` keeps four digits and one numbering `HT_12` keeps two.
-    static func nextEpisodeNumber(inRoot root: URL, prefix: String = defaultPrefix) -> (number: Int, width: Int) {
-        var highest = 0
-        var width = 0
-        for folder in directories(in: root) {
-            guard let digits = episodeDigits(folder.lastPathComponent, prefix: prefix),
-                  let value = Int(digits) else { continue }
-            if value >= highest {
-                highest = value
-                width = digits.count
-            }
-        }
-        return (highest + 1, max(width, 1))
-    }
-
-    /// The suggested title for a new session: the next episode number and
-    /// today's date, in the shape the folders already use.
-    static func nextTitle(
-        inRoot root: URL,
-        prefix: String = defaultPrefix,
-        date: Date
-    ) -> String {
-        let next = nextEpisodeNumber(inRoot: root, prefix: prefix)
-        let number = String(format: "%0\(next.width)d", next.number)
-        return "\(prefix)_\(number) \(dateString(date))"
-    }
-
-    /// `yyyy-MM-dd`, fixed-format so it does not follow the user's locale.
-    static func dateString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
-    }
-
     /// The digits following `<prefix>_` at the start of a folder name, or nil
     /// when the name is not an episode of this show.
     static func episodeDigits(_ name: String, prefix: String = defaultPrefix) -> String? {
@@ -170,20 +141,6 @@ enum ClipSessionStore {
         guard name.hasPrefix(head) else { return nil }
         let digits = name.dropFirst(head.count).prefix { $0.isNumber }
         return digits.isEmpty ? nil : String(digits)
-    }
-
-    // MARK: - Writing
-
-    /// Creates `<root>/<title>/clips` and returns the session.
-    ///
-    /// Creating the clips subfolder up front is what makes the layout
-    /// consistent — a session made here never falls back to the flat form.
-    @discardableResult
-    static func create(title: String, inRoot root: URL) throws -> ClipSession {
-        let folder = root.appendingPathComponent(title, isDirectory: true)
-        let clips = folder.appendingPathComponent(clipsSubfolder, isDirectory: true)
-        try FileManager.default.createDirectory(at: clips, withIntermediateDirectories: true)
-        return ClipSession(folder: folder, clipsFolder: clips)
     }
 
     // MARK: - Private

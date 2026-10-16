@@ -103,6 +103,30 @@ final class AudioProcessorIntegrationTests: XCTestCase {
         XCTAssertTrue(result.output.lastPathComponent.contains("clipped"))
     }
 
+    /// The raw clip carries its cut so it can be made; the processed clip is
+    /// named without it.
+    func testOutputIsNamedAfterTheStemItIsGiven() async throws {
+        let tools = try XCTUnwrap(tools)
+        let input = try IntegrationFFmpeg.makeSineWAV(
+            ffmpeg: tools.ffmpeg,
+            directory: workDir,
+            name: "Title 1.13 to .55.wav",
+            durationSeconds: 0.5,
+            sampleRate: 44100
+        )
+
+        var settings = ClipHackSettings()
+        settings.loudnormEnabled = false
+        settings.outputDirectoryPath = workDir.path
+
+        let processor = AudioProcessor(settings: settings)
+        let batch = try await processor.run(inputs: [JobInput(id: UUID(), url: input, outputStem: "Title")])
+
+        XCTAssertEqual(batch.failures.count, 0, batch.failures.map(\.message).joined(separator: "; "))
+        let output = try XCTUnwrap(batch.successes.first?.output)
+        XCTAssertEqual(output.lastPathComponent, "Title-44kclipped-\(ClipHackFilename.formatDbTag(settings.limitDb)).wav")
+    }
+
     func testLoudnormTwoPassAt48kHz() async throws {
         let tools = try XCTUnwrap(tools)
         let input = try IntegrationFFmpeg.makeSineWAV(

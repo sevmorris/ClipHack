@@ -57,13 +57,11 @@ final class ContentViewModelRenameTests: XCTestCase {
         let vm = makeViewModel(withFile: original)
         let stats = AudioStats(rms: -20, peak: -3, crest: 17, lufs: -19)
         vm.files[0].analysisStats = stats
-        vm.files[0].notes = "keep me"
         vm.files[0].status = .ready(stats)
 
         XCTAssertEqual(vm.renameFile(id: vm.files[0].id, to: "renamed"), .renamed)
 
         XCTAssertEqual(vm.files[0].analysisStats, stats)
-        XCTAssertEqual(vm.files[0].notes, "keep me")
         XCTAssertEqual(vm.files[0].status, .ready(stats))
     }
 

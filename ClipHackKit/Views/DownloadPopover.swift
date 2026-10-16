@@ -6,10 +6,6 @@ struct DownloadPopover: View {
     /// Every control in the popover lines up on this width.
     private static let fieldWidth: CGFloat = 340
 
-    /// Notes-box height when the resize drag began, so the drag tracks the
-    /// pointer instead of accumulating per-event deltas.
-    @State private var dragStartHeight: Double?
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -30,15 +26,8 @@ struct DownloadPopover: View {
             TextField("https://…", text: $viewModel.downloadURLField)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: Self.fieldWidth)
-                // Fires on paste (⌘V) and edits too, not just Return — this is
-                // the path that catches a URL pasted straight into the field.
-                .onChange(of: viewModel.downloadURLField) {
-                    viewModel.downloadURLFieldChanged()
-                }
-                .onSubmit {
-                    viewModel.prefillNotesFromURL(viewModel.downloadURLField)
-                    viewModel.startDownload()
-                }
+                .onChange(of: viewModel.downloadURLField) { viewModel.downloadURLFieldChanged() }
+                .onSubmit { viewModel.startDownload() }
                 .disabled(viewModel.isDownloading)
 
             TextField("Custom file name (optional — keeps source title)", text: $viewModel.downloadNameField)
@@ -54,14 +43,12 @@ struct DownloadPopover: View {
                 .disabled(viewModel.isDownloading)
                 .help("The cut to make. It ends the file name, colons written as periods (1.13 to .55), and is written under the clip's file name in the session's notes file, marked CUT.")
 
-            notesEditor
-
             Toggle("Save clip notes", isOn: clipNotesBinding)
                 .toggleStyle(.checkbox)
                 .disabled(viewModel.isDownloading || viewModel.isTemporarySession)
                 .help(viewModel.isTemporarySession
-                      ? "A temporary session keeps no notes file. The notes stay on the clip's row."
-                      : "Saves the file name, the cut, and the source URL to this session's notes file, in the download folder. The notes stay on the clip's row.")
+                      ? "A temporary session keeps no notes file."
+                      : "Saves the file name, the cut, and the source URL to this session's notes file, in the download folder.")
 
             destinationRow
 
@@ -85,70 +72,6 @@ struct DownloadPopover: View {
         )
     }
 
-    /// A TextEditor rather than a TextField so the box can be dragged taller —
-    /// long X-post text and multi-clip timing notes don't fit four lines. Styled
-    /// to match the .roundedBorder fields above it, with the placeholder drawn
-    /// by hand (TextEditor has no prompt).
-    private var notesEditor: some View {
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: $viewModel.downloadNotesField)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 3)
-                .disabled(viewModel.isDownloading)
-
-            if viewModel.downloadNotesField.isEmpty {
-                // Sits exactly where the editor's first glyph does: the same 4/3
-                // padding, plus the text container's 5pt lineFragmentPadding on
-                // the leading edge (measured against the hosted NSTextView).
-                Text("What the clip is about (timings on the lines below)")
-                    .font(.body)
-                    .foregroundStyle(.tertiary)
-                    .padding(.leading, 9)
-                    .padding(.trailing, 4)
-                    .padding(.vertical, 3)
-                    .allowsHitTesting(false)
-            }
-        }
-        .frame(width: Self.fieldWidth, height: viewModel.notesFieldHeight)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color(nsColor: .textBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
-        )
-        .overlay(alignment: .bottomTrailing) { resizeGrip }
-    }
-
-    /// Corner grip for the notes box. Vertical only — the popover's controls all
-    /// share one width, so there is nothing to gain from dragging sideways.
-    private var resizeGrip: some View {
-        ResizeGrip()
-            .stroke(Color.secondary.opacity(0.55), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
-            .frame(width: 11, height: 11)
-            .padding(3)
-            .contentShape(Rectangle())
-            // .set() rather than push/pop: an onHover(false) that never arrives
-            // would leave a push unbalanced and the resize cursor stuck.
-            .onHover { inside in
-                if inside { NSCursor.resizeUpDown.set() } else { NSCursor.arrow.set() }
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let start = dragStartHeight ?? viewModel.notesFieldHeight
-                        dragStartHeight = start
-                        viewModel.notesFieldHeight = start + value.translation.height
-                    }
-                    .onEnded { _ in dragStartHeight = nil }
-            )
-            .help("Drag to resize")
-            .accessibilityLabel("Resize notes field")
-    }
-
     private var destinationRow: some View {
         HStack(spacing: 6) {
             Text("Destination:")
@@ -163,18 +86,8 @@ struct DownloadPopover: View {
             // No minimum gap: a session's name runs `HT_0382 2026-09-22/clips`,
             // and the default one truncated it.
             Spacer(minLength: 0)
-            // Both change the episode's saved folder, so neither is offered
-            // from inside a temporary session.
-            Button("Change…") { viewModel.chooseDownloadDirectory() }
-                .controlSize(.small)
-                .disabled(viewModel.isTemporarySession)
-            if !viewModel.isTemporarySession, viewModel.settings.downloadDirectoryPath != nil {
-                Button("Reset") { viewModel.resetDownloadDirectory() }
-                    .controlSize(.small)
-            }
         }
         .frame(width: Self.fieldWidth)
-        .disabled(viewModel.isDownloading)
     }
 
     @ViewBuilder
@@ -203,6 +116,11 @@ struct DownloadPopover: View {
                 .foregroundStyle(.red)
                 .lineLimit(4)
                 .frame(maxWidth: Self.fieldWidth, alignment: .leading)
+        case .alreadyDownloaded(_, let filename):
+            Text("This link was already downloaded as \"\(filename)\", which has since been processed or filed. Download it again?")
+                .font(.caption)
+                .lineLimit(4)
+                .frame(maxWidth: Self.fieldWidth, alignment: .leading)
         }
     }
 
@@ -216,22 +134,10 @@ struct DownloadPopover: View {
             Button("Download") { viewModel.startDownload() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(ContentViewModel.validatedWebURL(viewModel.downloadURLField) == nil)
+        case .alreadyDownloaded:
+            Button("Download Again") { viewModel.startDownload(again: true) }
+                .keyboardShortcut(.defaultAction)
         }
-    }
-}
-
-/// Three stepped diagonals in the corner — the standard "drag me" affordance.
-private struct ResizeGrip: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let inset: CGFloat = 1
-        for fraction in [0.35, 0.65, 0.95] as [CGFloat] {
-            let x = rect.minX + inset + (rect.width - inset * 2) * fraction
-            let y = rect.minY + inset + (rect.height - inset * 2) * fraction
-            path.move(to: CGPoint(x: x, y: rect.maxY - inset))
-            path.addLine(to: CGPoint(x: rect.maxX - inset, y: y))
-        }
-        return path
     }
 }
 

@@ -31,22 +31,21 @@ To download audio from a web link directly into the file list, do one of these s
 * Click the link button in the toolbar (Command + L).
 * Drop a web link onto the window.
 
-The tool saves video sources as audio only. It uses the native codec without re-encoding. The tool saves downloads in the `~/Music/ClipHack` directory.
+The tool saves video sources as audio only. It uses the native codec without re-encoding. The tool saves downloads in the `clips` folder of the newest episode (see [Sessions](#sessions)). If no show folder is set, the tool saves downloads in the `~/Music/ClipHack` directory.
 
 Downloads go straight into the session's folder. The tool does not make a folder for each clip:
 
 ```
 HT_0379 2026-08-24/clips/
-├── Some Title.m4a                 ← the download
-├── Some Title-44knorm-clipped-1dB.wav
-└── HT_0379 2026-08-24.txt         ← the session's notes file
+├── Some Title 1.13 to .55.m4a          ← the download, with its cut
+├── Some Title-44knorm-clipped-1dB.wav  ← the processed clip, without the cut
+└── HT_0379 2026-08-24.txt              ← the session's notes file
 ```
 
 If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
 
 * **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
-* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool adds the cut to the end of the file name. A file name cannot contain a colon, thus the tool writes each colon as a period: `Some Title 1.13 to .55.m4a`. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. In the notes file, the cut has its colons.
-* **Notes (optional):** Type text to keep with the file row. The tool does not write the notes to the notes file. To make the notes box larger, drag the grip in the bottom-right corner. The tool remembers the size. If you use a link from X (Twitter), the tool automatically gets the post text and puts it in the notes. You can change or delete this text.
+* **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool adds the cut to the end of the downloaded file's name. A file name cannot contain a colon, thus the tool writes each colon as a period: `Some Title 1.13 to .55.m4a`. You make the cut before you process the clip, thus the processed clip does not have the cut in its name: `Some Title-44knorm-clipped-1dB.wav`. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. In the notes file, the cut has its colons.
 * **Save clip notes:** This writes a record of each download to the session's text file. The session keeps one file for all its clips:
 
 ```
@@ -64,17 +63,15 @@ Another Title.m4a
     https://x.com/atrupar/status/2091901792632062410
 ```
 
-Thus you can find a clip by its file name and see its cut immediately. The tool removes the tracking part (`?s=43`) from X (Twitter) links. If you type a cut into the file yourself, the tool reads it as the cut, also without the `CUT` label. The tool reads files in the earlier layout, with `---` lines between the clips. The next time that the tool saves the file, it writes the file in the new layout. Version 1.29.0 started the file with a line that counted the clips and the cuts. The tool does not write that line now. The next time that the tool saves the file, it removes the line.
+Thus you can find a clip by its file name and see its cut immediately. The tool removes the tracking part (`?s=43`) from X (Twitter) links. If you type a cut into the file yourself, the tool reads it as the cut, also without the `CUT` label. If you type other lines into a block, the tool keeps them.
 
-For a download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name (see below). The tool does not write the notes. The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for. Blocks from an earlier version keep the notes that they have.
+For a download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name (see below). The tool writes the file name also when you typed the name yourself, because the file name is the only line that tells which clip the block is for.
 
 The tool does not append to this file. The tool writes the file again from what it holds. Thus a second download of the same link replaces that clip's block. The file does not collect old copies.
 
-If you have text files from an earlier version, the tool reads them the first time you open the session and copies them into the session file. The tool does not delete your old files. The tool stops reading them.
-
 The record shows the download at the time it occurred. If you rename a file later, the tool does not change the record. This is the correct function.
 
-If you use a link a second time, the tool does not download the clip again. The tool reads the notes files in the destination directory. If it finds the clip, it adds the file to the list and tells you. This is also correct if you downloaded the clip on a different day. If you deleted the audio file, the tool downloads the clip again.
+If you use a link a second time, the tool reads the session's notes file. If the clip's file is still in the folder with the name that it had when you downloaded it, the tool adds that file to the list and tells you. It does not download the clip again. If the file is not there now, the tool tells you and asks. For example, you processed the clip and the original went to the Trash, or the clip skill renamed the clip and moved it. To download the clip again, select **Download Again**.
 
 The yt-dlp software is included with each release. You do not need Homebrew or other external software.
 
@@ -96,9 +93,7 @@ Only channel handling works this way. Sample rate, ceiling, filters, and loudnes
 
 The override lives in the file list for the current session. It is not written to the notes file, so it does not survive quitting the application.
 
-## Notes in the File List
-
-The file list shows the notes below the file name. The tool reads the notes from the session's text file. Thus, the notes stay with the clip after you close the application. Point at the notes to see the full text.
+## The File List
 
 You can drop a folder onto the window. The tool finds all the audio files in the folder and in the directories below it. Thus, you can drop one clip folder, or all the clip folders for a show. If you drop the same file two times, the tool does not add it two times.
 
@@ -110,7 +105,7 @@ The tool renames the file on your disk. You can only change the name stem. The f
 
 When you drop or open a file while an episode is open, the tool writes the file name in the session's notes file. Thus the notes file shows all the clips of the episode, not only the downloads. The block for this file has no link. The tool does not write a ClipHack output that you add again to process it again.
 
-To record the cut of a clip, right-click the row and select **Set Cut…**. Type the part of the clip that you want, for example `1:13 to :55` or `:18 to end`. The tool renames the file on your disk: the cut goes on the end of the file name, with a period for each colon. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. The row shows the cut below the file name. To change the cut, select **Change Cut…**. The new cut replaces the old cut in the file name. To remove the cut, select **Change Cut…** and delete the text. You can use **Set Cut…** for a downloaded clip too. You cannot set a cut while the tool analyzes or processes the clip. In a temporary session, or when **Save clip notes** is off, the tool puts the cut in the file name only.
+To record the cut of a clip, right-click the row and select **Set Cut…**. Type the part of the clip that you want, for example `1:13 to :55` or `:18 to end`. The tool renames the file on your disk: the cut goes on the end of the file name, with a period for each colon. The tool also writes the cut under the clip's file name in the notes file and marks it `CUT`. The row shows the cut below the file name. When you process the clip, the processed file does not have the cut in its name. To change the cut, select **Change Cut…**. The new cut replaces the old cut in the file name. To remove the cut, select **Change Cut…** and delete the text. You can use **Set Cut…** for a downloaded clip too. You cannot set a cut while the tool analyzes or processes the clip. In a temporary session, or when **Save clip notes** is off, the tool puts the cut in the file name only.
 
 ## Sessions
 
@@ -124,15 +119,16 @@ One episode is one folder. The folder's name is the session title:
 └── HT_0380 2026-08-31/
 ```
 
-The session menu in the toolbar lists every episode in the show folder, newest first. The current session is also the window title.
+The tool does not make these folders. The weekly prep makes each episode folder and its `clips` folder.
 
-* **Switch session:** Pick an episode from the menu. The tool points the download folder and the output folder at that episode's `clips` folder in one step.
-* **New Session:** The tool reads the highest episode number in the show folder and suggests the next one with today's date, for example `HT_0380 2026-08-31`. You can change the name. The tool then makes `<episode>/clips` and switches to it.
-* **Choose Show Folder:** Sets the folder that holds your episode folders. The tool sets this automatically the first time you pick a session folder. It uses the folder above the episode. If you pick an episode folder by mistake, the tool uses the folder above it.
+The tool always uses the newest episode: the episode with the highest number in the show folder. The tool points the download folder and the output folder at that episode's `clips` folder. The tool looks for the newest episode when it starts, each time that you go back to it, and before each download. Thus, when the prep makes the next episode, the tool uses it. You do not select it. The current session is the window title.
 
-The show folder usually holds other folders too, for example templates and shared audio. The tool puts the episodes first in the menu, with the highest number at the top. The other folders follow.
+The session menu shows the current episode. It also has these items:
 
-The tool does not save a session record. It reads the session from the folder path. Thus you can rename or move a folder in the Finder and nothing goes out of date. An episode folder that you make by hand appears in the menu on its own.
+* **Temporary Session:** For a file that is not for an episode. Downloads and processed audio go to the Desktop. The tool does not write a notes file.
+* **Choose Show Folder:** Sets the folder that holds your episode folders. If no show folder is set, the tool uses the folder above the episode that it used last. If you pick an episode folder by mistake, the tool uses the folder above it.
+
+The show folder usually holds other folders too, for example templates and shared audio. The tool uses only the numbered episodes.
 
 ---
 
