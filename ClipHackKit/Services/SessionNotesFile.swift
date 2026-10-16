@@ -1,42 +1,34 @@
 import Foundation
 
-/// One notes file per session, holding every clip in it, laid out to work from
-/// while editing the clips: a short block per clip with the file name flush
-/// left, its cut right under it, and the source link last.
+/// The session's record of its clips, for ClipHack's own use: each download's
+/// file name, cut and link, and the cut of any clip added from disk.
 ///
 ///     HT_0385 2026-10-13/clips/HT_0385 2026-10-13.txt
 ///
 ///     CSPAN_-_President_Trump_….m4a
 ///         https://x.com/cspan/status/2109039198422405195
 ///
-///     This_Week_-_Kansas_Senate_….m4a
+///     This_Week_-_Kansas_Senate 1.23 to .52.m4a
 ///         CUT  1:23 to :52
 ///         https://x.com/thisweekabc/status/2109318964635730038
 ///
-/// The file name starts a clip's block and every other line of it is indented.
-/// That is what the eye scans for, and what the parser keys on: a flush-left
-/// line is the next clip, an indented `CUT` line its cut, an indented link its
-/// source, and anything else indented is kept as typed (`ClipRecord.notes`).
-///
-/// A download records its filename, the cut when one was entered, and the
-/// source URL. The show's clip skill reads the file; nothing older than this
-/// layout is still around to read, since each week's prep clears the last
-/// episode's clips folder out.
+/// Two things read it. A link pasted again is matched against the recorded
+/// links, so the clip is added back, or asked about, instead of fetched twice.
+/// A clip added back to the list gets its cut from its block, and the cut is
+/// what its processed copy is named without. Nobody reads the file by hand,
+/// and the show's clip skill leaves it alone, so it is read only as ClipHack
+/// writes it: a name flush left starts a block, and the indented `CUT` and
+/// link lines under it are its cut and source.
 ///
 /// Maintained, never appended. ClipHack rewrites the file from what it holds,
 /// so a re-download or an edit replaces a clip's block instead of stacking a
 /// second one after it.
 ///
-/// `nonisolated`: pure text and file handling, and it passes its own helpers (`isIndented`, `isLink`, `trimmed`) to `contains`,
-/// `lastIndex` and `map` as plain function values.
+/// `nonisolated`: pure text and file handling.
 nonisolated enum SessionNotesFile {
 
     /// Marks a clip's cut, so it stands out from the link under it.
     static let cutLabel = "CUT"
-
-    /// Stands in for the file name of a block that has none — one typed by
-    /// hand without it — so the block still has a flush-left line to start it.
-    static let unnamed = "(no file name)"
 
     /// Every line of a block after its file name.
     private static let indent = "    "
@@ -54,17 +46,9 @@ nonisolated enum SessionNotesFile {
     }
 
     private static func block(for record: ClipRecord) -> [String] {
-        let name = trimmed(record.filename)
-        var lines = [name.isEmpty ? unnamed : name]
+        var lines = [trimmed(record.filename)]
         let cut = trimmed(record.timestamp)
         if !cut.isEmpty { lines.append("\(indent)\(cutLabel)  \(cut)") }
-        let notes = trimmed(record.notes)
-        if !notes.isEmpty {
-            lines += notes.components(separatedBy: "\n").map {
-                let line = $0.trimmingCharacters(in: .whitespaces)
-                return line.isEmpty ? "" : indent + line
-            }
-        }
         let source = tidied(record.sourceURL)
         if !source.isEmpty { lines.append(indent + source) }
         return lines
@@ -86,85 +70,33 @@ nonisolated enum SessionNotesFile {
 
     // MARK: - Parsing
 
+    /// The blocks `render` writes. A line flush left is the next clip's name;
+    /// under it, `CUT  <cut>` is its cut and a link is its source. Anything
+    /// else is skipped.
     static func parse(_ text: String) -> [ClipRecord] {
         var records: [ClipRecord] = []
-        var name: String?
-        var body: [String] = []
-
-        func finish() {
-            if let name { records.append(record(named: name, body: body)) }
-            name = nil
-            body = []
-        }
-
         for raw in text.components(separatedBy: "\n") {
             let line = trimmed(raw)
-            if line.isEmpty {
-                if name != nil { body.append("") }
-            } else if isIndented(raw) || (name != nil && belongsToTheClipAbove(line)) {
-                if name == nil { name = "" }
-                body.append(line)
-            } else {
-                finish()
-                name = line
+            guard !line.isEmpty else { continue }
+            if raw.first != " " && raw.first != "\t" {
+                records.append(ClipRecord(filename: line))
+            } else if !records.isEmpty {
+                if let cut = cutValue(line) {
+                    records[records.count - 1].timestamp = cut
+                } else if line.contains("://") && !line.contains(" ") {
+                    records[records.count - 1].sourceURL = line
+                }
             }
         }
-        finish()
         return records
     }
 
-    /// A block's lines after its name: a `CUT` line is the cut, the last link
-    /// is the source, and the rest is kept as typed. With no `CUT` label, a
-    /// line that reads as a cut is the cut, so one typed in by hand still
-    /// counts. A clip added from disk has no link, so its source is empty.
-    private static func record(named name: String, body: [String]) -> ClipRecord {
-        var lines = body
-        var cut = ""
-        if let index = lines.firstIndex(where: { cutValue($0) != nil }) {
-            cut = cutValue(lines.remove(at: index)) ?? ""
-        }
-        var source = ""
-        if let index = lines.lastIndex(where: isLink) {
-            source = lines.remove(at: index)
-        }
-        if cut.isEmpty, let index = lines.firstIndex(where: ClipRecord.isTimestamp) {
-            cut = trimmed(lines.remove(at: index))
-        }
-        return ClipRecord(
-            filename: name == unnamed ? "" : name,
-            notes: trimmed(lines.joined(separator: "\n")),
-            timestamp: cut,
-            sourceURL: source
-        )
-    }
-
-    /// "CUT  1:23 to :52" → "1:23 to :52". Nil for any other line. After the
-    /// label as ClipHack writes it, anything is the cut; after one typed in
-    /// lowercase, only a timestamp is, so notes reading "Cut the crap…" stay notes.
+    /// "CUT  1:23 to :52" → "1:23 to :52"; nil for any other line.
     private static func cutValue(_ line: String) -> String? {
-        // One optional colon after the label, then space: a cut that starts
-        // with its own colon (":40 to :14") keeps it.
-        let pattern = "^\(cutLabel)\\b:?\\s+"
-        guard let range = line.range(of: pattern, options: [.regularExpression, .caseInsensitive])
-        else { return nil }
-        let value = trimmed(String(line[range.upperBound...]))
-        guard !value.isEmpty else { return nil }
-        let asWritten = line.hasPrefix(cutLabel)
-        return asWritten || ClipRecord.isTimestamp(value) ? value : nil
-    }
-
-    /// A line typed flush left by hand that still belongs to the clip above:
-    /// its cut or its link, never the name of the next clip.
-    private static func belongsToTheClipAbove(_ line: String) -> Bool {
-        cutValue(line) != nil || isLink(line) || ClipRecord.isTimestamp(line)
-    }
-
-    private static func isLink(_ line: String) -> Bool {
-        line.contains("://") && !line.contains(" ")
-    }
-
-    private static func isIndented(_ line: String) -> Bool {
-        (line.first == " " || line.first == "\t") && !trimmed(line).isEmpty
+        let head = cutLabel + " "
+        guard line.hasPrefix(head) else { return nil }
+        let value = trimmed(String(line.dropFirst(head.count)))
+        return value.isEmpty ? nil : value
     }
 
     private static func trimmed(_ text: String) -> String {
@@ -188,7 +120,7 @@ nonisolated enum SessionNotesFile {
     }
 
     /// Replaces the block for `record`'s source, or appends it when the clip is
-    /// new. This is the download path — the panel rewrites the whole file.
+    /// new. This is the download path.
     static func upsert(_ record: ClipRecord, at url: URL) throws {
         var records = read(at: url)
         if let index = records.firstIndex(where: {
@@ -201,28 +133,10 @@ nonisolated enum SessionNotesFile {
         try write(records, to: url)
     }
 
-    // MARK: - Clips added by hand
-
-    /// Lists clips added from disk — dragged in or opened, not downloaded — by
-    /// name alone, since there is no link to record. A file that already has a
-    /// block, a download or an earlier add, is left as it is. Returns how many
-    /// were added.
-    @discardableResult
-    static func recordAddedFiles(named filenames: [String], at url: URL) throws -> Int {
-        var records = read(at: url)
-        var added = 0
-        for name in filenames.map(trimmed) where !name.isEmpty {
-            guard !records.contains(where: { $0.filename == name }) else { continue }
-            records.append(ClipRecord(filename: name, notes: "", timestamp: "", sourceURL: ""))
-            added += 1
-        }
-        if added > 0 { try write(records, to: url) }
-        return added
-    }
-
     /// Sets the cut of one clip: the block whose link is `source` when that is
     /// known, else the one named `filename`, else a new block for it. An empty
-    /// cut removes the clip's `CUT` line and adds nothing.
+    /// cut takes the clip's `CUT` line out; a clip added from disk then has
+    /// nothing left to record, so its block goes.
     ///
     /// `renamedTo` is the clip's name after its file was renamed to carry the
     /// cut (`ClipCutName`). The block takes that name, so the clip is still
@@ -242,9 +156,10 @@ nonisolated enum SessionNotesFile {
         if let index = bySource ?? records.firstIndex(where: { $0.filename == filename }) {
             records[index].timestamp = cut
             if let newFilename { records[index].filename = newFilename }
+            if cut.isEmpty, trimmed(records[index].sourceURL).isEmpty { records.remove(at: index) }
         } else if !cut.isEmpty {
             records.append(ClipRecord(
-                filename: newFilename ?? filename, notes: "", timestamp: cut, sourceURL: source ?? ""
+                filename: newFilename ?? filename, timestamp: cut, sourceURL: source ?? ""
             ))
         } else {
             return

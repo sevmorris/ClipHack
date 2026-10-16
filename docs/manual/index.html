@@ -473,11 +473,6 @@
             <td>The part of the clip you want — <code>1:13 to :55</code>. It goes on the end of the file name, with a period for each colon, and on its own line in the notes file as typed. See <a href="#cut-in-name">The cut in the file name</a>.</td>
           </tr>
           <tr>
-            <td>Save clip notes</td>
-            <td>toggle</td>
-            <td>Records the download in the session's notes file. See <a href="#notes">Clip Notes</a>.</td>
-          </tr>
-          <tr>
             <td>Destination</td>
             <td>—</td>
             <td>Where downloads land: the newest episode's <code>clips</code> folder (see <a href="#sessions">Sessions</a>), or <code>~/Music/ClipHack</code> when no show folder is set. A <a href="#temporary-session">temporary session</a> points it at the Desktop. There is nothing to choose here.</td>
@@ -529,7 +524,7 @@ Some Title-44knorm-clipped-1dB.wav      ← processed, after the cut</code></pre
       <p>Sometimes a file has nothing to do with an episode: you just want it processed and on the Desktop. Choose <strong>Temporary Session</strong> from the session menu. The window title reads <em>Temporary Session</em>, with <em>Desktop</em> under it, and until you leave:</p>
       <ul>
         <li>Downloads and processed audio both go to the Desktop.</li>
-        <li>No notes file is written, and <strong>Save clip notes</strong> is off. A cut still goes in the file name.</li>
+        <li>No notes file is written. A cut still goes in the file name.</li>
         <li>The Output Directory controls are off, because they would change your episode's folders.</li>
       </ul>
       <p>Your episode is left exactly as it was: its folders, its notes file and the show folder are not touched. To leave, choose <strong>Temporary Session</strong> again, which goes back to the newest episode. Quitting leaves it too, so ClipHack always opens on your episode.</p>
@@ -540,10 +535,10 @@ Some Title-44knorm-clipped-1dB.wav      ← processed, after the cut</code></pre
     <!-- NOTES -->
     <section id="notes">
       <h2>Clip Notes</h2>
-      <p>With <strong>Save clip notes</strong> on, the session's clips are recorded in one text file, named after the session and sitting in the same <code>clips</code> folder: each download, and each file you drag in or open while an episode is open.</p>
+      <p>ClipHack keeps its own record of an episode's clips in one text file, named after the session and sitting in its <code>clips</code> folder. There is no need to open it, and the show's clip skill leaves it alone.</p>
       <pre><code>HT_0380 2026-09-08/clips/HT_0380 2026-09-08.txt</code></pre>
 
-      <p>One short block per clip, with a blank line between blocks: the file name at the left edge, then, indented under it, the cut marked <code>CUT</code> if there is one, and the source link. A file added from disk has no link, so its block is the name and any cut.</p>
+      <p>One short block per clip: the file name at the left edge, then, indented under it, the cut marked <code>CUT</code> if there is one, and the source link. Every download has a block. A file added from disk has one only once it has a cut, and loses it when the cut is taken out.</p>
 
       <pre><code>Aaron_Rupar_-_TRUMP_… .46 to .17.m4a
     CUT  :46 to :17
@@ -552,9 +547,9 @@ Some Title-44knorm-clipped-1dB.wav      ← processed, after the cut</code></pre
 Mamdani_on_Jeffries.m4a
 …</code></pre>
 
-      <p>To set or change a clip's cut later, right-click its row and choose <strong>Set Cut…</strong>. The file is renamed so its name ends with the new cut in place of the old one, and its block takes the new name. Leave the cut empty to take it out of both. A cut can't be set while the clip is being analyzed or processed, since the file can't be renamed then. In a temporary session, or with Save clip notes off, the cut goes in the file name only. A cut typed into the file by hand counts too, with or without the <code>CUT</code> label. X links are written without their tracking query (<code>?s=43</code>).</p>
+      <p>It is read for two things. A link pasted again is matched against the recorded links — see <em>Using a link twice</em> under <a href="#downloads">Downloads</a>. A clip added back to the list gets its cut from its block, and the cut is what its processed copy is named without.</p>
 
-      <p>The file name is written every time, including a name you typed yourself — with nothing else in the block, it is what says which clip the cut belongs to. Any other line you type into a block is kept when ClipHack rewrites the file.</p>
+      <p>To set or change a clip's cut later, right-click its row and choose <strong>Set Cut…</strong>. The file is renamed so its name ends with the new cut in place of the old one, and its block takes the new name. Leave the cut empty to take it out of both. A cut can't be set while the clip is being analyzed or processed, since the file can't be renamed then. In a temporary session the cut goes in the file name only. X links are written without their tracking query (<code>?s=43</code>).</p>
 
       <div class="callout">
         <strong>Maintained, not appended</strong>
