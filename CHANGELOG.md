@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.31.0] — 2026-10-16
 
 **Changed**
 - **The notes file holds only what ClipHack itself uses.** Nobody reads it by hand, and the clip skill no longer reads it at all, so it now records each download's file name, cut and link, and the cut of a clip added from disk. A link pasted again is matched against it, and a clip added back gets its cut from it, which is what its processed copy is named without. It is read only as ClipHack writes it: a line typed into it by hand is ignored, and a cut has to carry its `CUT` label.
