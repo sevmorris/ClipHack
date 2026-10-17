@@ -409,6 +409,35 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNil(vm.alertMessage, "a folder of audio is not a notice")
     }
 
+    /// The uncut copies in `orig` are of clips already in the folder above;
+    /// dropping the clips folder must not add them a second time.
+    func testDroppingAFolderPassesOverItsOrigCopies() throws {
+        let root = try makeClipFolder()
+        try Data("audio".utf8).write(to: root.appendingPathComponent("Clip.wav"))
+        let orig = root.appendingPathComponent("orig", isDirectory: true)
+        try FileManager.default.createDirectory(at: orig, withIntermediateDirectories: true)
+        try Data("audio".utf8).write(to: orig.appendingPathComponent("Clip.wav"))
+
+        let vm = makeViewModel()
+        vm.addFiles([root])
+
+        XCTAssertEqual(vm.files.map { $0.url.deletingLastPathComponent().lastPathComponent },
+                       [root.lastPathComponent])
+    }
+
+    /// Redoing a cut starts from the copy, so the orig folder itself can be dropped.
+    func testDroppingTheOrigFolderItselfAddsItsCopies() throws {
+        let root = try makeClipFolder()
+        let orig = root.appendingPathComponent("orig", isDirectory: true)
+        try FileManager.default.createDirectory(at: orig, withIntermediateDirectories: true)
+        try Data("audio".utf8).write(to: orig.appendingPathComponent("Clip.wav"))
+
+        let vm = makeViewModel()
+        vm.addFiles([orig])
+
+        XCTAssertEqual(vm.files.map(\.url.lastPathComponent), ["Clip.wav"])
+    }
+
     func testDroppingAFolderTwiceDoesNotDoubleTheRows() throws {
         let root = try makeClipFolder()
         try Data("audio".utf8).write(to: root.appendingPathComponent("One.m4a"))

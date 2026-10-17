@@ -60,6 +60,7 @@ public struct HelpView: View {
                         text("Example:")
                         code("clip-44kclipped-1dB.wav")
                     }
+                    text("An uncut copy of each processed clip is also saved in an orig folder beside it, under the same name, so a cut can be redone from it. A copy already there is never overwritten; the new one takes a (1) name. The show's clip skill takes only files lying directly in the clips folder, so it leaves the copies alone. A temporary session keeps no copies. Drop the orig folder itself onto the window to add a copy back; a folder dropped with an orig folder inside it adds everything but the copies.")
                 }
                 section("Processing Pipeline") {
                     text("ClipHack uses FFmpeg. Each stage is optional except high-pass, phase rotation, and the final limiter:")

@@ -95,15 +95,26 @@ final class ContentViewModel {
     /// Audio inside a dropped folder, name-ordered, at any depth. Downloads are
     /// filed one clip per folder, so dropping a folder — one clip's, or a whole
     /// show's worth of them — has to mean "everything in here".
+    ///
+    /// An `orig` folder inside it is passed over: it holds ClipHack's uncut
+    /// copies of clips already in the list (`ProcessedBackup`). Dropping the
+    /// `orig` folder itself still adds them, to redo a cut from one.
     private static func audioFiles(inFolder folder: URL) -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: folder,
-            includingPropertiesForKeys: [.isRegularFileKey],
+            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else { return [] }
 
-        let found = enumerator.compactMap { $0 as? URL }
-            .filter { validExtensions.contains($0.pathExtension.lowercased()) }
+        var found: [URL] = []
+        for case let url as URL in enumerator {
+            if url.lastPathComponent == ProcessedBackup.folderName,
+               (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                enumerator.skipDescendants()
+            } else if validExtensions.contains(url.pathExtension.lowercased()) {
+                found.append(url)
+            }
+        }
         return found.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
     }
 
@@ -934,6 +945,8 @@ final class ContentViewModel {
         // Taken once, so the checks below and the run itself agree on where
         // output goes — a temporary session's folder included.
         let runSettings = processingSettings
+        // Read now, like the settings: the copies go where this run's output does.
+        let keepsUncutCopies = !isTemporarySession
 
         if let customPath = runSettings.outputDirectoryPath {
             // A temporary session's folder is the Desktop, where what decides
@@ -1017,6 +1030,7 @@ final class ContentViewModel {
 
                 resetStuckProcessingRows()
 
+                let copyFailures = keepsUncutCopies ? keepUncutCopies(of: batch.successes) : []
                 let trashRefusals = trashOriginalsEnabled
                     ? trashOriginals(for: batch.successes)
                     : []
@@ -1039,9 +1053,17 @@ final class ContentViewModel {
 
                 // The audio came out fine in every one of these cases, so they ride
                 // along with whatever the run already had to say.
+                var notices: [String] = []
+                if !copyFailures.isEmpty {
+                    notices.append("Processed, but these have no uncut copy in \(ProcessedBackup.folderName):\n"
+                        + copyFailures.joined(separator: "\n"))
+                }
                 if !trashRefusals.isEmpty {
-                    let notice = "Processed, but these originals stayed put:\n"
-                        + trashRefusals.joined(separator: "\n")
+                    notices.append("Processed, but these originals stayed put:\n"
+                        + trashRefusals.joined(separator: "\n"))
+                }
+                if !notices.isEmpty {
+                    let notice = notices.joined(separator: "\n\n")
                     if let existing = alertMessage {
                         alertMessage = existing + "\n\n" + notice
                     } else {
@@ -1059,6 +1081,21 @@ final class ContentViewModel {
 
             isProcessing = false
             processingTask = nil
+        }
+    }
+
+    /// Copies each processed clip into the `orig` folder beside it before the
+    /// cut is made on it (`ProcessedBackup`), and returns a line for each one
+    /// that could not be copied. Not in a temporary session, which leaves
+    /// nothing on the Desktop but the clips themselves.
+    private func keepUncutCopies(of successes: [JobResult]) -> [String] {
+        successes.compactMap { result in
+            do {
+                try ProcessedBackup.copy(result.output)
+                return nil
+            } catch {
+                return "\(result.output.lastPathComponent): \(error.localizedDescription)"
+            }
         }
     }
 
