@@ -87,7 +87,7 @@ The override lives in the file list for the current session. It is not written t
 
 You can drop a folder onto the window. The tool finds all the audio files in the folder and in the directories below it, but not in an `orig` folder (see below). Thus, you can drop one clip folder, or all the clip folders for a show. If you drop the same file two times, the tool does not add it two times.
 
-When the tool processes a clip, it also saves an uncut copy of the processed file in an `orig` folder next to it. The copy has the same name. Thus, if you must do a cut again, you can start from the copy. To add a copy to the list, drop the `orig` folder onto the window. The tool does not write over a copy that is already there. It gives the new copy a ` (1)` name. The show's clip skill uses only the files directly in the `clips` folder, so it does not use the copies. In a temporary session, the tool does not save copies.
+When the tool processes a clip, it also saves an uncut copy of the processed file in an `orig` folder next to it. The copy has the same name. Thus, if you must do a cut again, you can start from the copy. To add a copy to the list, drop the `orig` folder onto the window. The tool does not write over a copy that is already there. It gives the new copy a ` (1)` name. The show's clip skill does not process the copies. When it files a clip, it gives the clip's copy the same new name, and keeps the cut in brackets: `13 - TRUMP - know more about inflation [1.13 to .55].wav`. In a temporary session, the tool does not save copies.
 
 To rename a file in the list, do one of these steps:
 * Right-click the row and select **Rename…**.

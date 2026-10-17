@@ -4,9 +4,10 @@ import Foundation
 ///
 /// The cut is made by hand on the processed WAV, so the copy is what a cut
 /// that went wrong is redone from. `orig` sits inside the episode's clips
-/// folder: the show's clip skill takes only files lying directly in `clips/`,
-/// so it never sees the copies, and the week's prep clears them out with the
-/// rest of the episode.
+/// folder. The show's clip skill takes only files lying directly in `clips/`,
+/// so it never processes a copy; when it files a clip, it renames the clip's
+/// copy to match, keeping the cut in brackets. The week's prep clears the
+/// copies out with the rest of the episode.
 ///
 /// `nonisolated`: file handling only, called once per finished clip.
 nonisolated enum ProcessedBackup {
