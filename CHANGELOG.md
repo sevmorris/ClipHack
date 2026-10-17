@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.31.1] — 2026-10-17
 
 **Fixed**
 - **The processed clip keeps its cut in its name again.** 1.30.0 named the processed WAV without the cut, on the reading that the cut was made before processing. It is made after: you process the download, then cut the WAV, reading the cut from its name. So `Some Title 1.13 to .55.m4a` now comes out as `Some Title 1.13 to .55-44knorm-clipped-1dB.wav`. The show's clip skill still leaves the cut out of the name it files the clip under, and out of the clip list.
