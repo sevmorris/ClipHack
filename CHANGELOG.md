@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Documentation**
+- Help, README and manual say what the show's clip skill now does with the uncut copies: when it files a clip, it renames the clip's copy in `orig` to match, keeping the cut in brackets. They said it left the copies alone.
+
 ## [1.32.0] — 2026-10-17
 
 **Added**
