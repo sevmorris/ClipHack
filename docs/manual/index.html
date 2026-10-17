@@ -481,9 +481,10 @@
       </table>
 
       <h3 id="cut-in-name">The cut in the file name</h3>
-      <p>A cut ends the downloaded clip's file name, so it is in front of you while you make it. A file name can't hold a colon (the Finder shows one as <code>/</code>), so each colon is written as a period. The cut is made before the clip is processed, so the processed clip is named without it:</p>
-      <pre><code>Some Title 1.13 to .55.m4a              ← the download
-Some Title-44knorm-clipped-1dB.wav      ← processed, after the cut</code></pre>
+      <p>A cut ends the downloaded clip's file name and stays in it when the clip is processed, so it is in front of you while you make the cut. A file name can't hold a colon (the Finder shows one as <code>/</code>), so each colon is written as a period:</p>
+      <pre><code>Some Title 1.13 to .55.m4a                       ← the download
+Some Title 1.13 to .55-44knorm-clipped-1dB.wav   ← processed, ready to cut</code></pre>
+      <p>The show's clip skill files the clip under a name of its own, without the cut.</p>
       <p>The cut follows the custom name when you typed one, and the source title when you didn't. The notes file and the clip's row keep the cut with its colons, as you typed it. <strong>Set Cut…</strong> renames the file the same way; see <a href="#notes">Clip Notes</a>.</p>
 
       <h3>Where downloads land</h3>
@@ -503,7 +504,7 @@ Some Title-44knorm-clipped-1dB.wav      ← processed, after the cut</code></pre
 └── HT_0380 2026-09-08/                         ← episode — its name is the session title
     └── clips/                                  ← downloads and output both land here
         ├── Some Title 1.13 to .55.m4a          ← the download, with its cut
-        ├── Some Title-44knorm-clipped-1dB.wav  ← processed
+        ├── Some Title 1.13 to .55-44knorm-clipped-1dB.wav  ← processed
         └── HT_0380 2026-09-08.txt              ← the session's notes file</code></pre>
 
       <ul>
@@ -547,7 +548,7 @@ Some Title-44knorm-clipped-1dB.wav      ← processed, after the cut</code></pre
 Mamdani_on_Jeffries.m4a
 …</code></pre>
 
-      <p>It is read for two things. A link pasted again is matched against the recorded links — see <em>Using a link twice</em> under <a href="#downloads">Downloads</a>. A clip added back to the list gets its cut from its block, and the cut is what its processed copy is named without.</p>
+      <p>It is read for two things. A link pasted again is matched against the recorded links — see <em>Using a link twice</em> under <a href="#downloads">Downloads</a>. A clip added back to the list gets its cut from its block.</p>
 
       <p>To set or change a clip's cut later, right-click its row and choose <strong>Set Cut…</strong>. The file is renamed so its name ends with the new cut in place of the old one, and its block takes the new name. Leave the cut empty to take it out of both. A cut can't be set while the clip is being analyzed or processed, since the file can't be renamed then. In a temporary session the cut goes in the file name only. X links are written without their tracking query (<code>?s=43</code>).</p>
 

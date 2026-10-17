@@ -5,16 +5,11 @@ struct JobInput: Sendable {
     let url: URL
     /// This clip's channel handling. nil ⇒ use the batch settings.
     let channelMode: ClipChannelMode?
-    /// What the output is named after. The input's own stem unless the caller
-    /// says otherwise — a raw clip's cut is in its name, and the processed
-    /// clip is named without it.
-    let outputStem: String
 
-    init(id: UUID, url: URL, channelMode: ClipChannelMode? = nil, outputStem: String? = nil) {
+    init(id: UUID, url: URL, channelMode: ClipChannelMode? = nil) {
         self.id = id
         self.url = url
         self.channelMode = channelMode
-        self.outputStem = outputStem ?? url.deletingPathExtension().lastPathComponent
     }
 }
 
@@ -116,7 +111,7 @@ actor AudioProcessor {
 
         let sr = settings.sampleRate.rawValue
         let rateTag = sr == 44100 ? "44k" : "48k"
-        let stem = job.outputStem
+        let stem = input.deletingPathExtension().lastPathComponent
         let limitAmp = FFmpegFilters.limiterCeilingAmplitude(dBFS: settings.limitDb)
         let limitTag = ClipHackFilename.formatDbTag(settings.limitDb)
         let normTag = settings.loudnormEnabled ? "norm-" : ""

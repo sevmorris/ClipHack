@@ -951,18 +951,9 @@ final class ContentViewModel {
             }
         }
 
-        // The cut is in a raw clip's name so it can be made; the processed
-        // clip comes after that, and is named without it.
-        let inputs = processable.map { file in
-            JobInput(
-                id: file.id,
-                url: file.url,
-                channelMode: file.channelMode,
-                outputStem: ClipCutName.baseStem(
-                    file.url.deletingPathExtension().lastPathComponent, cut: file.cut ?? ""
-                )
-            )
-        }
+        // The output is named after the input, cut and all: the cut is made
+        // on the processed clip, so its name has to carry it.
+        let inputs = processable.map { JobInput(id: $0.id, url: $0.url, channelMode: $0.channelMode) }
         var outputWarnings: [String] = []
         let outputDirectories = inputs.map { input in
             OutputDirectory.clipHackOutputDirectory(for: input.url, settings: runSettings) { warning in
