@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.32.0] — 2026-10-17
 
 **Added**
 - **An uncut copy of every processed clip.** Processing now also saves the WAV it writes into an `orig` folder beside it, under the same name, so a cut made by hand can be redone from the copy. A copy already there is never overwritten; the new one takes a ` (1)` name. The show's clip skill takes only the files lying directly in `clips/`, so it leaves the copies alone, and the week's prep clears them out with the episode. A temporary session keeps no copies.
