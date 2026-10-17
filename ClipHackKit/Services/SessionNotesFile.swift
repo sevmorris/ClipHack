@@ -14,8 +14,8 @@ import Foundation
 ///
 /// Two things read it. A link pasted again is matched against the recorded
 /// links, so the clip is added back, or asked about, instead of fetched twice.
-/// A clip added back to the list gets its cut from its block, and the cut is
-/// what its processed copy is named without. Nobody reads the file by hand,
+/// A clip added back to the list gets its cut from its block, so Change Cut…
+/// knows which cut to take off its name. Nobody reads the file by hand,
 /// and the show's clip skill leaves it alone, so it is read only as ClipHack
 /// writes it: a name flush left starts a block, and the indented `CUT` and
 /// link lines under it are its cut and source.
