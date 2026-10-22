@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.32.1] — 2026-10-22
 
 **Changed**
 - **The bundled yt-dlp is updated from 2026.08.19 to 2026.10.21.** The new release replaces the certificate authorities its downloads trust: yt-dlp warns that older executables are open to man-in-the-middle attacks through their bundled `certifi` (advisory GHSA-6q48-6c7w-9gw2). ClipHack never uses yt-dlp's self-updater, but every download it makes goes over HTTPS, so the old copy is affected. Run as ClipHack runs it, with its arguments, its bundled FFmpeg and no JavaScript runtime, the new release produces the same file, name and audio as the old one, with or without a custom name.
