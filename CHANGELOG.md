@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.32.2] — 2026-10-29
 
 **Changed**
 - **The bundled yt-dlp is updated from 2026.10.21 to 2026.10.26.** The new release fixes two critical flaws in the libraries packed inside the yt-dlp executable. The old copy carries brotli 1.2.0, whose decoder for compressed web responses has an out-of-bounds write (advisory GHSA-9v8h-qqgm-4m35); the new one carries brotli 1.2.1. The new one also carries curl_cffi 0.17.0, which completes the fix for the compromised certificate authorities that 2026.10.21 began (advisory GHSA-6q48-6c7w-9gw2). Neither flaw depends on an option, so the copy in 1.32.1 is affected. Run as ClipHack runs it, with its arguments, its bundled FFmpeg and no JavaScript runtime, the new release produces the same file, name and audio as the old one, with or without a custom name.
