@@ -125,7 +125,7 @@ final class YtDlpServiceTests: XCTestCase {
     }
 
     func testArgumentsUseVersionedRemoteComponentsSyntax() {
-        // yt-dlp ignores bare "ejs" as unsupported (checked on 2026.10.21).
+        // yt-dlp ignores bare "ejs" as unsupported (checked on 2026.10.26).
         XCTAssertEqual(value(after: "--remote-components", in: args()), "ejs:github")
     }
 
