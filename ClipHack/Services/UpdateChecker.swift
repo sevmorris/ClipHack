@@ -123,6 +123,8 @@ private enum UpdateFetchError: LocalizedError {
 /// an update is actually available.
 @MainActor
 func checkForUpdates(silent: Bool = false) async {
+    if SelfUpdateFlow.bringForward() { return }
+
     let result = await UpdateChecker().check()
 
     switch result {
@@ -135,18 +137,11 @@ func checkForUpdates(silent: Bool = false) async {
         alert.runModal()
 
     case .available(let version, let downloadURL, let releaseURL):
-        let alert = NSAlert()
-        alert.messageText = "Update Available"
-        alert.informativeText = "ClipHack \(version) is available."
-        alert.addButton(withTitle: "Download")
-        alert.addButton(withTitle: "Release Notes")
-        alert.addButton(withTitle: "Not Now")
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(downloadURL)
-        } else if response == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(releaseURL)
-        }
+        await SelfUpdateFlow.offer(SelfUpdatePrompt(appName: "ClipHack", version: version,
+                                                    downloadURL: downloadURL, releaseURL: releaseURL,
+                                                    isBusy: { BatchActivity.isRunning },
+                                                    busyMessage: "ClipHack can update when its work has finished."),
+                                   silent: silent)
 
     case .needsNewerMacOS(let version, let minimum, let installed):
         // Nothing this Mac can install, so the check at launch says nothing.
