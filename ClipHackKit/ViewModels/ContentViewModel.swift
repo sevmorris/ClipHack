@@ -15,7 +15,9 @@ final class ContentViewModel {
         didSet { settings.save() }
     }
     var presetStore = ClipHackPresetStore()
-    var isProcessing = false
+    var isProcessing = false {
+        didSet { BatchActivity.set(self, running: isProcessing || isDownloading) }
+    }
     var alertMessage: String?
     var alertTitle: String = "Error"
     var showReprocessWarning = false
@@ -451,7 +453,9 @@ final class ContentViewModel {
     private static let trashOriginalsKey = "trashOriginalsAfterProcessing"
 
     var isDownloadPopoverPresented = false
-    var downloadState: DownloadState = .idle
+    var downloadState: DownloadState = .idle {
+        didSet { BatchActivity.set(self, running: isProcessing || isDownloading) }
+    }
 
     var isDownloading: Bool {
         if case .downloading = downloadState { return true }
