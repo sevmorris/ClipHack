@@ -297,6 +297,7 @@
     <a href="#zoom">Zoom &amp; Audio Quality</a>
     <a class="section-head" href="#">Processing</a>
     <a href="#overview">Pipeline Overview</a>
+    <a href="#leveling">Dynamic Leveling</a>
     <a href="#loudnorm">EBU R128 / loudnorm</a>
     <a href="#limiter">Brick-Wall Limiter</a>
     <a class="section-head" href="#">Reference</a>
@@ -336,7 +337,7 @@
           <div class="chain-node">Limiter</div>
         </div>
       </div>
-      <p style="font-size:0.85rem;color:var(--muted);">Dashed border = optional stage. Resample and the brick-wall limiter always run. Each optional stage writes an intermediate 24-bit PCM WAV; the next stage reads that file fresh. Output: 24-bit WAV at the configured sample rate.</p>
+      <p style="font-size:0.85rem;color:var(--muted);">Dashed border = optional stage. The high-pass filter and the brick-wall limiter always run; resampling runs only when the source is at another rate. Each stage up to Dynamic Leveling writes an intermediate 24-bit PCM WAV that the next stage reads fresh; loudness normalization's second pass and the limiter share the final pass. Output: 24-bit WAV at the configured sample rate.</p>
     </section>
 
     <!-- ORIGIN -->
@@ -388,7 +389,7 @@
     <section id="overview">
       <h2>Overview</h2>
       <p>ClipHack is a thin orchestration layer over FFmpeg. It builds filter chains, runs FFmpeg subprocesses, and manages temp files. There is no custom audio DSP in the app — all signal processing is done by FFmpeg's bundled filters.</p>
-      <p>The pipeline is strictly sequential. Each optional stage writes an intermediate WAV to a temp directory, which becomes the input for the next stage. This avoids compounding rounding errors from chaining filters in a single FFmpeg invocation — each stage gets a fresh 24-bit PCM buffer.</p>
+      <p>The pipeline is strictly sequential. Resampling, channel extraction, the high-pass filter and Dynamic Leveling each write an intermediate WAV to a temp directory, which becomes the input for the next stage, so each gets a fresh 24-bit PCM buffer. The last FFmpeg run applies loudness normalization's gain and the limiter together and writes the output.</p>
     </section>
 
     <!-- LEVELING -->
@@ -422,10 +423,10 @@
       <p>ClipHack uses FFmpeg's <code>loudnorm</code> filter in two-pass mode:</p>
       <ol>
         <li><strong>Analysis pass</strong> — measures the integrated loudness, true peak, and loudness range of the file</li>
-        <li><strong>Normalization pass</strong> — applies a linear gain to bring the integrated loudness to the target LUFS</li>
+        <li><strong>Normalization pass</strong> — applies the gain that brings the integrated loudness to the target LUFS, in the same FFmpeg run as the limiter</li>
       </ol>
-      <p>This is linear normalization — the gain applied is a single constant value calculated from the analysis. No dynamic processing occurs. The stereo image and dynamics are completely unchanged; only the overall level shifts.</p>
-      <p>Single-pass loudnorm (FFmpeg's default) uses an estimation algorithm that can introduce subtle dynamic artifacts. Two-pass avoids this entirely.</p>
+      <p>ClipHack asks for linear normalization: a single constant gain calculated from the analysis, which leaves the stereo image and dynamics unchanged and shifts only the overall level. FFmpeg grants it only when that gain keeps the true peak under the target, which ClipHack sets to the limiter ceiling. When it would not — typically a quiet clip with sharp peaks that needs a lot of gain — <code>loudnorm</code> falls back to its dynamic mode, which rides the gain and has its own true-peak limiter, so the clip's dynamics do change. A quiet clip measured at −43 LUFS with peaks at −18.7 dBTP, normalized to −18 LUFS under a −1 ceiling, came out dynamic, with its loudness range down from 5.5 LU to 3.0 LU.</p>
+      <p>Single-pass loudnorm (FFmpeg's default) always works dynamically, estimating as it goes. Two-pass measures first, so the gain is exact, and linear wherever the ceiling allows it.</p>
 
       <h3>Interaction with the limiter</h3>
       <p>Loudness normalization runs before the limiter. If the normalization gain pushes any peaks above the limiter ceiling, the limiter will catch them. In practice, for most broadcast clips at sensible targets (−16 to −23 LUFS), this is rare — but it's the correct order: normalize loudness, then constrain peaks.</p>
@@ -474,16 +475,16 @@
       <p>The alternative would be a single FFmpeg invocation with a long filter chain. This is technically possible, but:</p>
       <ul>
         <li>Two-pass loudnorm requires two separate runs by design — there's no way to do it in one pass</li>
-        <li>Separate processes make progress reporting straightforward — each stage is an atomic unit</li>
+        <li>Each stage is one short-lived process, so cancelling stops the FFmpeg that is running and no later stage starts</li>
         <li>Intermediate WAV files are exact (no lossy re-encoding between stages)</li>
         <li>If a stage fails, the error is isolated and easy to diagnose</li>
       </ul>
 
       <h3>Temp files</h3>
-      <p>Intermediate files are written to a temporary directory that's cleaned up after processing. If processing fails, ClipHack attempts to clean up temp files but may leave them in <code>/tmp</code> if the process is interrupted.</p>
+      <p>Intermediate files are written to ClipHack's folder inside the user's temporary directory (<code>$TMPDIR/io.github.sevmorris.ClipHack</code>) and removed after each file is processed, whether it succeeded or failed. A process that is killed outright can leave some behind there; macOS clears the temporary directory in time.</p>
 
       <h3>Concurrency</h3>
-      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files scales with the system's CPU core count (using all available cores minus one).</p>
+      <p>Files in the queue are processed concurrently using Swift's structured concurrency (<code>async/await</code> with a task group). Each file gets its own FFmpeg subprocess chain. The number of concurrent files scales with the system's CPU core count (all available cores minus one, and never fewer than two).</p>
     </section>
 
   </main>

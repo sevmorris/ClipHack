@@ -19,7 +19,9 @@ up cold. Mirrors the same file in WaxOnWaxOff.
   went out anyway.
 
 - **`release.sh` was considered for the shared-file treatment and declined.**
-  The three scripts look heavily duplicated, and pairwise they are — roughly 140
+  (Measured when there were three app repos; there are nine now, each with its
+  own copy, kept in step by the `release-standards` skill and its audit rather
+  than by sharing the file.) The three scripts look heavily duplicated, and pairwise they are — roughly 140
   lines match between any two of DoublEnder, WaxOnWaxOff and ClipHack. Matched
   in order across all three, though, only 37 lines agree, in seven fragments of
   three to eight lines, several of which are section-header comments.
@@ -77,7 +79,8 @@ up cold. Mirrors the same file in WaxOnWaxOff.
 
   What changed since: the launch machinery is now `FFmpegProcess.swift`,
   byte-identical here and in WaxOnWaxOff, and `tools/dmg/` is byte-identical
-  across all four app repos (FilmStrip joined). `scripts/check-shared.sh`
+  across all nine app repos, as are `scripts/check-shared.sh` itself and, from
+  1.33.0, the self-updater `SelfUpdater.swift`. `scripts/check-shared.sh`
   compares every file carrying the shared marker against the sibling checkouts
   and fails this repo's release preflight on a mismatch, so the next divergence
   stops a release instead of going unnoticed. Registration is by marker rather

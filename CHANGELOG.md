@@ -2,6 +2,15 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Documentation**
+- **Help, README and manual say what loudness normalization really does.** They said it was always one fixed gain. FFmpeg applies one fixed gain only when it keeps true peaks under the ceiling; when it would push them over, typically on a quiet clip with sharp peaks, it normalizes dynamically instead.
+- **Help corrections.** It listed three built-in presets, not the four there are (Zoom 48 kHz was missing), and left Dynamic Leveling out of the pipeline. It said a reused link whose clip went to the Trash downloads again, where since 1.30.0 ClipHack asks first. It said output goes beside the source by default, where it goes to the newest episode's clips folder. It now also covers the Mono/Stereo and Left/Right controls and updates.
+- **Manual corrections.** The session menu no longer lists episodes to switch between, as the manual still said. High-pass always runs, not only the limiter. Output goes to the episode's clips folder, and Choose… lasts until the next episode. The manual now covers Trash Originals, renaming, the file list's keys and the built-in presets.
+- **README.** Its feature list covers sessions, cuts, uncut copies, per-clip channels, presets, Trash Originals and updates. It says 1.27.1 is the last version for macOS 14, and describes how to run the tests and what `release.sh` does.
+- The unreferenced screenshot of a long-gone version is removed.
+
 ## [1.33.0] — 2026-11-01
 
 **Added**
