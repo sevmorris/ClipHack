@@ -407,9 +407,9 @@
         <li>Configure your settings in the right panel — sample rate, ceiling, and any optional processing stages.</li>
         <li>Drag and drop audio or video files onto the window, or drag them into the file list on the left. To pull a clip off the web instead, use <a href="#downloads">Add from URL</a>.</li>
         <li>Click <strong>Process</strong>.</li>
-        <li>Output files are saved alongside the originals, or in your chosen output folder if you've set one.</li>
+        <li>Output files are saved in the newest episode's <code>clips</code> folder (see <a href="#sessions">Sessions</a>), or alongside the originals when no show folder is set. See <a href="#output-directory">Output Directory</a>.</li>
       </ol>
-      <p>You can queue up a batch before hitting Process. Files are processed in parallel — a batch of 10 clips takes roughly as long as the longest single clip.</p>
+      <p>You can queue up a batch before hitting Process. Files are processed in parallel, as many at once as the Mac has processor cores, less one.</p>
 
       <h3>Update Checker</h3>
       <p>ClipHack checks for new releases on launch and via <strong>Help &rarr; Check for Updates</strong>. If an update is available, <strong>Update and Relaunch</strong> installs it and reopens ClipHack. If ClipHack is working, the update waits for it to finish and then asks before relaunching. A copy that can't replace itself, such as one still running from the disk image, offers the DMG instead. A new version that needs a newer macOS than your Mac has is not offered: Check for Updates says which macOS it needs, and the check at launch says nothing.</p>
@@ -421,7 +421,7 @@
 
       <h3>File List (left panel)</h3>
       <p>Drag files here to add them. Each row shows the filename, processing status, and — after analysis — RMS level, peak level, and LUFS. A warning badge appears when the noise floor is high enough to affect level accuracy.</p>
-      <p>Select a file to see its waveform. For stereo files, L and R channels are displayed separately with independent amplitude scales.</p>
+      <p>Select a file to see its waveform. For stereo files, L and R channels are displayed separately, on the same dBFS scale.</p>
       <p>A clip with a cut shows it under its file name — see <a href="#cut-in-name">The cut in the file name</a>. A clip that overrides the settings panel's channel handling carries a badge beside its name — see <a href="#channels">Per-Clip Output Channels</a>.</p>
 
       <h3>Waveform (center)</h3>
@@ -429,26 +429,36 @@
       <p>Below the waveform, format and loudness stats are shown for the selected file. An <strong>OUTPUT</strong> badge appears when the stats reflect the processed output rather than the source.</p>
 
       <h3>Settings Panel (right)</h3>
-      <p>All processing controls live here. Toggle the panel open or closed with the sliders icon in the toolbar. Settings are saved between sessions.</p>
+      <p>All processing controls live here. Toggle the panel open or closed with the sliders icon in the toolbar. Settings, including Trash Originals and your custom presets, are saved between launches.</p>
 
       <h3>Toolbar</h3>
-      <p>Next to the session menu sits the <strong>Preset Picker</strong> — a dropdown menu for applying built-in or custom settings presets. Built-in presets include <em>Broadcast Conform</em>, <em>Clean &amp; Limit</em>, and <em>Normalize &amp; Limit</em>. Use <em>Save Current Settings…</em> to create a custom preset from your current settings. The label shows the active preset name, or <em>Custom</em> when settings don't match any saved preset.</p>
+      <p>Next to the session menu sits the <strong>Preset Picker</strong> — a dropdown menu for applying built-in or custom settings presets. The built-in presets are <em>Zoom 48 kHz</em>, <em>Broadcast Conform</em>, <em>Clean &amp; Limit</em>, and <em>Normalize &amp; Limit</em>. A preset sets how audio is processed; it never moves the download or output folder. Use <em>Save Current Settings…</em> to create a custom preset from your current settings. The label shows the active preset name, or <em>Custom</em> when settings don't match any saved preset.</p>
       <ul>
-        <li><strong>Session menu</strong> — the leftmost control. Lists the episodes in your show folder and switches between them; see <a href="#sessions">Sessions</a>.</li>
+        <li><strong>Session menu</strong> — the leftmost control. Names the current episode, the newest in your show folder, and offers <em>Temporary Session</em> and <em>Choose Show Folder…</em>; see <a href="#sessions">Sessions</a>.</li>
         <li><strong>Add from URL</strong> (Cmd+L) — download a clip's audio from a web link; see <a href="#downloads">Downloading Clips</a>.</li>
         <li><strong>Process</strong> (Cmd+Return) — process all ready files. Disabled while any file is still analyzing.</li>
         <li><strong>Cancel</strong> (Cmd+.) — cancel an in-progress batch</li>
         <li><strong>Remove ▾</strong> — menu: <em>Remove Selected</em> removes selected files; <em>Remove Processed</em> clears completed files</li>
-        <li><strong>Clear</strong> — remove all files from the queue</li>
-        <li><strong>&#9776;</strong> — toggle the settings panel</li>
+        <li><strong>Clear</strong> (Opt+Cmd+Delete) — remove all files from the queue</li>
+        <li><strong>Sliders icon</strong> — toggle the settings panel</li>
       </ul>
-      <p>In the file list, Cmd+A selects all files. Right-click the list for a context menu with <em>Remove Processed Files</em>.</p>
+      <p>Removing a file from the list leaves it on disk.</p>
+
+      <h3 id="file-list-keys">In the file list</h3>
+      <ul>
+        <li><strong>Cmd+A</strong> selects all files; <strong>Delete</strong> removes the selected ones from the list.</li>
+        <li><strong>Return</strong>, or right-click → <strong>Rename…</strong>, renames the selected file on disk. Only the name changes; the extension is kept. A file can't be renamed while it is being analyzed or processed, or once it is in the Trash.</li>
+        <li>Drag rows to change their order.</li>
+        <li>A processed row has a folder button that shows the output in the Finder.</li>
+        <li>Right-click a row for <strong>Output Channels</strong> (see <a href="#channels">Per-Clip Output Channels</a>), <strong>Rename…</strong>, <strong>Set Cut…</strong> (see <a href="#notes">Clip Notes</a>) and <strong>Remove Processed Files</strong>.</li>
+      </ul>
+      <p>Adding a file whose name looks like a ClipHack output (<code>*clipped*.wav</code>) asks first, since processing it again makes another generation.</p>
     </section>
 
     <!-- DOWNLOADS -->
     <section id="downloads">
       <h2>Downloading Clips</h2>
-      <p>ClipHack downloads a clip's audio straight into the file list. Click <strong>Add from URL</strong> in the toolbar (Cmd+L), or drop a web link onto the window. Dropping a link fills the form and opens it — it never starts the download on its own, which takes an explicit click on <strong>Download</strong>.</p>
+      <p>ClipHack downloads a clip's audio straight into the file list. Click <strong>Add from URL</strong> in the toolbar (Cmd+L), or drop a web link onto the window. Dropping a link fills the form and opens it — it never starts the download on its own, which takes an explicit click on <strong>Download</strong>. Opening the form with a link already on the clipboard fills it in too. A link to a video in a playlist downloads that one video, not the playlist.</p>
       <p>Video sources are saved as audio only, in the source's native codec with no re-encode. The downloader (yt-dlp) is bundled inside the app alongside FFmpeg, so there is nothing to install.</p>
 
       <h3>The download form</h3>
@@ -572,7 +582,7 @@ Mamdani_on_Jeffries.m4a
 
       <div class="callout">
         <strong>Mono takes a channel, it does not downmix</strong>
-        With Stereo Output off, ClipHack pans to the channel you named rather than averaging the two. A clip whose content sits on the right comes out silent under a Left setting — and which channel carries the audio is a property of that recording, not of the batch. That is the whole reason this setting lives on the clip.
+        With Mono output, ClipHack pans to the channel you named rather than averaging the two. A clip whose content sits on the right comes out silent under a Left setting — and which channel carries the audio is a property of that recording, not of the batch. That is the whole reason this setting lives on the clip.
       </div>
 
       <p>Only channel handling works this way. Sample rate, ceiling, the filters and loudness stay batch-wide. Since <strong>Process</strong> runs the whole queue rather than the current selection, this is what lets a mixed batch — some stereo, some mono-left — go through in one pass instead of two.</p>
@@ -586,7 +596,7 @@ Mamdani_on_Jeffries.m4a
     <!-- PIPELINE -->
     <section id="pipeline">
       <h2>Processing Pipeline</h2>
-      <p>Each stage is optional except the final limiter. Stages run in this order:</p>
+      <p>The high-pass filter and the final limiter always run. Resampling and channel extraction run only when the file needs them, and Dynamic Leveling and Loudness Norm only when they are on. Stages run in this order:</p>
 
       <ol class="pipeline">
         <li>
@@ -598,7 +608,7 @@ Mamdani_on_Jeffries.m4a
         <li>
           <div>
             <strong>Channel Extraction</strong>
-            <span>For mono output from a stereo source, extracts the selected channel (Left or Right) using an explicit pan filter. Skipped for stereo input when Stereo Output is on.</span>
+            <span>For mono output from a stereo source, extracts the selected channel (Left or Right) using an explicit pan filter. Skipped when the output is stereo or the source is already mono.</span>
           </div>
         </li>
         <li>
@@ -616,7 +626,7 @@ Mamdani_on_Jeffries.m4a
         <li>
           <div>
             <strong>Loudness Norm <span class="tag">optional</span></strong>
-            <span>Two-pass EBU R128 loudness normalization. First pass measures integrated loudness; second pass applies a linear gain to hit the target LUFS. Runs before the limiter.</span>
+            <span>Two-pass EBU R128 loudness normalization. First pass measures integrated loudness; second pass applies one fixed gain to hit the target LUFS, provided that gain keeps true peaks under the ceiling. When it would push them over, FFmpeg normalizes dynamically instead. Runs before the limiter, in the same pass.</span>
           </div>
         </li>
         <li>
@@ -650,14 +660,14 @@ Mamdani_on_Jeffries.m4a
             <td>Output sample rate. 44.1 kHz for most podcast use; 48 kHz for broadcast and video.</td>
           </tr>
           <tr>
-            <td>Stereo Output</td>
-            <td>on / off</td>
-            <td>Force stereo output. Upmixes mono sources to dual-mono stereo. When off, all output is mono.</td>
+            <td>Mono / Stereo</td>
+            <td>Mono · Stereo</td>
+            <td>Stereo outputs two channels and upmixes a mono source to dual mono; a source with more than two channels keeps them. Mono outputs one channel.</td>
           </tr>
           <tr>
             <td>Channel</td>
             <td>Left / Right</td>
-            <td>For mono output from a stereo source, selects which channel to use. Disabled when Stereo Output is on. Uses an explicit pan filter — not a downmix average.</td>
+            <td>For mono output from a stereo source, selects which channel to use. Disabled while Stereo is selected. Uses an explicit pan filter — not a downmix average.</td>
           </tr>
           <tr>
             <td>Ceiling</td>
@@ -700,7 +710,7 @@ Mamdani_on_Jeffries.m4a
           <tr>
             <td>Loudness Norm</td>
             <td>on / off</td>
-            <td>Enables two-pass EBU R128 loudness normalization. Linear gain only — no dynamic processing.</td>
+            <td>Enables two-pass EBU R128 loudness normalization. One fixed gain when it keeps true peaks under the ceiling; otherwise FFmpeg normalizes dynamically. See <a href="theory.html#loudnorm">Theory of Operation</a>.</td>
           </tr>
           <tr>
             <td>Target</td>
@@ -710,8 +720,22 @@ Mamdani_on_Jeffries.m4a
         </tbody>
       </table>
 
-      <h3>Output Directory</h3>
-      <p>By default, processed files are saved in the same directory as the source file. Use <strong>Choose…</strong> to set a custom output folder. Click <strong>Reset</strong> to return to the default behavior. In a <a href="#temporary-session">temporary session</a> this reads <em>Desktop</em> and cannot be changed.</p>
+      <h3>Trash Originals</h3>
+      <table class="settings-table">
+        <thead>
+          <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Trash Originals</td>
+            <td>on</td>
+            <td>Moves each source file to the Trash once its processed output is written. The output is checked on disk first, and a file that fails to process is always kept. A volume with no Trash, such as a network share, keeps its originals, and ClipHack says which. Recover anything you want back from the Trash.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="output-directory">Output Directory</h3>
+      <p>Following the newest episode points the output folder at that episode's <code>clips</code> folder, the same folder downloads go to (see <a href="#sessions">Sessions</a>). With no show folder set, processed files are saved in the same directory as the source file, shown as <em>Same as source</em>. Use <strong>Choose…</strong> to send output somewhere else until the next episode arrives, when ClipHack points it at that episode again. Click <strong>Reset</strong> to save beside the source. In a <a href="#temporary-session">temporary session</a> this reads <em>Desktop</em> and cannot be changed. If the chosen folder can't be written to, Process stops and says so. Saving beside the source, a folder that can't be written to sends the output to <code>~/Music/ClipHack</code> instead, with a notice.</p>
     </section>
 
     <!-- OUTPUT NAMING -->
@@ -747,6 +771,7 @@ Mamdani_on_Jeffries.m4a
       <h4>Examples</h4>
       <pre><code>clip-44kclipped-1dB.wav
 clip-48knorm-clipped-3dB.wav</code></pre>
+      <p>An output never overwrites a file already there: the new one takes a <code>(1)</code> name. Two clips in one batch that would get the same output name are told apart by a short tag in the second one's name.</p>
 
       <h3>The uncut copy</h3>
       <p>Each processed clip is also copied, uncut, into an <code>orig</code> folder beside it, under the same name, so a cut that goes wrong can be redone from the copy. A copy already there is never overwritten; the new one takes a <code>(1)</code> name. The show's clip skill takes only the files lying directly in <code>clips/</code>, so it never processes a copy; when it files a clip, it renames the clip's copy to match, keeping the cut in brackets — <code>13 - TRUMP - know more about inflation [1.13 to .55].wav</code>. The week's prep clears the copies out with the episode. A temporary session keeps no copies.</p>

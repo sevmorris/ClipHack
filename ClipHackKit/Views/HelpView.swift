@@ -19,8 +19,9 @@ public struct HelpView: View {
                          destination: URL(string: "https://sevmorris.github.io/ClipHack/manual/")!)
                 }
                 section("Presets") {
-                    text("Presets save and recall all settings at once. Three built-in presets are included:")
+                    text("Presets save and recall all processing settings at once; the folders stay where they are. Four built-in presets are included:")
                     VStack(alignment: .leading, spacing: 8) {
+                        definition("Zoom 48 kHz", "Like Broadcast Conform, but at 48 kHz, the rate Zoom's audio device runs at, so nothing is resampled on the way in.")
                         definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. Loudness normalized to -18 LUFS.")
                         definition("Clean & Limit", "Minimal processing — high-pass at DC block + limiter only. Good for already well-produced sources that just need a safety ceiling.")
                         definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. Good for sources with consistent dynamics that just need a loudness target.")
@@ -32,7 +33,7 @@ public struct HelpView: View {
                         "Set your sample rate, ceiling, and any processing options.",
                         "Drag and drop audio or video files onto the window — or drop a folder, and ClipHack adds every audio file inside it.",
                         "Click Process.",
-                        "Output files are saved alongside the originals (or to your chosen output folder)."
+                        "Output files are saved in the newest episode's clips folder (see Sessions), or beside the originals when no show folder is set."
                     ])
                 }
                 section("Download from URL") {
@@ -43,7 +44,7 @@ public struct HelpView: View {
                     definition("Notes file", "ClipHack's own record of an episode's clips — HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt: each download's file name, cut and link, and the cut of any clip added from disk. It is how a link pasted again is recognised, and how a clip added back gets its cut. There is no need to open it. Nothing is ever appended: re-downloading a clip replaces its block. A temporary session keeps none.")
                     definition("Destination", "Where downloads land: the newest episode's clips folder, or ~/Music/ClipHack when no show folder is set. In a temporary session it is the Desktop. There is nothing to choose here; see Sessions.")
                     definition("Already downloaded", "ClipHack checks a link against the session's notes file. If the clip's file is still in the folder under the name it was downloaded with, it is added to the list instead of fetched a second time. If it has moved on since — processed, with its original in the Trash, or renamed and filed by the clip skill — ClipHack says so and asks; choose Download Again to fetch it anyway.")
-                    text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by selecting it and pressing Return. The file is renamed on disk; the extension is kept.")
+                    text("Any row in the list — dropped or downloaded — can be renamed with right-click → Rename…, or by selecting it and pressing Return. The file is renamed on disk; the extension is kept. Delete removes the selected rows from the list (the files stay on disk), and rows can be dragged into a different order.")
                 }
                 section("Sessions") {
                     text("One episode is one folder, and the folder's name is the session title — HT_0380 2026-08-24. ClipHack makes none of these folders: the week's prep makes each episode and its clips folder. ClipHack always works in the newest — the episode with the highest number in your show folder — and the current one is the window title.")
@@ -60,6 +61,7 @@ public struct HelpView: View {
                         text("Example:")
                         code("clip-44kclipped-1dB.wav")
                     }
+                    text("An output never overwrites a file already there: the new one takes a (1) name.")
                     text("An uncut copy of each processed clip is also saved in an orig folder beside it, under the same name, so a cut can be redone from it. A copy already there is never overwritten; the new one takes a (1) name. The show's clip skill never processes a copy: when it files a clip, it renames the clip's copy to match, keeping the cut in brackets — 13 - TRUMP - know more about inflation [1.13 to .55].wav. A temporary session keeps no copies. Drop the orig folder itself onto the window to add a copy back; a folder dropped with an orig folder inside it adds everything but the copies.")
                 }
                 section("Processing Pipeline") {
@@ -68,6 +70,7 @@ public struct HelpView: View {
                         "Resample to target sample rate (skipped if already matching).",
                         "Channel extraction — pan stereo to mono (left or right channel).",
                         "High-pass filter + phase rotation — removes low-frequency rumble and DC offset; allpass filter corrects phase shift. Always applied.",
+                        "Dynamic Leveling — bidirectional dynaudnorm, which lifts quiet passages and tames loud ones.",
                         "Loudness Norm — two-pass EBU R128 loudness normalization to a target LUFS.",
                         "Brick-wall limiting that holds sample peaks at your ceiling."
                     ])
@@ -76,13 +79,15 @@ public struct HelpView: View {
                 section("Settings") {
                     text("These apply to every file in the queue. The one exception is channel handling, which a clip can override for itself — see **Per-clip output channels** below.")
                     definition("Sample Rate", "Output sample rate — 44.1 kHz or 48 kHz.")
+                    definition("Mono / Stereo", "Mono outputs one channel. Stereo outputs two, and a mono source becomes dual mono; a source with more than two channels keeps them.")
+                    definition("Left / Right", "For mono output from a stereo source, the channel to keep. ClipHack takes that channel rather than mixing the two down. Off while Stereo is selected.")
                     definition("Ceiling", "Brick-wall limiter ceiling, from -6 dB to -1 dB. Sets the maximum peak level of the output.")
                     definition("High Pass", "High-pass filter cutoff — three options. DC Block (20 Hz): removes DC offset only, passes all audible content including bass fundamentals. 40 Hz: removes subsonic rumble while preserving music bass. 80 Hz: standard voice HPF, removes proximity effect and handling noise.")
                     definition("Dynamic Leveling", "Enables bidirectional dynamic normalization (dynaudnorm). Lifts quiet voices and tames loud ones. Best for panel recordings, live Q&As, or multi-guest interviews where voices are at inconsistent levels — not for regular solo voice use. Aggressiveness controls how quickly and strongly the leveling responds.")
-                    definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. Runs before the limiter.")
+                    definition("Loudness Norm", "Enables two-pass EBU R128 loudness normalization. It applies one fixed gain when that gain keeps true peaks under the ceiling; when it would push them over, FFmpeg normalizes dynamically instead. Runs before the limiter.")
                     definition("Target", "Loudness normalization target in LUFS, from -35 to -14. -18 LUFS is a common podcast insertion target.")
-                    definition("Trash Originals", "On by default. Moves each source file to the Trash once its processed output is written — the output is checked on disk first, and a file that fails to process is always kept. Recover anything you want back from the Trash. Note that a downloaded clip whose audio has been trashed will download again if you reuse the same link.")
-                    definition("Output Directory", "Custom output folder for processed files. Defaults to the same directory as the source file.")
+                    definition("Trash Originals", "On by default. Moves each source file to the Trash once its processed output is written — the output is checked on disk first, and a file that fails to process is always kept. Recover anything you want back from the Trash. Reusing the link of a downloaded clip whose audio has been trashed doesn't fetch it again on its own: ClipHack asks, and Download Again fetches it.")
+                    definition("Output Directory", "Where processed files go. Following the newest episode points it at that episode's clips folder; with no show folder set, output goes beside the source file. Choose… sets another folder until the next episode arrives, and Reset goes back to beside the source.")
                 }
                 section("Per-Clip Output Channels") {
                     text("Some clips want stereo and others want one channel of a stereo source. Right-click a row and use **Output Channels** to set that clip on its own: Stereo, Mono — Left, Mono — Right, or Follow Settings to go back to the panel.")
@@ -90,6 +95,9 @@ public struct HelpView: View {
                     text("Only channel handling can be set per clip. Sample rate, ceiling, filters and loudness stay the same for the whole batch.")
                     text("Because Process runs the whole queue rather than the selection, this is what lets a mixed batch — some stereo, some mono-left — go through in one pass instead of two.")
                     definition("Why it matters", "With mono output, ClipHack takes the channel you name rather than downmixing. A clip whose content sits on the right would come out silent under a Left setting, and which channel carries the audio is a property of that recording — so it belongs on the clip, not the batch.")
+                }
+                section("Updates") {
+                    text("ClipHack checks for a new version at launch and from Help → Check for Updates…. Update and Relaunch downloads it, checks that it is a signed release, replaces ClipHack and reopens it. If ClipHack is processing or downloading, the update waits for the work to finish and asks before relaunching. A copy that can't replace itself, such as one still running from its disk image, offers Download instead, with the reason. A version that needs a newer macOS than this Mac has is not offered: Check for Updates… says which macOS it needs, and the check at launch says nothing.")
                 }
                 section("Acknowledgments") {
                     text("ClipHack bundles two open-source command-line tools:")
