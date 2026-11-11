@@ -26,7 +26,7 @@ ClipHack is an internal tool. It prepares third-party audio clips (for example: 
 * **The cut in the file name:** You can record the part of a clip that you want, for example `1:13 to :55`. The tool puts it in the file name and in the episode's notes file.
 * **Uncut copies:** The tool saves an uncut copy of each processed clip in an `orig` folder, so you can make a cut again.
 * **Per-clip output channels:** One clip can be stereo, or take its left or right channel, while the rest of the batch follows the settings.
-* **Presets:** Four built-in presets, and presets that you save yourself.
+* **Presets:** Three built-in presets, and presets that you save yourself.
 * **Trash Originals:** After a file is processed, the tool moves the source file to the Trash. This is on by default.
 * **Updates:** The tool checks for new versions, and installs them itself.
 
@@ -139,7 +139,6 @@ The preset menu is next to the session menu. A preset sets all the processing se
 * **Zoom 48 kHz:** 48 kHz, an 80 Hz high pass, loudness normalization to -18 LUFS, and a -1 dB ceiling. Zoom's audio device operates at 48 kHz.
 * **Broadcast Conform:** The same settings at 44.1 kHz.
 * **Clean & Limit:** A DC block high pass and the limiter only.
-* **Normalize & Limit:** An 80 Hz high pass, loudness normalization to -18 LUFS, and the limiter.
 
 To save your own preset, select **Save Current Settings…**. To delete one of your presets, select **Delete Preset**. You cannot delete the built-in presets.
 
@@ -163,7 +162,7 @@ The tool checks for a new version when it starts. To check yourself, select **He
 * **Signal monitoring:** The tool shows separate Left and Right waveforms for stereo files. It gives warnings for noise floor detection.
 * **Boundary integrity:** The tool uses custom mirror-padding logic for dynamic leveling. This stops gain changes at the start and the end of the file.
 * **Batch processing:** The tool processes multiple files at the same time. It tracks the progress for each file independently.
-* **Environment:** You must use macOS 15.0 (Sequoia) or newer on an Apple Silicon (arm64) processor. Version 1.27.1 is the last version for macOS 14. On macOS 14, the update check does not offer newer versions.
+* **Environment:** You must use macOS 15.0 (Sequoia) or newer on an Apple Silicon (arm64) processor.
 * **Dependencies:** The tool includes FFmpeg 9.0.2 (arm64) and yt-dlp (universal2). You do not need to install external software.
 
 > **Security warning:** The App Sandbox is disabled. This lets ClipHack operate the included `ffmpeg`, `ffprobe`, and `yt-dlp` files. Only download the software from the [official releases](https://github.com/sevmorris/ClipHack-releases/releases) page.

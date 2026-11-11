@@ -12,6 +12,15 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
         self.settings = settings
     }
 
+    /// The id the retired "Normalize & Limit" preset had. Never reuse it.
+    ///
+    /// Retired in 1.33.1: once RNNoise, the de-esser and leveling left the
+    /// presets, it carried exactly Broadcast Conform's settings. Nothing stores
+    /// a built-in preset's id — the selection lives in memory and a saved
+    /// preset keeps its own id and a full copy of its settings — so there is
+    /// nothing to migrate.
+    static let retiredNormalizeAndLimitID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+
     static let builtIn: [ClipHackPreset] = [
         // Zoom / Loopback path: 48 kHz matches ZoomAudioDevice; −18 LUFS for live injection.
         ClipHackPreset(
@@ -54,22 +63,6 @@ struct ClipHackPreset: Identifiable, Codable, Equatable {
                 limitDb: -1.0,
                 hpfCutoff: .dcBlock,
                 loudnormEnabled: false,
-                loudnormTarget: -18.0,
-                stereoOutput: false,
-                channel: .left,
-                outputDirectoryPath: nil
-            )
-        ),
-        // High-pass + EBU R128 loudness normalization + limiter.
-        // Good for sources with consistent dynamics that just need a loudness target.
-        ClipHackPreset(
-            id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
-            name: "Normalize & Limit",
-            settings: ClipHackSettings(
-                sampleRate: .s44100,
-                limitDb: -1.0,
-                hpfCutoff: .standard,
-                loudnormEnabled: true,
                 loudnormTarget: -18.0,
                 stereoOutput: false,
                 channel: .left,

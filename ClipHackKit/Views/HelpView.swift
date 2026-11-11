@@ -19,12 +19,11 @@ public struct HelpView: View {
                          destination: URL(string: "https://sevmorris.github.io/ClipHack/manual/")!)
                 }
                 section("Presets") {
-                    text("Presets save and recall all processing settings at once; the folders stay where they are. Four built-in presets are included:")
+                    text("Presets save and recall all processing settings at once; the folders stay where they are. Three built-in presets are included:")
                     VStack(alignment: .leading, spacing: 8) {
                         definition("Zoom 48 kHz", "Like Broadcast Conform, but at 48 kHz, the rate Zoom's audio device runs at, so nothing is resampled on the way in.")
                         definition("Broadcast Conform", "Broadcast clips (news, ads) played live into a Zoom call via Farrago/Loopback. Loudness normalized to -18 LUFS.")
                         definition("Clean & Limit", "Minimal processing — high-pass at DC block + limiter only. Good for already well-produced sources that just need a safety ceiling.")
-                        definition("Normalize & Limit", "High-pass + EBU R128 loudness normalization + limiter. Good for sources with consistent dynamics that just need a loudness target.")
                     }
                     text("To save your own preset, open the preset menu and choose **Save Current Settings…**. To delete a custom preset, choose **Delete Preset** from the same menu. Built-in presets cannot be deleted.")
                 }
