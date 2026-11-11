@@ -162,7 +162,7 @@ The tool checks for a new version when it starts. To check yourself, select **He
 * **Signal monitoring:** The tool shows separate Left and Right waveforms for stereo files. It gives warnings for noise floor detection.
 * **Boundary integrity:** The tool uses custom mirror-padding logic for dynamic leveling. This stops gain changes at the start and the end of the file.
 * **Batch processing:** The tool processes multiple files at the same time. It tracks the progress for each file independently.
-* **Environment:** You must use macOS 15.0 (Sequoia) or newer on an Apple Silicon (arm64) processor. On macOS 14, use [ClipHack 1.27.1](https://github.com/sevmorris/ClipHack-releases/releases/tag/v1.27.1), the last version for macOS 14. Its update check does not offer newer versions.
+* **Environment:** You must use macOS 15.0 (Sequoia) or newer on an Apple Silicon (arm64) processor.
 * **Dependencies:** The tool includes FFmpeg 9.0.2 (arm64) and yt-dlp (universal2). You do not need to install external software.
 
 > **Security warning:** The App Sandbox is disabled. This lets ClipHack operate the included `ffmpeg`, `ffprobe`, and `yt-dlp` files. Only download the software from the [official releases](https://github.com/sevmorris/ClipHack-releases/releases) page.
