@@ -2,7 +2,7 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
-## [Unreleased]
+## [1.33.1] — 2026-11-10
 
 **Removed**
 - **The Normalize & Limit preset.** Once noise reduction, the de-esser and leveling left the presets, it held exactly the settings of Broadcast Conform, which stays. Three built-in presets remain: Zoom 48 kHz, Broadcast Conform and Clean & Limit. Presets you saved yourself are unaffected.
