@@ -2,6 +2,21 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [1.33.2] — 2026-11-13
+
+Updating is sturdier. Most of this takes effect from the update after this one, because the version you have now installs this one.
+
+**Changed**
+- **Cancel stops an update at once.** While ClipHack was checking a download, Cancel waited for the check to finish.
+- **A download that stalls is given up.** An update stops waiting when the download makes no progress for 30 seconds, or runs past 15 minutes, and offers the download instead. A slow connection could leave it waiting indefinitely.
+- **An update stops early when the disk can't hold it.** It checks the free space as the download starts and again before the new version is unpacked, rather than failing partway.
+- **A copy that can't update itself where it is says so up front.** On a drive that can't swap an app in one step, such as an exFAT or network drive, the prompt explains and offers **Download**. It used to download everything first and then fail.
+- **The update prompt at launch no longer lands on work you've just started.** If you start processing or a download while the check at launch is still getting ready, it says nothing, and the next launch offers the update again.
+
+**Developer**
+- `SelfUpdater.swift`, shared verbatim with the sibling apps, runs hdiutil and ditto with a deadline and real cancellation, and limits downloads by stall time, size and free space. All ten copies changed together.
+- `release.sh` prunes no release pages unless the list of releases it must keep proves itself, and the shared-files check compares against Transcoder, the newest sibling app.
+
 ## [1.33.1] — 2026-11-10
 
 **Removed**
