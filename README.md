@@ -46,7 +46,8 @@ Downloads go straight into the session's folder. The tool does not make a folder
 HT_0379 2026-08-24/clips/
 ├── Some Title 1.13 to .55.m4a          ← the download, with its cut
 ├── Some Title 1.13 to .55-44knorm-clipped-1dB.wav  ← the processed clip, with its cut
-└── HT_0379 2026-08-24.txt              ← the session's notes file
+└── docs/
+    └── HT_0379 2026-08-24.txt          ← the session's notes file
 ```
 
 If a clip with the same name is already there, the tool stops and tells you. Type a custom name and download the clip again. The tool never writes over a clip you already have.
@@ -61,8 +62,10 @@ When you open the download form, the tool copies a web link from the clipboard i
 The tool keeps its own record of the episode's clips in one text file:
 
 ```
-HT_0379 2026-08-24/clips/HT_0379 2026-08-24.txt
+HT_0379 2026-08-24/clips/docs/HT_0379 2026-08-24.txt
 ```
+
+The file goes in the `docs` folder, not loose in `clips`, where the show's clip skill takes each file as incoming audio. If the `docs` folder is not there, the tool makes it. A notes file that an earlier version left in `clips` moves to `docs` the next time the tool reads it.
 
 For each download, the tool writes the file name, the cut if you typed one, and the source link. For a file that you add from your disk, the tool writes the file name and the cut only when you set a cut. You do not need to open this file. The tool uses it for two things:
 
@@ -117,7 +120,7 @@ One episode is one folder. The folder's name is the session title:
 ~/Desktop/Hacks on Tap/          ← the show folder
 ├── HT_0378 2026-08-18/
 ├── HT_0379 2026-08-24/
-│   └── clips/                   ← downloads, notes files, and processed audio
+│   └── clips/                   ← downloads and processed audio; the notes file in docs/
 └── HT_0380 2026-08-31/
 ```
 

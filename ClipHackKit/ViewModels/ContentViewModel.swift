@@ -700,7 +700,7 @@ final class ContentViewModel {
             files[index].cut = cut
         }
 
-        // Recorded in the session's own notes file, beside the audio.
+        // Recorded in the session's own notes file, in the clips folder's docs.
         if let notesFile {
             do {
                 // The filename, the cut and the source. The filename is written
@@ -731,19 +731,21 @@ final class ContentViewModel {
 
     /// The folder a download lands in, which is where its notes are recorded.
     /// The session picker points this at an episode's own `clips` folder, so an
-    /// episode's audio and its notes stay together with nothing else to set.
+    /// episode's audio and its notes (in `clips/docs`) stay together with
+    /// nothing else to set.
     /// A temporary session swaps its own folder in without saving it.
     var downloadDirectory: URL {
         if isTemporarySession { return temporarySessionFolder }
         return YtDlpService.resolveDownloadDirectory(settings.downloadDirectoryPath)
     }
 
-    /// The session's one notes file, named after the session.
+    /// The session's one notes file, named after the session, in the clips
+    /// folder's `docs` folder. One an earlier version left loose in the clips
+    /// folder is moved there first.
     func sessionNotesURL(for folder: URL) -> URL {
-        SessionNotesFile.url(
-            inClipsFolder: folder,
-            title: ClipSessionStore.session(forClipsFolder: folder).title
-        )
+        let title = ClipSessionStore.session(forClipsFolder: folder).title
+        SessionNotesFile.moveLegacyFile(inClipsFolder: folder, title: title)
+        return SessionNotesFile.url(inClipsFolder: folder, title: title)
     }
 
     var sessionNotesURL: URL { sessionNotesURL(for: downloadDirectory) }

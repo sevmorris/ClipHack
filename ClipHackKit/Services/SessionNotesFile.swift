@@ -3,7 +3,7 @@ import Foundation
 /// The session's record of its clips, for ClipHack's own use: each download's
 /// file name, cut and link, and the cut of any clip added from disk.
 ///
-///     HT_0385 2026-10-13/clips/HT_0385 2026-10-13.txt
+///     HT_0385 2026-10-13/clips/docs/HT_0385 2026-10-13.txt
 ///
 ///     CSPAN_-_President_Trump_….m4a
 ///         https://x.com/cspan/status/2109039198422405195
@@ -33,9 +33,35 @@ nonisolated enum SessionNotesFile {
     /// Every line of a block after its file name.
     private static let indent = "    "
 
-    /// The session's notes file, named after the session itself.
+    /// The folder inside the clips folder that holds the session's documents.
+    /// The week's prep makes it with `audio`; `write` makes it if it is missing.
+    static let docsFolderName = "docs"
+
+    /// The session's notes file, named after the session itself, in the clips
+    /// folder's `docs` folder. Kept out of `clips/` itself, where the show's
+    /// clip skill takes every loose file as incoming audio.
     static func url(inClipsFolder folder: URL, title: String) -> URL {
+        folder.appendingPathComponent(docsFolderName, isDirectory: true)
+            .appendingPathComponent("\(title).txt")
+    }
+
+    /// Where earlier versions kept the notes file: loose in the clips folder.
+    static func legacyURL(inClipsFolder folder: URL, title: String) -> URL {
         folder.appendingPathComponent("\(title).txt")
+    }
+
+    /// Moves a notes file left loose in the clips folder by an earlier version
+    /// into `docs`, so a session started before the move keeps its record.
+    /// Does nothing when there is no such file, or when `docs` already has
+    /// one, which is the newer of the two.
+    static func moveLegacyFile(
+        inClipsFolder folder: URL, title: String, fileManager fm: FileManager = .default
+    ) {
+        let legacy = legacyURL(inClipsFolder: folder, title: title)
+        let target = url(inClipsFolder: folder, title: title)
+        guard fm.fileExists(atPath: legacy.path), !fm.fileExists(atPath: target.path) else { return }
+        try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? fm.moveItem(at: legacy, to: target)
     }
 
     // MARK: - Rendering
@@ -116,6 +142,9 @@ nonisolated enum SessionNotesFile {
             try? FileManager.default.removeItem(at: url)
             return
         }
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
         try Data(render(records).utf8).write(to: url, options: .atomic)
     }
 
