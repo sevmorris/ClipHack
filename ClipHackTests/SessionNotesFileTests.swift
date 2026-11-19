@@ -28,6 +28,44 @@ final class SessionNotesFileTests: XCTestCase {
         XCTAssertEqual(file.lastPathComponent, "HT_0379 2026-08-24.txt")
     }
 
+    /// In `clips/docs`, not loose in `clips/`, where the clip skill takes
+    /// every file as incoming audio.
+    func testTheFileIsInTheDocsFolder() {
+        XCTAssertEqual(file.deletingLastPathComponent().lastPathComponent, "docs")
+        XCTAssertEqual(file.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL,
+                       folder.standardizedFileURL)
+    }
+
+    func testWritingMakesTheDocsFolderWhenItIsMissing() throws {
+        try SessionNotesFile.write([record("A.m4a", url: "https://a")], to: file)
+        XCTAssertEqual(SessionNotesFile.read(at: file).map(\.filename), ["A.m4a"])
+    }
+
+    /// A session started before the move keeps its record.
+    func testALooseNotesFileIsMovedIntoDocs() throws {
+        let title = "HT_0379 2026-08-24"
+        let legacy = SessionNotesFile.legacyURL(inClipsFolder: folder, title: title)
+        try Data("A.m4a\n    https://a\n".utf8).write(to: legacy)
+
+        SessionNotesFile.moveLegacyFile(inClipsFolder: folder, title: title)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacy.path))
+        XCTAssertEqual(SessionNotesFile.read(at: file).map(\.sourceURL), ["https://a"])
+    }
+
+    /// The one already in `docs` is the newer; the loose one is left alone.
+    func testALooseNotesFileNeverReplacesOneInDocs() throws {
+        let title = "HT_0379 2026-08-24"
+        let legacy = SessionNotesFile.legacyURL(inClipsFolder: folder, title: title)
+        try Data("Old.m4a\n    https://old\n".utf8).write(to: legacy)
+        try SessionNotesFile.write([record("New.m4a", url: "https://new")], to: file)
+
+        SessionNotesFile.moveLegacyFile(inClipsFolder: folder, title: title)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: legacy.path))
+        XCTAssertEqual(SessionNotesFile.read(at: file).map(\.filename), ["New.m4a"])
+    }
+
     // MARK: - Shape
 
     /// Each clip's file name flush left, its cut under it, then its link.

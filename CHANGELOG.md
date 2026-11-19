@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Changed**
+- **The session's notes file goes in `clips/docs`.** It was written loose in the episode's `clips` folder, among the audio. ClipHack makes `docs` if the week's prep hasn't, and moves a notes file an earlier version left in `clips` into `docs` the next time it reads it.
+
 ## [1.33.2] — 2026-11-13
 
 Updating is sturdier. Most of this takes effect from the update after this one, because the version you have now installs this one.

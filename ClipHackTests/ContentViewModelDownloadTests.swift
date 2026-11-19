@@ -185,6 +185,9 @@ final class ContentViewModelDownloadTests: XCTestCase {
         let vm = makeViewModel()
         vm.settings.downloadDirectoryPath = dir.path
         let earlier = "Old 0.30 to .12.m4a\n    CUT  :30 to :12\n    https://example.com/old\n"
+        try FileManager.default.createDirectory(
+            at: vm.sessionNotesURL.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
         try Data(earlier.utf8).write(to: vm.sessionNotesURL)
 
         vm.finishDownload(
@@ -250,9 +253,11 @@ final class ContentViewModelDownloadTests: XCTestCase {
         for index in vm.files.indices { vm.files[index].status = .pending }
     }
 
+    /// What lies loose in the clips folder: the audio. The notes file is in
+    /// `docs`, so a loose `.txt` here would fail the comparison.
     private func names(in dir: URL) throws -> [String] {
         try FileManager.default.contentsOfDirectory(atPath: dir.path)
-            .filter { !$0.hasSuffix(".txt") }
+            .filter { $0 != SessionNotesFile.docsFolderName }
             .sorted()
     }
 
