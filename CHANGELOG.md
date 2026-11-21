@@ -2,6 +2,11 @@
 
 All notable changes to ClipHack are documented here. Version numbers match GitHub releases (`v*` tags).
 
+## [Unreleased]
+
+**Changed**
+- **Opening the download form reads the clipboard only when it holds a link.** ClipHack fills an empty URL field from the clipboard. It used to read the clipboard every time the form opened, which macOS's paste privacy rules can answer with an "Allow Paste?" alert. Now it first asks macOS, without reading, whether the clipboard holds a web link, and reads it only then, at most once for each thing you copy. If macOS does ask, ⌘V into the field works whatever you answer, and when Privacy & Security is set to deny ClipHack the clipboard, it doesn't try at all.
+
 ## [1.34.0] — 2026-11-18
 
 The session's notes file moves out of the clips folder.

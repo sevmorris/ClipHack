@@ -495,13 +495,57 @@ final class ContentViewModel {
         if case .alreadyDownloaded = downloadState { downloadState = .idle }
     }
 
+    /// Where the prefill looks; a stub in tests.
+    var pasteboardURLSource = PasteboardURLSource.general
+    /// The pasteboard change count the prefill last looked at, and the URL it
+    /// found there (nil when it found none). See `prefillDownloadFromPasteboard`.
+    private var lastPasteboardLook: (changeCount: Int, url: String?)?
+
     /// Convenience when the popover opens: prefill an empty URL field from the
-    /// pasteboard if it holds a plausible web URL. Never starts the download.
-    func prefillDownloadFromPasteboard() {
-        guard downloadURLField.isEmpty,
-              let pasted = NSPasteboard.general.string(forType: .string),
-              let url = Self.validatedWebURL(pasted) else { return }
-        downloadURLField = url
+    /// pasteboard if it holds a plausible web URL. Never starts the download,
+    /// and never writes over anything in the field.
+    ///
+    /// macOS's paste privacy rules can put up an "Allow Paste?" alert when an
+    /// app reads the pasteboard without a paste from the user, so it goes in
+    /// steps, the first ones silent:
+    /// - Nothing new since the last look (same change count): reuse what that
+    ///   look found, without reading again. Reopening the popover over the same
+    ///   copied link never asks twice.
+    /// - The app is set to Always Deny: don't read.
+    /// - The system's detection says the clipboard holds no probable web URL:
+    ///   don't read. Detection doesn't prompt.
+    /// - Otherwise read the string, which is the one step that can prompt.
+    ///   ClipHack accepts that single alert rather than giving up the prefill:
+    ///   it comes only when the user has just opened the popover whose one job
+    ///   is a link, and only when the clipboard really seems to hold one, and
+    ///   at most once per copy. A ⌘V into the field is a user paste, which
+    ///   macOS never questions, so declining the alert costs nothing.
+    ///
+    /// Returns the task doing the detection and read, if one started, for tests
+    /// to await.
+    @discardableResult
+    func prefillDownloadFromPasteboard() -> Task<Void, Never>? {
+        guard downloadURLField.isEmpty else { return nil }
+        let source = pasteboardURLSource
+        let changeCount = source.changeCount()
+        if let last = lastPasteboardLook, last.changeCount == changeCount {
+            if let url = last.url { downloadURLField = url }
+            return nil
+        }
+        guard source.readsAllowed() else { return nil }
+        return Task { [weak self] in
+            let worthReading = await source.probablyHoldsWebURL()
+            guard let self else { return }
+            // Something may have been copied while detection ran; its own look
+            // happens the next time the popover opens.
+            guard source.changeCount() == changeCount else { return }
+            let url = worthReading ? source.readString().flatMap(Self.validatedWebURL) : nil
+            self.lastPasteboardLook = (changeCount, url)
+            // The user may have typed or pasted while detection ran.
+            if let url, self.downloadURLField.isEmpty {
+                self.downloadURLField = url
+            }
+        }
     }
 
     /// The row previously added for `sourceURL`, if it is still in the list.

@@ -459,7 +459,7 @@
     <!-- DOWNLOADS -->
     <section id="downloads">
       <h2>Downloading Clips</h2>
-      <p>ClipHack downloads a clip's audio straight into the file list. Click <strong>Add from URL</strong> in the toolbar (Cmd+L), or drop a web link onto the window. Dropping a link fills the form and opens it — it never starts the download on its own, which takes an explicit click on <strong>Download</strong>. Opening the form with a link already on the clipboard fills it in too. A link to a video in a playlist downloads that one video, not the playlist.</p>
+      <p>ClipHack downloads a clip's audio straight into the file list. Click <strong>Add from URL</strong> in the toolbar (Cmd+L), or drop a web link onto the window. Dropping a link fills the form and opens it — it never starts the download on its own, which takes an explicit click on <strong>Download</strong>. Opening the form with a link already on the clipboard fills it in too. ClipHack reads the clipboard only when macOS reports a link on it, and at most once for each thing you copy, so if macOS asks whether ClipHack may paste, that is the reason; pasting with Cmd+V works whatever you answer. A link to a video in a playlist downloads that one video, not the playlist.</p>
       <p>Video sources are saved as audio only, in the source's native codec with no re-encode. The downloader (yt-dlp) is bundled inside the app alongside FFmpeg, so there is nothing to install.</p>
 
       <h3>The download form</h3>
