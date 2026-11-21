@@ -22,7 +22,7 @@ ClipHack is an internal tool. It prepares third-party audio clips (for example: 
 * **Loudness normalization:** The tool does a two-pass EBU R128 normalization. You set the target level (for example, -18 LUFS). The tool applies one fixed gain when that gain keeps the true peaks under the ceiling. If the gain would push them over, FFmpeg normalizes dynamically instead.
 * **Peak control:** The tool applies a brick-wall limiter at the native sample rate, holding sample peaks at the ceiling you set (from -6 dB to -1 dB).
 * **Download from URL:** You can paste or drop a web link into the application. The tool downloads the audio into the file list. It uses the included yt-dlp software.
-* **Sessions:** The tool always works in the newest episode folder of your show. Downloads and processed audio go to that episode's `clips` folder. A temporary session sends them to the Desktop.
+* **Sessions:** The tool always works in the newest episode folder of your show. Downloads and processed audio go to that episode's `clips` folder. A temporary session sends them to the Desktop, or to a folder you choose for that session.
 * **The cut in the file name:** You can record the part of a clip that you want, for example `1:13 to :55`. The tool puts it in the file name and in the episode's notes file.
 * **Uncut copies:** The tool saves an uncut copy of each processed clip in an `orig` folder, so you can make a cut again.
 * **Per-clip output channels:** One clip can be stereo, or take its left or right channel, while the rest of the batch follows the settings.
@@ -130,7 +130,7 @@ The tool always uses the newest episode: the episode with the highest number in 
 
 The session menu shows the current episode. It also has these items:
 
-* **Temporary Session:** For a file that is not for an episode. Downloads and processed audio go to the Desktop. The tool does not write a notes file.
+* **Temporary Session:** For a file that is not for an episode. Downloads and processed audio go to the Desktop. To use another folder for that session only, click **Choose…** under Output Directory. **Reset** goes back to the Desktop. The tool does not write a notes file.
 * **Choose Show Folder:** Sets the folder that holds your episode folders. If no show folder is set, the tool uses the folder above the episode that it used last. If you pick an episode folder by mistake, the tool uses the folder above it.
 
 The show folder usually holds other folders too, for example templates and shared audio. The tool uses only the numbered episodes.

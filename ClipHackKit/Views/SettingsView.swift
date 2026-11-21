@@ -109,8 +109,8 @@ struct SettingsView: View {
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .kerning(0.4)
-                    // Where output goes, which in a temporary session is not
-                    // the saved folder.
+                    // Where output goes, which in a temporary session is its
+                    // own folder, not the saved one.
                     if let path = viewModel.processingSettings.outputDirectoryPath {
                         Text(ContentViewModel.folderDisplayName(path))
                             .font(.system(size: 11))
@@ -129,15 +129,32 @@ struct SettingsView: View {
                             panel.canChooseDirectories = true
                             panel.canChooseFiles = false
                             panel.allowsMultipleSelection = false
+                            // A temporary session's choice is held for it alone,
+                            // never written over the episode's saved folder.
+                            if viewModel.isTemporarySession {
+                                panel.directoryURL = viewModel.temporarySessionFolder
+                            }
                             if panel.runModal() == .OK, let url = panel.url {
-                                viewModel.settings.outputDirectoryPath = url.path
+                                if viewModel.isTemporarySession {
+                                    viewModel.chooseTemporarySessionFolder(url)
+                                } else {
+                                    viewModel.settings.outputDirectoryPath = url.path
+                                }
                             }
                         }
                         .controlSize(.small)
-                        // Either would change the episode's saved folder from
-                        // inside a temporary session.
-                        .disabled(viewModel.isTemporarySession)
-                        if !viewModel.isTemporarySession, viewModel.settings.outputDirectoryPath != nil {
+                        .help(viewModel.isTemporarySession
+                              ? "Choose where this temporary session's downloads and processed audio go. Your episode is left as it was."
+                              : "Choose where processed audio goes.")
+                        if viewModel.isTemporarySession {
+                            if viewModel.temporarySessionChosenFolder != nil {
+                                Button("Reset") {
+                                    viewModel.resetTemporarySessionFolder()
+                                }
+                                .controlSize(.small)
+                                .help("Send this temporary session back to the Desktop.")
+                            }
+                        } else if viewModel.settings.outputDirectoryPath != nil {
                             Button("Reset") {
                                 viewModel.settings.outputDirectoryPath = nil
                             }

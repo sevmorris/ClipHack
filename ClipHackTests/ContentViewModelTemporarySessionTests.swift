@@ -33,7 +33,7 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         let vm = ContentViewModel()
         vm.settings.sessionRootPath = root.path
         vm.openSession(session)
-        vm.temporarySessionFolder = desk
+        vm.temporarySessionDefaultFolder = desk
         return (vm, session)
     }
 
@@ -109,7 +109,7 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
     /// it — the home folder — as the show. A temporary session never does.
     func testTheShowFolderIsNotAdopted() throws {
         let vm = ContentViewModel()
-        vm.temporarySessionFolder = desk
+        vm.temporarySessionDefaultFolder = desk
         XCTAssertNil(vm.settings.sessionRootPath)
 
         XCTAssertTrue(vm.openTemporarySession())
@@ -161,6 +161,81 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         XCTAssertEqual(vm.sessionSubtitle, root.lastPathComponent)
     }
 
+    // MARK: - A folder chosen for the session
+
+    func testAChosenFolderTakesDownloadsAndOutputWithoutTouchingTheEpisode() throws {
+        let (vm, session) = try makeViewModel()
+        let before = savedPaths(vm.settings)
+        let chosen = desk.deletingLastPathComponent().appendingPathComponent("Elsewhere", isDirectory: true)
+        XCTAssertTrue(vm.openTemporarySession())
+
+        XCTAssertTrue(vm.chooseTemporarySessionFolder(chosen))
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: chosen.path), "made as it is chosen")
+        XCTAssertEqual(vm.downloadDirectory, chosen)
+        XCTAssertEqual(vm.processingSettings.outputDirectoryPath, chosen.path)
+        XCTAssertEqual(vm.sessionSubtitle, "Elsewhere")
+        XCTAssertEqual(
+            OutputDirectory.clipHackOutputDirectory(
+                for: session.clipsFolder.appendingPathComponent("Some Clip.m4a"),
+                settings: vm.processingSettings).path,
+            chosen.path)
+        XCTAssertEqual(savedPaths(vm.settings), before, "the choice is not written to settings")
+        XCTAssertEqual(savedPaths(ClipHackSettings.load()), before, "nor to what a relaunch reads")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: chosen.path), [],
+                       "the write probe is cleaned up")
+
+        vm.resetTemporarySessionFolder()
+        XCTAssertEqual(vm.downloadDirectory, desk, "Reset goes back to the Desktop")
+        XCTAssertEqual(vm.processingSettings.outputDirectoryPath, desk.path)
+    }
+
+    func testLeavingForgetsTheChosenFolder() throws {
+        let (vm, session) = try makeViewModel()
+        let chosen = desk.deletingLastPathComponent().appendingPathComponent("Elsewhere", isDirectory: true)
+        XCTAssertTrue(vm.openTemporarySession())
+        XCTAssertTrue(vm.chooseTemporarySessionFolder(chosen))
+
+        vm.closeTemporarySession()
+        XCTAssertNil(vm.temporarySessionChosenFolder)
+        XCTAssertEqual(vm.processingSettings.outputDirectoryPath, session.clipsFolder.path)
+
+        XCTAssertTrue(vm.openTemporarySession())
+        XCTAssertEqual(vm.downloadDirectory, desk, "the next temporary session starts on the Desktop")
+    }
+
+    func testOpeningAnEpisodeForgetsTheChosenFolder() throws {
+        let (vm, _) = try makeViewModel()
+        let other = try makePreppedEpisode("HT_0383 2026-09-29", in: root)
+        XCTAssertTrue(vm.openTemporarySession())
+        XCTAssertTrue(vm.chooseTemporarySessionFolder(desk.deletingLastPathComponent()
+            .appendingPathComponent("Elsewhere", isDirectory: true)))
+
+        vm.openSession(other)
+
+        XCTAssertNil(vm.temporarySessionChosenFolder)
+    }
+
+    func testAFolderThatCannotBeWrittenIsNotChosen() throws {
+        let (vm, _) = try makeViewModel()
+        let blocked = desk.appendingPathComponent("Blocked")
+        try Data().write(to: blocked)
+        XCTAssertTrue(vm.openTemporarySession())
+
+        XCTAssertFalse(vm.chooseTemporarySessionFolder(blocked))
+
+        XCTAssertNil(vm.temporarySessionChosenFolder)
+        XCTAssertEqual(vm.downloadDirectory, desk, "still the Desktop")
+        XCTAssertEqual(vm.alertTitle, "Folder Unavailable")
+        XCTAssertTrue(vm.alertMessage?.contains("Files and Folders") ?? false)
+    }
+
+    func testAFolderIsNotChosenOutsideATemporarySession() throws {
+        let (vm, _) = try makeViewModel()
+        XCTAssertFalse(vm.chooseTemporarySessionFolder(desk))
+        XCTAssertNil(vm.temporarySessionChosenFolder)
+    }
+
     // MARK: - No notes file
 
     func testADownloadWritesNoNotesFile() throws {
@@ -201,7 +276,7 @@ final class ContentViewModelTemporarySessionTests: XCTestCase {
         // A file where the folder should be: it can be neither made nor written.
         let blocked = desk.appendingPathComponent("Blocked")
         try Data().write(to: blocked)
-        vm.temporarySessionFolder = blocked
+        vm.temporarySessionDefaultFolder = blocked
 
         XCTAssertFalse(vm.openTemporarySession())
 

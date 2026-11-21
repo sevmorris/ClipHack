@@ -537,11 +537,11 @@ Some Title 1.13 to .55-44knorm-clipped-1dB.wav   ← processed, ready to cut</co
       <ul>
         <li>Downloads and processed audio both go to the Desktop.</li>
         <li>No notes file is written. A cut still goes in the file name.</li>
-        <li>The Output Directory controls are off, because they would change your episode's folders.</li>
+        <li>Output Directory's <strong>Choose…</strong> sends downloads and processed audio to another folder instead, for this session alone; <strong>Reset</strong> goes back to the Desktop. The choice is never saved, so your episode's folders stay as they are, and leaving forgets it: the next temporary session starts on the Desktop again.</li>
       </ul>
       <p>Your episode is left exactly as it was: its folders, its notes file and the show folder are not touched. To leave, choose <strong>Temporary Session</strong> again, which goes back to the newest episode. Quitting leaves it too, so ClipHack always opens on your episode.</p>
-      <p>The first time ClipHack writes to the Desktop, macOS may ask whether to allow it. If access was refused, the temporary session will not start; allow ClipHack in System Settings ▸ Privacy &amp; Security ▸ Files and Folders.</p>
-      <p><strong>Trash Originals</strong> still applies: with it on, a file you drag in goes to the Trash once its processed copy is on the Desktop.</p>
+      <p>The first time ClipHack writes to the Desktop, or to a protected folder you choose, macOS may ask whether to allow it. If access to the Desktop was refused, the temporary session will not start, and a chosen folder that can't be written to is refused with an alert; allow ClipHack in System Settings ▸ Privacy &amp; Security ▸ Files and Folders.</p>
+      <p><strong>Trash Originals</strong> still applies: with it on, a file you drag in goes to the Trash once its processed copy is in the session's folder.</p>
     </section>
 
     <!-- NOTES -->
@@ -736,7 +736,7 @@ Mamdani_on_Jeffries.m4a
       </table>
 
       <h3 id="output-directory">Output Directory</h3>
-      <p>Following the newest episode points the output folder at that episode's <code>clips</code> folder, the same folder downloads go to (see <a href="#sessions">Sessions</a>). With no show folder set, processed files are saved in the same directory as the source file, shown as <em>Same as source</em>. Use <strong>Choose…</strong> to send output somewhere else until the next episode arrives, when ClipHack points it at that episode again. Click <strong>Reset</strong> to save beside the source. In a <a href="#temporary-session">temporary session</a> this reads <em>Desktop</em> and cannot be changed. If the chosen folder can't be written to, Process stops and says so. Saving beside the source, a folder that can't be written to sends the output to <code>~/Music/ClipHack</code> instead, with a notice.</p>
+      <p>Following the newest episode points the output folder at that episode's <code>clips</code> folder, the same folder downloads go to (see <a href="#sessions">Sessions</a>). With no show folder set, processed files are saved in the same directory as the source file, shown as <em>Same as source</em>. Use <strong>Choose…</strong> to send output somewhere else until the next episode arrives, when ClipHack points it at that episode again. Click <strong>Reset</strong> to save beside the source. In a <a href="#temporary-session">temporary session</a> this reads <em>Desktop</em>; <strong>Choose…</strong> and <strong>Reset</strong> then change that session's folder only, never the episode's. If the chosen folder can't be written to, Process stops and says so. Saving beside the source, a folder that can't be written to sends the output to <code>~/Music/ClipHack</code> instead, with a notice.</p>
     </section>
 
     <!-- OUTPUT NAMING -->
