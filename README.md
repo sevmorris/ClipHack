@@ -55,7 +55,7 @@ If a clip with the same name is already there, the tool stops and tells you. Typ
 * **Custom name (optional):** Type a name for the download. The tool changes the file name before it saves the file. You can only change the name stem. The tool keeps the original file extension. If you do not type a name, the tool uses the source title.
 * **The cut (optional):** Type the part of the clip you want, for example `1:13 to :55` or `:18 to end`. The tool adds the cut to the end of the downloaded file's name. A file name cannot contain a colon, thus the tool writes each colon as a period: `Some Title 1.13 to .55.m4a`. When you process the clip, the processed file keeps the cut in its name: `Some Title 1.13 to .55-44knorm-clipped-1dB.wav`. Thus you can read the cut from the name when you make it. The show's clip skill does not put the cut in the name that it files the clip under. The tool also writes the cut, with its colons, in the session's [notes file](#the-notes-file).
 
-When you open the download form, the tool copies a web link from the clipboard into it. A link to a video in a playlist downloads that one video, not the playlist.
+When you open the download form, the tool copies a web link from the clipboard into it. It reads the clipboard only when macOS says it holds a link, so if macOS asks whether ClipHack may paste, that's why; ⌘V works whatever you answer. A link to a video in a playlist downloads that one video, not the playlist.
 
 ### The notes file
 

@@ -41,6 +41,131 @@ final class ContentViewModelDownloadTests: XCTestCase {
         XCTAssertNil(ContentViewModel.validatedWebURL("   "))
     }
 
+    // MARK: - Pasteboard prefill (reads only when detection finds a URL)
+
+    /// A pasteboard whose contents the test sets, counting the reads that
+    /// could put up macOS's "Allow Paste?" alert.
+    private final class StubPasteboard {
+        var changeCount = 1
+        var string: String?
+        var detectsWebURL = false
+        var readsAllowed = true
+        var reads = 0
+
+        var source: PasteboardURLSource {
+            PasteboardURLSource(
+                changeCount: { self.changeCount },
+                readsAllowed: { self.readsAllowed },
+                probablyHoldsWebURL: { self.detectsWebURL },
+                readString: { self.reads += 1; return self.string }
+            )
+        }
+
+        func copy(_ text: String, detected: Bool) {
+            changeCount += 1
+            string = text
+            detectsWebURL = detected
+        }
+    }
+
+    private func makeViewModel(pasteboard: StubPasteboard) -> ContentViewModel {
+        let vm = makeViewModel()
+        vm.pasteboardURLSource = pasteboard.source
+        return vm
+    }
+
+    func testPrefillFillsEmptyFieldWhenDetectionFindsAURL() async {
+        let pb = StubPasteboard()
+        pb.copy(" https://youtu.be/abc123\n", detected: true)
+        let vm = makeViewModel(pasteboard: pb)
+
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "https://youtu.be/abc123")
+        XCTAssertEqual(pb.reads, 1)
+        XCTAssertEqual(vm.downloadState, .idle, "a prefill must never start the download")
+    }
+
+    func testPrefillNeverReadsWhenDetectionFindsNoURL() async {
+        let pb = StubPasteboard()
+        pb.copy("a private note", detected: false)
+        let vm = makeViewModel(pasteboard: pb)
+
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "")
+        XCTAssertEqual(pb.reads, 0, "only a detected URL is worth a read that can prompt")
+    }
+
+    func testPrefillNeverReadsWhenAccessIsDenied() async {
+        let pb = StubPasteboard()
+        pb.copy("https://example.com/a", detected: true)
+        pb.readsAllowed = false
+        let vm = makeViewModel(pasteboard: pb)
+
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "")
+        XCTAssertEqual(pb.reads, 0)
+    }
+
+    func testPrefillNeverWritesOverTheField() async {
+        let pb = StubPasteboard()
+        pb.copy("https://example.com/a", detected: true)
+        let vm = makeViewModel(pasteboard: pb)
+        vm.downloadURLField = "https://typed.example/b"
+
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "https://typed.example/b")
+        XCTAssertEqual(pb.reads, 0)
+    }
+
+    func testPrefillRejectsDetectedTextThatIsNotAWebURL() async {
+        let pb = StubPasteboard()
+        pb.copy("example.com", detected: true)
+        let vm = makeViewModel(pasteboard: pb)
+
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "", "validatedWebURL still has the last word")
+    }
+
+    func testPrefillReadsEachCopyOnce() async {
+        let pb = StubPasteboard()
+        pb.copy("https://example.com/a", detected: true)
+        let vm = makeViewModel(pasteboard: pb)
+
+        await vm.prefillDownloadFromPasteboard()?.value
+        vm.downloadURLField = ""
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "https://example.com/a", "reopening refills from the first look")
+        XCTAssertEqual(pb.reads, 1, "the same copy never asks twice")
+
+        pb.copy("https://example.com/next", detected: true)
+        vm.downloadURLField = ""
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "https://example.com/next")
+        XCTAssertEqual(pb.reads, 2)
+    }
+
+    func testPrefillDeclinedReadIsNotAskedAgainForTheSameCopy() async {
+        let pb = StubPasteboard()
+        pb.copy("https://example.com/a", detected: true)
+        let vm = makeViewModel(pasteboard: pb)
+        let copied = pb.string
+        pb.string = nil // the user chose Don't Allow: the read comes back empty
+
+        await vm.prefillDownloadFromPasteboard()?.value
+        pb.string = copied
+        await vm.prefillDownloadFromPasteboard()?.value
+
+        XCTAssertEqual(vm.downloadURLField, "")
+        XCTAssertEqual(pb.reads, 1)
+    }
+
     // MARK: - Dropped URLs prefill only (never auto-download)
 
     func testDroppedURLPrefillsFieldAndOpensPopoverWithoutDownloading() {
