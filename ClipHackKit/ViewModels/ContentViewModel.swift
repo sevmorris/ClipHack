@@ -894,6 +894,7 @@ final class ContentViewModel {
     /// Opening an episode ends a temporary session.
     func openSession(_ session: ClipSession) {
         isTemporarySession = false
+        temporarySessionChosenFolder = nil
         let path = ClipSessionStore.currentClipsFolder(for: session).path
         settings.downloadDirectoryPath = path
         settings.outputDirectoryPath = path
@@ -927,10 +928,20 @@ final class ContentViewModel {
 
     static let temporarySessionTitle = "Temporary Session"
 
-    /// Where a temporary session files downloads and processed audio.
-    /// Injectable so tests never write to the real Desktop.
-    var temporarySessionFolder: URL = FileManager.default.homeDirectoryForCurrentUser
+    /// Where a temporary session files when no folder has been chosen for
+    /// it. Injectable so tests never write to the real Desktop.
+    var temporarySessionDefaultFolder: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Desktop", isDirectory: true)
+
+    /// A folder chosen in Settings for this temporary session alone. Held in
+    /// memory like the mode itself, for the reason below, and cleared when a
+    /// session starts or ends, so each one starts on the Desktop again.
+    private(set) var temporarySessionChosenFolder: URL?
+
+    /// Where a temporary session files downloads and processed audio.
+    var temporarySessionFolder: URL {
+        temporarySessionChosenFolder ?? temporarySessionDefaultFolder
+    }
 
     /// A session that is not an episode: downloads and processed audio go to
     /// `temporarySessionFolder`, and no notes file is kept.
@@ -951,6 +962,7 @@ final class ContentViewModel {
     /// instead of when ffmpeg or yt-dlp first writes there mid-job.
     @discardableResult
     func openTemporarySession() -> Bool {
+        temporarySessionChosenFolder = nil
         guard YtDlpService.prepareWritableDirectory(temporarySessionFolder) else {
             alertTitle = "Temporary Session Unavailable"
             alertMessage = temporarySessionRefusal
@@ -964,7 +976,29 @@ final class ContentViewModel {
     /// in the meantime.
     func closeTemporarySession() {
         isTemporarySession = false
+        temporarySessionChosenFolder = nil
         followNewestEpisode()
+    }
+
+    /// Points this temporary session at `folder`, for downloads and processed
+    /// audio both. Returns false, with an alert, when it can't be written —
+    /// tried here, like the Desktop at the start, so macOS asks now rather
+    /// than mid-job. Nothing is saved: the episode's folders stay as they are.
+    @discardableResult
+    func chooseTemporarySessionFolder(_ folder: URL) -> Bool {
+        guard isTemporarySession else { return false }
+        guard YtDlpService.prepareWritableDirectory(folder) else {
+            alertTitle = "Folder Unavailable"
+            alertMessage = "ClipHack can't write to \"\(folder.lastPathComponent)\". Grant access in System Settings ▸ Privacy & Security ▸ Files and Folders."
+            return false
+        }
+        temporarySessionChosenFolder = folder
+        return true
+    }
+
+    /// Sends this temporary session back to the Desktop.
+    func resetTemporarySessionFolder() {
+        temporarySessionChosenFolder = nil
     }
 
     private var temporarySessionRefusal: String {
@@ -999,9 +1033,9 @@ final class ContentViewModel {
         let keepsUncutCopies = !isTemporarySession
 
         if let customPath = runSettings.outputDirectoryPath {
-            // A temporary session's folder is the Desktop, where what decides
-            // is macOS's privacy setting, so it is asked with a real write —
-            // the same one that let the session start.
+            // A temporary session's folder is the Desktop or one chosen for
+            // it, where what decides is macOS's privacy setting, so it is
+            // asked with a real write — the same one that let it be used.
             let writable = isTemporarySession
                 ? YtDlpService.prepareWritableDirectory(URL(fileURLWithPath: customPath, isDirectory: true))
                 : FileManager.default.isWritableFile(atPath: customPath)
