@@ -4,6 +4,19 @@ All notable changes to ClipHack are documented here. Version numbers match GitHu
 
 ## [Unreleased]
 
+## [1.34.3] — 2026-11-23
+
+Downloads use the newest yt-dlp, and updating works while a sheet is open.
+
+**Changed**
+- **yt-dlp 2026.11.23.** The bundled downloader moves up from 2026.10.26. Among its changes, YouTube downloads no longer try the `web` client by default, and age-restricted videos are detected. A test download through ClipHack's own settings came out the same as before.
+
+**Fixed**
+- **An update finishes even with a sheet open.** If a sheet, alert or save panel was open when an update was ready to restart ClipHack, macOS refused to quit the old copy: the new version was already in place, but the old one kept running and never restarted. The update now quits and restarts ClipHack whatever is open. This takes effect from the update after this one, since the version you have now installs this one.
+
+**Developer**
+- `SelfUpdater.swift`, shared verbatim with the sibling apps, asks AppKit to quit for the relaunch and, when an open sheet is what refused, finishes the quit itself. A refusal from the app's own delegate still stands. All ten copies changed together.
+
 ## [1.34.2] — 2026-11-20
 
 A temporary session can file somewhere other than the Desktop.
